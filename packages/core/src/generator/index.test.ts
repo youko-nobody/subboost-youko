@@ -51,6 +51,72 @@ describe("generateClashConfig", () => {
     expect(proxies.map((node) => node.type)).toEqual(["ss", "ss"]);
   });
 
+  it("keeps the blank template free of built-in groups and routes unmatched traffic direct", () => {
+    const config = generateClashConfig({
+      nodes: [ssNode()],
+      template: "blank",
+      userConfig: {
+        dnsYaml: "",
+      },
+    });
+
+    expect(config["proxy-groups"]).toEqual([]);
+    expect(config["rule-providers"]).toEqual({});
+    expect(config.rules).toEqual(["MATCH,DIRECT"]);
+  });
+
+  it("allows blank templates to route unmatched traffic to a custom FINAL group", () => {
+    const config = generateClashConfig({
+      nodes: [ssNode()],
+      template: "blank",
+      customProxyGroups: [
+        {
+          id: "final",
+          name: "FINAL",
+          emoji: "",
+          groupType: "select",
+        },
+      ],
+      userConfig: {
+        dnsYaml: "",
+        fallbackPolicyTarget: { kind: "custom", id: "final" },
+      },
+    });
+
+    expect(config["proxy-groups"]?.find((group) => group.name === "FINAL")).toBeDefined();
+    expect(config.rules).toEqual(["MATCH,FINAL"]);
+  });
+
+  it("generates the user-provided routing template with remote YAML rule sets", () => {
+    const config = generateClashConfig({
+      nodes: [ssNode()],
+      template: "my-routing",
+      userConfig: {
+        dnsYaml: "",
+      },
+    });
+
+    expect(config["proxy-groups"]?.map((group) => group.name)).toContain("PROXY");
+    expect(config["proxy-groups"]?.find((group) => group.name === "BLOCK")).toMatchObject({
+      type: "select",
+      proxies: ["REJECT", "DIRECT"],
+    });
+    expect(config["rule-providers"]?.PRE_REPAIR_EASY_PRIVACY_DIRECT).toMatchObject({
+      type: "http",
+      behavior: "classical",
+      format: "yaml",
+      url: "https://raw.githubusercontent.com/Accademia/Additional_Rule_For_Clash/main/PreRepairEasyPrivacy/PreRepairEasyPrivacy_DIRECT.yaml",
+      path: "./ruleset/PRE_REPAIR_EASY_PRIVACY_DIRECT.yaml",
+    });
+    expect(config.rules?.slice(0, 3)).toEqual([
+      "DOMAIN-SUFFIX,emby.fan,Emby代理",
+      "DOMAIN-SUFFIX,111848.xyz,Emby代理",
+      "DOMAIN-SUFFIX,xueshan.liminalnet.com,Emby代理",
+    ]);
+    expect(config.rules).toContain("RULE-SET,BM_OPENAI,AI");
+    expect(config.rules?.slice(-2)).toEqual(["GEOIP,CN,DIRECT", "MATCH,FINAL"]);
+  });
+
   it("normalizes duplicate and blank proxy names before generating dependent sections", () => {
     const config = generateClashConfig({
       nodes: [

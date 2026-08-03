@@ -21,8 +21,12 @@ import type { CustomProxyGroup, CustomRule, CustomRuleSet } from "@subboost/core
 describe("custom routing rule set helpers", () => {
   it("parses, normalizes, and builds rule-set targets and paths", () => {
     expect(getRuleSetTargetValue({ kind: "module", id: "select" })).toBe("module:select");
+    expect(getRuleSetTargetValue({ kind: "direct", id: "DIRECT" })).toBe("direct:DIRECT");
+    expect(getRuleSetTargetValue({ kind: "reject", id: "REJECT" })).toBe("reject:REJECT");
     expect(parseRuleSetTargetValue(" module: select ")).toEqual({ kind: "module", id: "select" });
     expect(parseRuleSetTargetValue("custom:custom-a")).toEqual({ kind: "custom", id: "custom-a" });
+    expect(parseRuleSetTargetValue("DIRECT")).toEqual({ kind: "direct", id: "DIRECT" });
+    expect(parseRuleSetTargetValue("reject:REJECT")).toEqual({ kind: "reject", id: "REJECT" });
     expect(parseRuleSetTargetValue("module: ")).toBeNull();
     expect(parseRuleSetTargetValue("custom: ")).toBeNull();
     expect(parseRuleSetTargetValue("other:select")).toBeNull();
@@ -70,6 +74,20 @@ describe("custom routing rule set helpers", () => {
           target: "Custom A",
           noResolve: true,
         },
+        {
+          id: "direct-rule",
+          name: "Direct rule",
+          behavior: "domain",
+          path: "geosite/direct.mrs",
+          target: "DIRECT",
+        },
+        {
+          id: "reject-rule",
+          name: "Reject rule",
+          behavior: "domain",
+          path: "geosite/reject.mrs",
+          target: "REJECT",
+        },
         { id: "", name: "skip", behavior: "domain", path: "geosite/skip.mrs", target: "Custom A" },
         { id: "missing-path", name: "missing path", behavior: "domain", path: "", target: "Custom A" },
         { id: "missing-module", name: "missing module", behavior: "domain", path: "geosite/missing.mrs", target: { kind: "module", id: "missing" } },
@@ -101,9 +119,19 @@ describe("custom routing rule set helpers", () => {
           target: expect.objectContaining({ id: "custom-a", value: "custom:custom-a" }),
           noResolve: true,
         }),
+        expect.objectContaining({
+          key: "custom-rule-set:direct-rule",
+          id: "direct-rule",
+          target: expect.objectContaining({ kind: "direct", id: "DIRECT", value: "direct:DIRECT" }),
+        }),
+        expect.objectContaining({
+          key: "custom-rule-set:reject-rule",
+          id: "reject-rule",
+          target: expect.objectContaining({ kind: "reject", id: "REJECT", value: "reject:REJECT" }),
+        }),
       ])
     );
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(4);
   });
 });
 

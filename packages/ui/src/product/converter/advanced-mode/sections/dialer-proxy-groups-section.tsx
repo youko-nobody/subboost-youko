@@ -38,6 +38,11 @@ import {
 } from "./proxy-group-type-menu";
 import { GroupAdvancedSettingsDialog } from "./group-advanced-settings-dialog";
 import { findGroupListenerBinding } from "./group-listener-settings";
+import {
+  isValidOptionalHttpIconUrl,
+  ProxyGroupIconPreview,
+  ProxyGroupIconUrlEditor,
+} from "./proxy-group-icon-url-editor";
 
 type DialerSelectableNode = {
   name: string;
@@ -86,6 +91,8 @@ export function DialerProxyGroupsSection({
   const [relaySearchByGroupId, setRelaySearchByGroupId] = React.useState<Record<string, string>>({});
   const [targetSearchByGroupId, setTargetSearchByGroupId] = React.useState<Record<string, string>>({});
   const [settingsDialerGroupId, setSettingsDialerGroupId] = React.useState<string | null>(null);
+  const [customDialerIcon, setCustomDialerIcon] = React.useState("");
+  const [editingDialerGroupIcon, setEditingDialerGroupIcon] = React.useState("");
   const listenerConflictState = React.useMemo(
     () => ({ dnsYaml, mixedPort, listenerPorts, groupListeners }),
     [dnsYaml, mixedPort, listenerPorts, groupListeners]
@@ -130,9 +137,18 @@ export function DialerProxyGroupsSection({
     return names;
   }, [customProxyGroups, dialerProxyGroups, resolveModuleFullName]);
 
-  const handleAddDialerGroup = (name: string) => {
+  const handleAddDialerGroup = (name: string, rawIcon = "") => {
     const nextName = name.trim();
     if (nextName) {
+      const icon = rawIcon.trim();
+      if (!isValidOptionalHttpIconUrl(icon)) {
+        toast({
+          title: "远程图标 URL 无效",
+          description: "图标地址需要以 http:// 或 https:// 开头。",
+          variant: "warning",
+        });
+        return;
+      }
       const all = new Set(getAllGroupNamesForUniqCheck());
       if (all.has(nextName)) {
         toast({ title: "代理组名称已存在，请换一个名称。", variant: "warning" });
@@ -144,10 +160,12 @@ export function DialerProxyGroupsSection({
         relayNodes: [],
         targetNodes: [],
         type: "select", // 默认手动
+        ...(icon ? { icon } : {}),
       });
       interactions.proxyGroupAdded?.({ groupType: "dialer_select" });
       setShowDialerMenu(false);
       setCustomDialerDraft({ emoji: "🔗", name: "" });
+      setCustomDialerIcon("");
     }
   };
 
@@ -249,6 +267,15 @@ export function DialerProxyGroupsSection({
             const commitRename = () => {
               const nextName = buildProxyGroupName(editingDialerGroupDraft);
               if (!nextName) return;
+              const icon = editingDialerGroupIcon.trim();
+              if (!isValidOptionalHttpIconUrl(icon)) {
+                toast({
+                  title: "远程图标 URL 无效",
+                  description: "图标地址需要以 http:// 或 https:// 开头。",
+                  variant: "warning",
+                });
+                return;
+              }
 
               const all = new Set(getAllGroupNamesForUniqCheck());
               all.delete(group.name.trim());
@@ -257,14 +284,19 @@ export function DialerProxyGroupsSection({
                 return;
               }
 
-              updateDialerProxyGroup(group.id, { name: nextName });
+              updateDialerProxyGroup(group.id, {
+                name: nextName,
+                ...(icon || group.icon ? { icon } : {}),
+              });
               setEditingDialerGroupId(null);
               setEditingDialerGroupDraft({ emoji: "🔗", name: "" });
+              setEditingDialerGroupIcon("");
             };
 
             const cancelRename = () => {
               setEditingDialerGroupId(null);
               setEditingDialerGroupDraft({ emoji: "🔗", name: "" });
+              setEditingDialerGroupIcon("");
             };
 
             return (
@@ -293,17 +325,33 @@ export function DialerProxyGroupsSection({
                 )}
 
                 {isEditing ? (
-                  <ProxyGroupNameEditor
-                    value={editingDialerGroupDraft}
-                    onChange={setEditingDialerGroupDraft}
-                    namePlaceholder="中转组名称"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRename();
-                      if (e.key === "Escape") cancelRename();
-                    }}
-                  />
+                  <div className="relative z-10 min-w-0 flex-1 space-y-1.5">
+                    <ProxyGroupNameEditor
+                      value={editingDialerGroupDraft}
+                      onChange={setEditingDialerGroupDraft}
+                      namePlaceholder="中转组名称"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") cancelRename();
+                      }}
+                    />
+                    <ProxyGroupIconUrlEditor
+                      value={editingDialerGroupIcon}
+                      onChange={setEditingDialerGroupIcon}
+                      displayName={group.name}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") cancelRename();
+                      }}
+                    />
+                  </div>
                 ) : (
                   <div className="pointer-events-none relative z-10 flex min-w-0 items-center gap-1">
+                    <ProxyGroupIconPreview
+                      src={group.icon}
+                      label={`${group.name} 图标预览`}
+                      className="h-6 w-6"
+                    />
                     <span className="text-sm font-medium text-white truncate" title={group.name}>
                       {group.name}
                     </span>
@@ -315,8 +363,9 @@ export function DialerProxyGroupsSection({
                         e.stopPropagation();
                         setEditingDialerGroupId(group.id);
                         setEditingDialerGroupDraft(parseProxyGroupNameDraft(group.name, ""));
+                        setEditingDialerGroupIcon(group.icon ?? "");
                       }}
-                      title="改名"
+                      title="编辑名称/图标"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -639,20 +688,32 @@ export function DialerProxyGroupsSection({
                       onKeyDown={(e) => {
                         const nextName = buildProxyGroupName(customDialerDraft);
                         if (e.key === "Enter" && nextName) {
-                          handleAddDialerGroup(nextName);
+                          handleAddDialerGroup(nextName, customDialerIcon);
                         }
                       }}
                     />
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleAddDialerGroup(buildProxyGroupName(customDialerDraft))}
+                      onClick={() => handleAddDialerGroup(buildProxyGroupName(customDialerDraft), customDialerIcon)}
                       disabled={!buildProxyGroupName(customDialerDraft)}
                       className="h-7 text-xs px-2"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                  <ProxyGroupIconUrlEditor
+                    value={customDialerIcon}
+                    onChange={setCustomDialerIcon}
+                    displayName="新中转组"
+                    className="mt-2"
+                    onKeyDown={(e) => {
+                      const nextName = buildProxyGroupName(customDialerDraft);
+                      if (e.key === "Enter" && nextName) {
+                        handleAddDialerGroup(nextName, customDialerIcon);
+                      }
+                    }}
+                  />
               </DropdownMenuLabel>
             </DropdownMenuContent>
           </DropdownMenu>

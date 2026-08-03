@@ -7,6 +7,7 @@ import {
   buildDefaultBaseConfigPatch,
   buildDefaultUserConfig,
 } from "@subboost/core/config/defaults";
+import { createMyRoutingTemplateParts } from "@subboost/core/templates/my-routing-template";
 import {
   generateProxyGroups,
   generateRules,
@@ -20,6 +21,7 @@ import {
 } from "./chain";
 import { DEFAULT_DNS_CONFIG } from "./dns";
 import { resolveProxyGroupModuleName } from "@subboost/core/proxy-group-name";
+import { resolveProxyGroupTargetName } from "@subboost/core/proxy-group-targets";
 import type { ParsedNode } from "@subboost/core/types/node";
 import type {
   BuiltinRuleEdits,
@@ -179,6 +181,8 @@ function ensureUniqueProxyNames(nodes: ParsedNode[]): ParsedNode[] {
  * 生成完整的 Clash 配置
  */
 export function generateClashConfig(options: GenerateOptions): ClashConfig {
+  const hasCustomProxyGroupsOption = Object.prototype.hasOwnProperty.call(options, "customProxyGroups");
+  const hasCustomRuleSetsOption = Object.prototype.hasOwnProperty.call(options, "customRuleSets");
   const {
     nodes,
     proxyProviders,
@@ -191,10 +195,29 @@ export function generateClashConfig(options: GenerateOptions): ClashConfig {
     builtinRuleEdits,
     proxyGroupNameOverrides,
   } = options;
-  
+  const myRoutingDefaults = template === "my-routing" ? createMyRoutingTemplateParts() : null;
+  const defaultUserConfigOverrides: Partial<UserConfig> = myRoutingDefaults
+    ? {
+        ...(!Object.prototype.hasOwnProperty.call(userConfig, "customRules")
+          ? { customRules: myRoutingDefaults.customRules }
+          : {}),
+        ...(!Object.prototype.hasOwnProperty.call(userConfig, "ruleOrder")
+          ? { ruleOrder: myRoutingDefaults.ruleOrder }
+          : {}),
+        ...(!Object.prototype.hasOwnProperty.call(userConfig, "fallbackPolicyTarget")
+          ? { fallbackPolicyTarget: myRoutingDefaults.fallbackPolicyTarget }
+          : {}),
+      }
+    : {};
+  const effectiveCustomProxyGroups =
+    !hasCustomProxyGroupsOption && myRoutingDefaults ? myRoutingDefaults.customProxyGroups : customProxyGroups;
+  const effectiveCustomRuleSets =
+    !hasCustomRuleSetsOption && myRoutingDefaults ? myRoutingDefaults.customRuleSets : customRuleSets;
+
   // 合并用户配置
   const config: UserConfig = {
     ...buildDefaultUserConfig(template),
+    ...defaultUserConfigOverrides,
     ...userConfig,
   };
   const hasExplicitBaseConfigYaml = typeof userConfig.dnsYaml === "string";
@@ -286,7 +309,7 @@ export function generateClashConfig(options: GenerateOptions): ClashConfig {
   };
 
   const nodeNameSet = new Set(uniqueNodes.map((n) => n.name));
-  const activeCustomProxyGroups = customProxyGroups.filter((g) => g && g.enabled !== false);
+  const activeCustomProxyGroups = effectiveCustomProxyGroups.filter((g) => g && g.enabled !== false);
   const customGroupNameSet = new Set<string>(
     activeCustomProxyGroups.filter((g) => g && typeof g.name === "string" && g.name.trim()).map((g) => g.name.trim())
   );
@@ -357,8 +380,8 @@ export function generateClashConfig(options: GenerateOptions): ClashConfig {
     ruleProviderBaseUrl: config.ruleProviderBaseUrl,
     testUrl: config.testUrl,
     testInterval: config.testInterval,
-    customProxyGroups,
-    customRuleSets,
+    customProxyGroups: effectiveCustomProxyGroups,
+    customRuleSets: effectiveCustomRuleSets,
     proxyGroupAdvanced,
     builtinRuleEdits,
     cnIpNoResolve: config.cnIpNoResolve,
@@ -470,14 +493,24 @@ export function generateClashConfig(options: GenerateOptions): ClashConfig {
     ...proxyGroups.map((group) => group.name),
     ...outputNodes.filter((node) => !isSubscriptionInfoNodeName(node.name)).map((node) => node.name),
   ]);
-  const fallbackPolicyTarget = chooseFallbackPolicyTarget(
-    [
-      proxyGroups[0]?.name,
-      outputNodes.find((node) => !isSubscriptionInfoNodeName(node.name))?.name,
-      "DIRECT",
-    ],
-    availablePolicyTargets
-  );
+  const configuredFallbackPolicyTarget = config.fallbackPolicyTarget
+    ? resolveProxyGroupTargetName(config.fallbackPolicyTarget, {
+        moduleNames: Object.fromEntries(
+          PROXY_GROUP_MODULES.map((mod) => [
+            mod.id,
+            resolveProxyGroupModuleName(mod, proxyGroupNameOverrides?.[mod.id]),
+          ])
+        ),
+        customProxyGroups: effectiveCustomProxyGroups,
+      })
+    : "";
+  const firstOutputNodeName = outputNodes.find((node) => !isSubscriptionInfoNodeName(node.name))?.name;
+  const fallbackCandidates = configuredFallbackPolicyTarget
+    ? [configuredFallbackPolicyTarget, "DIRECT"]
+    : template === "blank"
+      ? ["DIRECT", proxyGroups[0]?.name, firstOutputNodeName]
+      : [proxyGroups[0]?.name, firstOutputNodeName, "DIRECT"];
+  const fallbackPolicyTarget = chooseFallbackPolicyTarget(fallbackCandidates, availablePolicyTargets);
   const resolvedListeners = (() => {
     const baseListeners = baseTopLevelPatch.listeners;
     if (baseListeners !== undefined && !Array.isArray(baseListeners)) {
@@ -503,7 +536,7 @@ export function generateClashConfig(options: GenerateOptions): ClashConfig {
           return { exists: true, active: finalGroupNames.has(name), name };
         }
         if (target.kind === "custom") {
-          const group = customProxyGroups.find((g) => g && g.id === target.id);
+          const group = effectiveCustomProxyGroups.find((g) => g && g.id === target.id);
           if (!group) return { exists: false, active: false };
           const name = typeof group.name === "string" ? group.name.trim() : "";
           return { exists: true, active: group.enabled !== false && finalGroupNames.has(name), name };

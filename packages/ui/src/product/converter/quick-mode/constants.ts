@@ -12,6 +12,12 @@ function countsFor(id: TemplateType) {
 
 export const templates = [
   {
+    id: "blank" as TemplateType,
+    name: "空白配置",
+    description: "不启用内置策略组和规则集",
+    ...countsFor("blank"),
+  },
+  {
     id: "minimal" as TemplateType,
     name: "精简版",
     description: "基础代理组 + 国内外分流",
@@ -28,5 +34,11 @@ export const templates = [
     name: "完整版",
     description: "全部功能 + 扩展规则集",
     ...countsFor("full"),
+  },
+  {
+    id: "my-routing" as TemplateType,
+    name: "我的分流",
+    description: "使用你提供的策略组和远程规则集",
+    ...countsFor("my-routing"),
   },
 ];

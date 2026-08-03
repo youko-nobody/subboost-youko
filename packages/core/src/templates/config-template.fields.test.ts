@@ -125,6 +125,21 @@ describe("validateSubBoostTemplateConfig field validation", () => {
       },
       "dialerProxyGroups.enabled 必须是布尔值"
     );
+    expectInvalid(
+      {
+        dialerProxyGroups: [
+          {
+            id: "relay",
+            name: "Relay",
+            icon: "ftp://icons.example/relay.png",
+            type: "select",
+            relayNodes: [],
+            targetNodes: [],
+          },
+        ],
+      },
+      "dialerProxyGroups.icon 必须是 http(s) URL"
+    );
 
     expectInvalid({ customRuleSets: "bad" as never }, "customRuleSets 必须是数组");
     expectInvalid(
@@ -180,7 +195,7 @@ describe("validateSubBoostTemplateConfig field validation", () => {
             id: "bad",
             name: "Bad",
             behavior: "domain",
-            path: "plain/rule.txt",
+            path: "plain/rule.dat",
             target: "DIRECT",
           },
         ],

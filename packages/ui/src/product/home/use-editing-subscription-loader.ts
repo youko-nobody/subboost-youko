@@ -3,10 +3,12 @@
 import * as React from "react";
 import type { SubscriptionSource } from "@subboost/ui/store/config-store";
 import type { ParsedNode } from "@subboost/core/types/node";
+import type { ProxyGroupRuleTarget, TemplateType } from "@subboost/core/types/config";
 import type { EditingSubscriptionLoaderOptions } from "./editing-subscription-types";
 import { normalizePersistedRuleOrder } from "@subboost/core/generator/rules";
 import { ensureCustomRulesHaveIds } from "@subboost/core/rules/custom-rule-utils";
 import { normalizeRuleModelFromConfig } from "@subboost/core/rules/rule-model";
+import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
 import { resolveProxyGroupAdvancedModeEnabled } from "@subboost/core/proxy-group-advanced-mode";
 import { normalizeProxyGroupAdvancedConfig } from "@subboost/core/proxy-group-advanced";
 import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/url-input";
@@ -28,6 +30,14 @@ import {
   getNodeOriginName,
   getNodeSourceIds,
 } from "./editing-subscription-node-sources";
+
+function normalizeRuleTarget(value: unknown): ProxyGroupRuleTarget | undefined {
+  const ref = normalizeProxyGroupTargetRef(value);
+  if (ref) return ref;
+  if (typeof value !== "string") return undefined;
+  const target = value.trim();
+  return target ? target : undefined;
+}
 
 export function useEditingSubscriptionLoader({
   editSubscriptionId,
@@ -396,8 +406,11 @@ export function useEditingSubscriptionLoader({
         })();
 
         const templateFromCfg =
-          cfg.template === "minimal" || cfg.template === "standard" || cfg.template === "full"
-            ? (cfg.template as "minimal" | "standard" | "full")
+          cfg.template === "blank" ||
+          cfg.template === "minimal" ||
+          cfg.template === "standard" ||
+          cfg.template === "full"
+            ? (cfg.template as TemplateType)
             : "standard";
 
         const enabledGroupsFromCfg = Array.isArray(cfg.enabledGroups) ? (cfg.enabledGroups as string[]) : undefined;
@@ -421,6 +434,7 @@ export function useEditingSubscriptionLoader({
         const customProxyGroupsFromCfg = ruleModelFromCfg.customProxyGroups;
         const customRuleSetsFromCfg = ruleModelFromCfg.customRuleSets;
         const builtinRuleEditsFromCfg = ruleModelFromCfg.builtinRuleEdits;
+        const fallbackPolicyTargetFromCfg = normalizeRuleTarget((cfg as any).fallbackPolicyTarget);
         const proxyGroupAdvancedFromCfg =
           cfg.proxyGroupAdvanced && typeof cfg.proxyGroupAdvanced === "object" && !Array.isArray(cfg.proxyGroupAdvanced)
             ? Object.fromEntries(
@@ -552,6 +566,7 @@ export function useEditingSubscriptionLoader({
           customProxyGroups: customProxyGroupsFromCfg as any,
           customRuleSets: customRuleSetsFromCfg,
           builtinRuleEdits: builtinRuleEditsFromCfg,
+          fallbackPolicyTarget: fallbackPolicyTargetFromCfg ?? state.fallbackPolicyTarget,
           proxyGroupAdvanced: proxyGroupAdvancedFromCfg,
           proxyGroupAdvancedModeEnabled: proxyGroupAdvancedModeEnabledFromCfg,
           moduleRuleEditWarningAccepted:

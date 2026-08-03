@@ -264,6 +264,7 @@ describe("useSubscriptionLink", () => {
             groupListeners: [{ id: "gl-1", target: { kind: "module", id: "auto" }, port: 7891 }],
             proxyGroupOrder: ["select", "auto"],
             nodeNameFilter: { enabled: false, excludeRegexes: [] },
+            fallbackPolicyTarget: "DIRECT",
           }),
         }),
       })

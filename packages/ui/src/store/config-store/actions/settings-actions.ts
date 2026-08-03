@@ -10,6 +10,7 @@ type SettingsActions = Pick<
   | "setTestUrl"
   | "setTestInterval"
   | "setRuleProviderBaseUrl"
+  | "setFallbackPolicyTarget"
   | "setNodeNameFilter"
   | "setProxyGroupAdvancedModeEnabled"
   | "setCnIpNoResolve"
@@ -44,6 +45,10 @@ export function createSettingsActions(
 
     setRuleProviderBaseUrl: (url: string) => {
       setAndGenerateConfig(() => ({ ruleProviderBaseUrl: url }));
+    },
+
+    setFallbackPolicyTarget: (target) => {
+      setAndGenerateConfig(() => ({ fallbackPolicyTarget: target }));
     },
 
     setNodeNameFilter: (config) => {

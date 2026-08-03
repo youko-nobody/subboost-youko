@@ -123,6 +123,7 @@ describe("ProxyGroupsCustomGroupsPanel card props", () => {
           emoji: "C",
           groupType: "select",
           enabled: false,
+          icon: "https://icons.example/custom.png",
           advanced: { sourceIds: ["old-source"] },
         },
       ],
@@ -157,6 +158,7 @@ describe("ProxyGroupsCustomGroupsPanel card props", () => {
     const card = mocks.cards[0];
     expect(card).toMatchObject({
       advancedMode: true,
+      icon: "https://icons.example/custom.png",
       isEnabled: false,
       nodeCount: 3,
       rulesCountOverride: 2,

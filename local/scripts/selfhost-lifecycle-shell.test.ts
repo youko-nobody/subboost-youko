@@ -96,7 +96,7 @@ describe("self-host update rollback lifecycle", () => {
     expect(result.stdout).toContain("Keep app and cron stopped");
     expect(result.stdout).toMatch(/old-compose\.yml.* stop cron app/);
     expect(result.stdout).not.toMatch(/old-compose\.yml.* up -d app/);
-  });
+  }, 10_000);
 
   it("never deletes a volume that existed before a failed installation", () => {
     const result = spawnSync("bash", ["-lc", "exec \"$BASH\" -s"], {

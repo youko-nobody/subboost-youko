@@ -13,20 +13,20 @@ import {
   DropdownMenuTrigger,
 } from "@subboost/ui/components/ui/dropdown-menu";
 import { cn } from "@subboost/ui/lib/utils";
-import type { CustomRule } from "@subboost/core/types/config";
+import type { CustomRule, RuleSetBehavior } from "@subboost/core/types/config";
 import type {
   CustomRuleListItem,
   ProxyGroupRuleTargetOption,
   ProxyGroupRuleTargetKind,
 } from "./proxy-group-rule-targets";
 
-export type RuleSetMoveTarget = ProxyGroupRuleTargetOption & { kind: "module" | "custom" };
+export type RuleSetMoveTarget = ProxyGroupRuleTargetOption & { kind: "module" | "custom" | "direct" | "reject" };
 export type ProxyGroupRuleRowState = "active" | "moved" | "removed";
 
 type RuleSource = "preset" | "custom" | "manual" | "experimental";
 
 export function isRuleSetMoveTarget(target: ProxyGroupRuleTargetOption): target is RuleSetMoveTarget {
-  return target.kind === "module" || target.kind === "custom";
+  return target.kind === "module" || target.kind === "custom" || target.kind === "direct" || target.kind === "reject";
 }
 
 type ProxyGroupRuleRowProps = {
@@ -39,11 +39,15 @@ type ProxyGroupRuleRowProps = {
 };
 
 const targetKindLabels: Record<ProxyGroupRuleTargetKind, string> = {
+  direct: "直连",
+  reject: "拒绝",
   module: "内置组",
   custom: "自定义组",
 };
 
 const emptyTargetLabels: Record<ProxyGroupRuleTargetKind, string> = {
+  direct: "暂无直连目标",
+  reject: "暂无拒绝目标",
   module: "暂无内置组",
   custom: "暂无自定义组",
 };
@@ -122,7 +126,7 @@ export function ProxyGroupRuleSetRow({
   name: string;
   path: string;
   source: Exclude<RuleSource, "manual">;
-  behavior: "domain" | "ipcidr";
+  behavior: RuleSetBehavior;
   noResolve?: boolean;
   state?: ProxyGroupRuleRowState;
   actions?: React.ReactNode;
@@ -179,7 +183,7 @@ export function ProxyGroupManualRuleRow({
             title="移动规则"
             ariaLabel={`移动 ${rule.value} 规则`}
             targets={targets}
-            kinds={["module", "custom"]}
+            kinds={["direct", "reject", "module", "custom"]}
             currentTarget={{ name: currentTargetName }}
             onMove={(target) => onMove(item, target)}
           />
@@ -302,8 +306,8 @@ function RuleSourceBadge({ source }: { source: RuleSource }) {
   );
 }
 
-function RuleBehaviorBadge({ behavior }: { behavior: "domain" | "ipcidr" }) {
-  return <RuleTextBadge>{behavior === "ipcidr" ? "IP" : "域名"}</RuleTextBadge>;
+function RuleBehaviorBadge({ behavior }: { behavior: RuleSetBehavior }) {
+  return <RuleTextBadge>{behavior === "ipcidr" ? "IP" : behavior === "classical" ? "Classical" : "域名"}</RuleTextBadge>;
 }
 
 function RuleTextBadge({ children }: { children: React.ReactNode }) {

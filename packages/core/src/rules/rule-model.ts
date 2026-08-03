@@ -1,9 +1,16 @@
-import type { BuiltinRuleEdit, BuiltinRuleEdits, CustomProxyGroup, CustomRuleSet, RuleSetBehavior } from "@subboost/core/types/config";
+import type {
+  BuiltinRuleEdit,
+  BuiltinRuleEdits,
+  CustomProxyGroup,
+  CustomRuleSet,
+  RuleSetBehavior,
+  RuleSetFormat,
+} from "@subboost/core/types/config";
 import { DEFAULT_LOAD_BALANCE_STRATEGY, isLoadBalanceStrategy } from "@subboost/core/types/config";
 import { normalizeProxyGroupAdvancedConfig } from "@subboost/core/proxy-group-advanced";
 import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
 
-export const RULE_SET_PATH_RE = /^(geosite|geoip)\/[^/?#\s]+\.mrs$/i;
+export const RULE_SET_PATH_RE = /^[^?#\s]+\.(mrs|ya?ml|txt|text)$/i;
 
 export type NormalizedRuleModel = {
   customProxyGroups: CustomProxyGroup[];
@@ -45,7 +52,9 @@ export function normalizeRuleSetPathInput(input: string): string {
 
 export function isValidRuleSetPathOrUrl(value: string): boolean {
   const trimmed = value.trim();
-  return RULE_SET_PATH_RE.test(trimmed) || /^https?:\/\//i.test(trimmed);
+  if (!trimmed) return false;
+  if (/^https?:\/\//i.test(trimmed)) return true;
+  return RULE_SET_PATH_RE.test(trimmed);
 }
 
 export function buildRuleSetUrlFromPath(path: string, baseUrl: string): string {
@@ -54,8 +63,30 @@ export function buildRuleSetUrlFromPath(path: string, baseUrl: string): string {
   return `${trimTrailingSlashes(baseUrl)}/${normalizedPath}`;
 }
 
+export function inferRuleSetFormatFromPath(path: string): RuleSetFormat {
+  const normalizedPath = normalizeRuleSetPathInput(path).split(/[?#]/)[0]?.toLowerCase() || "";
+  if (normalizedPath.endsWith(".mrs")) return "mrs";
+  if (normalizedPath.endsWith(".txt") || normalizedPath.endsWith(".text")) return "text";
+  return "yaml";
+}
+
+export function normalizeRuleSetFormat(value: unknown, path: string): RuleSetFormat {
+  return value === "mrs" || value === "yaml" || value === "text"
+    ? value
+    : inferRuleSetFormatFromPath(path);
+}
+
+export function isValidRuleSetBehaviorFormat(behavior: RuleSetBehavior, format: RuleSetFormat): boolean {
+  return !(behavior === "classical" && format === "mrs");
+}
+
+export function getRuleSetProviderPath(id: string, format: RuleSetFormat): string {
+  const extension = format === "mrs" ? "mrs" : format === "text" ? "text" : "yaml";
+  return `./ruleset/${id}.${extension}`;
+}
+
 function normalizeBehavior(value: unknown): RuleSetBehavior | null {
-  if (value === "domain" || value === "ipcidr") return value;
+  if (value === "domain" || value === "ipcidr" || value === "classical") return value;
   return null;
 }
 
@@ -67,12 +98,15 @@ function normalizeCustomRuleSet(item: unknown): CustomRuleSet | null {
   const target = normalizeProxyGroupTargetRef(item.target) ?? toTrimmedString(item.target);
   const behavior = normalizeBehavior(item.behavior);
   if (!id || !behavior || !path || !target || !isValidRuleSetPathOrUrl(path)) return null;
+  const format = normalizeRuleSetFormat(item.format, path);
+  if (!isValidRuleSetBehaviorFormat(behavior, format)) return null;
   const name = toTrimmedString(item.name) || id;
   const noResolve = typeof item.noResolve === "boolean" ? item.noResolve : undefined;
   return {
     id,
     name,
     behavior,
+    format,
     path,
     target,
     ...(noResolve !== undefined ? { noResolve } : {}),
@@ -112,11 +146,14 @@ function normalizeCustomProxyGroups(value: unknown): CustomProxyGroup[] {
     const id = toTrimmedString(rawGroup.id);
     const name = toTrimmedString(rawGroup.name);
     const emoji = toTrimmedString(rawGroup.emoji);
+    const icon = toTrimmedString(rawGroup.icon);
     const enabled = rawGroup.enabled === false ? false : undefined;
     const description = toTrimmedString(rawGroup.description);
     const memberSource = rawGroup.memberSource === "filtered-nodes" ? "filtered-nodes" : undefined;
     const includeInGroupMembers =
       typeof rawGroup.includeInGroupMembers === "boolean" ? rawGroup.includeInGroupMembers : undefined;
+    const includeProxyProviders =
+      typeof rawGroup.includeProxyProviders === "boolean" ? rawGroup.includeProxyProviders : undefined;
     const groupType = toTrimmedString(rawGroup.groupType);
     if (!id || !name) continue;
     if (
@@ -134,10 +171,12 @@ function normalizeCustomProxyGroups(value: unknown): CustomProxyGroup[] {
       id,
       name,
       emoji,
+      ...(icon ? { icon } : {}),
       ...(enabled === false ? { enabled: false } : {}),
       ...(description ? { description } : {}),
       ...(memberSource ? { memberSource } : {}),
       ...(includeInGroupMembers !== undefined ? { includeInGroupMembers } : {}),
+      ...(includeProxyProviders !== undefined ? { includeProxyProviders } : {}),
       groupType,
       ...(groupType === "load-balance"
         ? {

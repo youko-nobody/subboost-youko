@@ -15,6 +15,7 @@ import { buildTypedProxyGroup, uniqueProxyNames } from "./proxy-group-type";
 export interface DialerProxyGroupConfig {
   id: string;
   name: string;
+  icon?: string;
   relayNodes: string[];      // 中转节点
   targetNodes: string[];     // 使用此中转的目标节点
   type: ProxyGroupGroupType;
@@ -40,6 +41,7 @@ export function generateDialerProxyGroups(
     .map((group) => ({ group, proxies: resolveDialerGroupProxies(group) }))
     .filter(({ proxies }) => proxies.length > 0)
     .map((group) => {
+      const icon = group.group.icon?.trim();
       return buildTypedProxyGroup({
         name: group.group.name,
         groupType: group.group.type,
@@ -47,7 +49,7 @@ export function generateDialerProxyGroups(
         testUrl,
         testInterval,
         strategy: group.group.strategy ?? DEFAULT_LOAD_BALANCE_STRATEGY,
-        extraFields: providerUse,
+        extraFields: icon ? { ...providerUse, icon } : providerUse,
         urlTestLazy: true,
       });
     });

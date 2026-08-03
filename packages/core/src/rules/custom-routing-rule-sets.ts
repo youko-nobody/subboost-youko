@@ -1,7 +1,13 @@
 import { PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
 import { resolveProxyGroupModuleName } from "@subboost/core/proxy-group-name";
 import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
-import type { CustomProxyGroup, CustomRuleSet, ProxyGroupRuleTarget } from "@subboost/core/types/config";
+import type {
+  CustomProxyGroup,
+  CustomRuleSet,
+  ProxyGroupRuleTarget,
+  RuleSetBehavior,
+  RuleSetFormat,
+} from "@subboost/core/types/config";
 import {
   buildRuleSetUrlFromPath,
   extractRuleSetPathFromUrl,
@@ -9,7 +15,7 @@ import {
 } from "@subboost/core/rules/rule-model";
 
 export type CustomRoutingRuleSetTarget = {
-  kind: "module" | "custom";
+  kind: "module" | "custom" | "direct" | "reject";
   id: string;
   name: string;
   value: string;
@@ -23,14 +29,15 @@ export type CustomRoutingRuleSetItem = {
   };
   id: string;
   name: string;
-  behavior: "domain" | "ipcidr";
+  behavior: RuleSetBehavior;
+  format?: RuleSetFormat;
   path: string;
   target: CustomRoutingRuleSetTarget;
   noResolve?: boolean;
 };
 
 export function getRuleSetTargetValue(target: {
-  kind: "module" | "custom";
+  kind: "module" | "custom" | "direct" | "reject";
   id: string;
 }): string {
   return `${target.kind}:${target.id}`;
@@ -38,7 +45,7 @@ export function getRuleSetTargetValue(target: {
 
 export function parseRuleSetTargetValue(
   value: string,
-): { kind: "module" | "custom"; id: string } | null {
+): { kind: "module" | "custom" | "direct" | "reject"; id: string } | null {
   const trimmed = value.trim();
   if (trimmed.startsWith("module:")) {
     const id = trimmed.slice("module:".length).trim();
@@ -48,6 +55,8 @@ export function parseRuleSetTargetValue(
     const id = trimmed.slice("custom:".length).trim();
     return id ? { kind: "custom", id } : null;
   }
+  if (trimmed === "direct:DIRECT" || trimmed === "DIRECT") return { kind: "direct", id: "DIRECT" };
+  if (trimmed === "reject:REJECT" || trimmed === "REJECT") return { kind: "reject", id: "REJECT" };
   return null;
 }
 
@@ -85,6 +94,24 @@ function resolveRuleSetTarget(
 
   const target = typeof targetValue === "string" ? targetValue.trim() : "";
   if (!target) return null;
+
+  if (target === "DIRECT") {
+    return {
+      kind: "direct",
+      id: "DIRECT",
+      name: "DIRECT",
+      value: getRuleSetTargetValue({ kind: "direct", id: "DIRECT" }),
+    };
+  }
+
+  if (target === "REJECT") {
+    return {
+      kind: "reject",
+      id: "REJECT",
+      name: "REJECT",
+      value: getRuleSetTargetValue({ kind: "reject", id: "REJECT" }),
+    };
+  }
 
   for (const proxyModule of PROXY_GROUP_MODULES) {
     const name = resolveProxyGroupModuleName(proxyModule, proxyGroupNameOverrides?.[proxyModule.id]);
@@ -135,6 +162,7 @@ export function collectCustomRoutingRuleSets({
       id: rule.id,
       name: rule.name || rule.id,
       behavior: rule.behavior,
+      ...(rule.format ? { format: rule.format } : {}),
       path: normalizeRuleSetPathInput(rule.path),
       target,
       noResolve: Boolean(rule.noResolve),

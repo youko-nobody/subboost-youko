@@ -3,7 +3,7 @@ import { resolveProxyGroupModuleName } from "@subboost/core/proxy-group-name";
 import { resolveProxyGroupTargetName } from "@subboost/core/proxy-group-targets";
 import type { CustomProxyGroup, CustomRule } from "@subboost/core/types/config";
 
-export type ProxyGroupRuleTargetKind = "module" | "custom";
+export type ProxyGroupRuleTargetKind = "module" | "custom" | "direct" | "reject";
 
 export type ProxyGroupRuleTargetOption = {
   kind: ProxyGroupRuleTargetKind;
@@ -51,7 +51,10 @@ export function buildManualRuleTargets({
 }): ProxyGroupRuleTargetOption[] {
   const hidden = new Set(hiddenProxyGroups || []);
   const enabled = new Set(enabledProxyGroups);
-  const targets: ProxyGroupRuleTargetOption[] = [];
+  const targets: ProxyGroupRuleTargetOption[] = [
+    { kind: "direct", id: "DIRECT", name: "DIRECT" },
+    { kind: "reject", id: "REJECT", name: "REJECT" },
+  ];
 
   for (const proxyModule of PROXY_GROUP_MODULES) {
     if (!enabled.has(proxyModule.id) || hidden.has(proxyModule.id)) continue;

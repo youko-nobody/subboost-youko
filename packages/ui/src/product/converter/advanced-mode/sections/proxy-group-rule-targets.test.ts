@@ -29,6 +29,8 @@ describe("proxy group rule targets", () => {
     } as any);
 
     expect(targets).toEqual([
+      { kind: "direct", id: "DIRECT", name: "DIRECT" },
+      { kind: "reject", id: "REJECT", name: "REJECT" },
       { kind: "module", id: "auto", name: "⚡ Auto Override" },
       { kind: "custom", id: "custom-1", name: "Custom" },
     ]);

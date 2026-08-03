@@ -124,9 +124,11 @@ vi.mock("@subboost/ui/store/config-store", () => {
 vi.mock("@subboost/ui/store/user-store", () => ({ useUserStore: () => mocks.userStore }));
 vi.mock("@subboost/core/templates/builtin", () => ({
   BUILTIN_TEMPLATE_IDS: {
+    blank: "builtin-blank",
     minimal: "builtin-minimal",
     standard: "builtin-standard",
     full: "builtin-full",
+    "my-routing": "builtin-my-routing",
   },
 }));
 vi.mock("@subboost/ui/product/api-adapter", () => ({
@@ -137,9 +139,11 @@ vi.mock("@subboost/ui/product/interactions", () => ({
 }));
 vi.mock("./constants", () => ({
   templates: [
+    { id: "blank", name: "Blank", description: "Empty", groups: 0, rules: 0 },
     { id: "minimal", name: "Minimal", description: "Light", groups: 1, rules: 2 },
     { id: "standard", name: "Standard", description: "Balanced", groups: 3, rules: 4 },
     { id: "full", name: "Full", description: "Everything", groups: 5, rules: 6 },
+    { id: "my-routing", name: "My Routing", description: "Custom", groups: 13, rules: 132 },
   ],
 }));
 
@@ -298,7 +302,7 @@ describe("quick mode TemplatesSection", () => {
     mocks.productApi.templates.builtinEngagementEnabled = false;
     const result = renderSection();
     expect(result.html).toContain("Minimal");
-    expect(mocks.captures.cards).toHaveLength(3);
+    expect(mocks.captures.cards).toHaveLength(5);
   });
 
   it("renders fallback labels when template API metadata is absent", () => {
@@ -308,7 +312,7 @@ describe("quick mode TemplatesSection", () => {
 
     expect(result.html).toContain("模板目录");
     expect(result.html).toContain("选择模板");
-    expect(mocks.captures.cards).toHaveLength(3);
+    expect(mocks.captures.cards).toHaveLength(5);
   });
 
   it("loads builtin engagement stats and toggles engagement", async () => {
@@ -325,20 +329,24 @@ describe("quick mode TemplatesSection", () => {
     await flushPromises();
 
     expect(mocks.productApi.templates.loadBuiltinTemplateEngagement).toHaveBeenCalledWith([
+      "builtin-blank",
       "builtin-minimal",
       "builtin-standard",
       "builtin-full",
+      "builtin-my-routing",
     ]);
     expect(setters[5]).toHaveBeenCalledWith({
+      blank: { id: "builtin-blank", engagementCount: 0, isEngaged: false },
       minimal: { id: "builtin-minimal", engagementCount: 7, isEngaged: true },
       standard: { id: "builtin-standard", engagementCount: 0, isEngaged: false },
       full: { id: "builtin-full", engagementCount: 0, isEngaged: false },
+      "my-routing": { id: "builtin-my-routing", engagementCount: 0, isEngaged: false },
     });
 
     mocks.captures.rawButtons.find((props: any) => props.title === "Like").onClick();
     await flushPromises();
 
-    expect(mocks.productApi.templates.toggleTemplateEngagement).toHaveBeenCalledWith("builtin-minimal");
+    expect(mocks.productApi.templates.toggleTemplateEngagement).toHaveBeenCalledWith("builtin-blank");
     expect(mocks.interactions.templateEngagementToggled).toHaveBeenCalledWith({ source: "builtin", engaged: true });
     expect(setters[5]).toHaveBeenCalledWith(expect.any(Function));
   });
@@ -358,9 +366,11 @@ describe("quick mode TemplatesSection", () => {
     });
     const { setters } = renderSection({
       5: {
+        blank: { id: "builtin-blank", engagementCount: 0, isEngaged: false },
         minimal: { id: "builtin-minimal", engagementCount: 7, isEngaged: true },
         standard: { id: "builtin-standard", engagementCount: 0, isEngaged: false },
         full: { id: "builtin-full", engagementCount: 0, isEngaged: false },
+        "my-routing": { id: "builtin-my-routing", engagementCount: 0, isEngaged: false },
       },
     });
 
@@ -369,18 +379,22 @@ describe("quick mode TemplatesSection", () => {
 
     const updater = setters[5].mock.calls.at(-1)?.[0] as (prev: any) => any;
     expect(updater({
+      blank: { id: "builtin-blank", engagementCount: 0, isEngaged: false },
       minimal: { id: "builtin-minimal", engagementCount: 7, isEngaged: true },
       standard: { id: "builtin-standard", engagementCount: 0, isEngaged: false },
       full: { id: "builtin-full", engagementCount: 0, isEngaged: false },
-    }).minimal).toEqual({ id: "builtin-minimal", engagementCount: 7, isEngaged: false });
+      "my-routing": { id: "builtin-my-routing", engagementCount: 0, isEngaged: false },
+    }).blank).toEqual({ id: "builtin-blank", engagementCount: 0, isEngaged: false });
   });
 
   it("skips builtin engagement when the template id is missing", async () => {
     const { setters } = renderSection({
       5: {
+        blank: { id: "", engagementCount: 7, isEngaged: false },
         minimal: { id: "", engagementCount: 7, isEngaged: false },
         standard: { id: "builtin-standard", engagementCount: 0, isEngaged: false },
         full: { id: "builtin-full", engagementCount: 0, isEngaged: false },
+        "my-routing": { id: "builtin-my-routing", engagementCount: 0, isEngaged: false },
       },
     });
 

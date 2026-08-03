@@ -46,6 +46,8 @@ vi.mock("lucide-react", () => ({
   Check: () => null,
   ChevronDown: () => null,
   ChevronRight: () => null,
+  ExternalLink: () => null,
+  ImageOff: () => null,
   Pencil: () => null,
   Shuffle: () => null,
   SlidersHorizontal: () => null,
@@ -225,7 +227,7 @@ describe("ProxyGroupsCustomGroupsPanel", () => {
       groupType: "select",
     });
     expect(mocks.interactions.proxyGroupAdded).toHaveBeenCalledWith({ groupType: "select" });
-    expect(setters[1]).toHaveBeenCalledWith({ emoji: "🚀", name: "" });
+    expect(setters[1]).toHaveBeenCalledWith({ emoji: "", name: "" });
     expect(setters[2]).toHaveBeenCalledWith("");
 
     renderPanel({ 1: { emoji: "🧩", name: "Custom" } });
@@ -304,13 +306,21 @@ describe("ProxyGroupsCustomGroupsPanel", () => {
 
   it("moves custom rule sets to custom groups or modules", () => {
     renderPanel({ 0: new Set(["custom-1"]) });
-    expect(mocks.captures.moveMenus[0].kinds).toEqual(["module", "custom"]);
+    expect(mocks.captures.moveMenus[0].kinds).toEqual(["direct", "reject", "module", "custom"]);
 
     mocks.captures.moveMenus[0].onMove({ kind: "custom", id: "custom-2", name: "Target" });
     expect(mocks.store.moveModuleRule).toHaveBeenCalledWith("custom-1", "rule-a", {
       kind: "custom",
       id: "custom-2",
       name: "Target",
+    });
+
+    mocks.store.moveModuleRule.mockClear();
+    mocks.captures.moveMenus[0].onMove({ kind: "direct", id: "DIRECT", name: "DIRECT" });
+    expect(mocks.store.moveModuleRule).toHaveBeenCalledWith("custom-1", "rule-a", {
+      kind: "direct",
+      id: "DIRECT",
+      name: "DIRECT",
     });
 
     mocks.store.moveModuleRule.mockClear();
@@ -398,13 +408,14 @@ describe("ProxyGroupsCustomGroupsPanel", () => {
     expect(setters[5]).toHaveBeenCalledWith("");
 
     renderPanel({ 0: new Set(["custom-1"]) });
-    const renameButton = mocks.captures.buttons.find((props: any) => props.title === "改名");
+    const renameButton = mocks.captures.buttons.find((props: any) => props.title === "编辑名称/描述/图标");
     const stopRenameClick = vi.fn();
     renameButton.onClick({ stopPropagation: stopRenameClick });
     expect(stopRenameClick).toHaveBeenCalled();
     expect(stateMock.setters[3]).toHaveBeenCalledWith("custom-1");
     expect(stateMock.setters[4]).toHaveBeenCalledWith("🧩 Custom");
     expect(stateMock.setters[5]).toHaveBeenCalledWith("");
+    expect(stateMock.setters[8]).toHaveBeenCalledWith("");
 
     const settingsButton = mocks.captures.buttons.find(
       (props: any) => props["aria-label"] === "打开 🧩 Custom 高级设置"

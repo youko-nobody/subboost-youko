@@ -42,6 +42,7 @@ describe("createDialerActions", () => {
 
     actions.addDialerProxyGroup({
       name: "Default Enabled",
+      icon: " https://icons.example/default.png ",
       relayNodes: [],
       targetNodes: [],
     } as any);
@@ -63,6 +64,7 @@ describe("createDialerActions", () => {
       {
         id: "dialer-1700000000001",
         name: "Default Enabled",
+        icon: "https://icons.example/default.png",
         enabled: true,
         relayNodes: [],
         targetNodes: [],
@@ -78,6 +80,7 @@ describe("createDialerActions", () => {
 
     actions.updateDialerProxyGroup("dialer-1", {
       name: "Renamed",
+      icon: " https://icons.example/renamed.png ",
       enabled: false,
     });
     actions.updateDialerProxyGroup("missing", { name: "Ignored" });
@@ -85,8 +88,11 @@ describe("createDialerActions", () => {
     expect(getState().dialerProxyGroups[0]).toMatchObject({
       id: "dialer-1",
       name: "Renamed",
+      icon: "https://icons.example/renamed.png",
       enabled: false,
     });
+    actions.updateDialerProxyGroup("dialer-1", { icon: "" });
+    expect(getState().dialerProxyGroups[0]).not.toHaveProperty("icon");
 
     actions.removeDialerProxyGroup("dialer-1700000000001");
     expect(getState().dialerProxyGroups.map((group: { id: string }) => group.id)).toEqual([

@@ -49,7 +49,15 @@ function normalizeRuleTarget(value: unknown): ProxyGroupRuleTarget | null {
 }
 
 function normalizeTemplate(value: unknown, fallback: TemplateType = "standard"): TemplateType {
-  if (value === "minimal" || value === "standard" || value === "full") return value;
+  if (
+    value === "blank" ||
+    value === "minimal" ||
+    value === "standard" ||
+    value === "full" ||
+    value === "my-routing"
+  ) {
+    return value;
+  }
   return fallback;
 }
 
@@ -184,6 +192,7 @@ function normalizeDialerProxyGroups(value: unknown): DialerProxyGroup[] {
     const type = isProxyGroupGroupType(item.type) ? item.type : null;
     if (!id || !name || !type) continue;
     const strategy = isLoadBalanceStrategy(item.strategy) ? item.strategy : undefined;
+    const icon = toTrimmedString(item.icon);
 
     const enabled = typeof item.enabled === "boolean" ? item.enabled : undefined;
     const relayNodes = normalizeStringArray(item.relayNodes);
@@ -192,6 +201,7 @@ function normalizeDialerProxyGroups(value: unknown): DialerProxyGroup[] {
     out.push({
       id,
       name,
+      ...(icon && /^https?:\/\//i.test(icon) ? { icon } : {}),
       type,
       ...(type === "load-balance" ? { strategy: strategy ?? DEFAULT_LOAD_BALANCE_STRATEGY } : {}),
       relayNodes,
@@ -232,18 +242,23 @@ function normalizeCustomProxyGroups(value: unknown): CustomProxyGroup[] {
 
     const enabled = item.enabled === false ? false : undefined;
     const description = toTrimmedString(item.description);
+    const icon = toTrimmedString(item.icon);
     const memberSource = item.memberSource === "filtered-nodes" ? "filtered-nodes" : undefined;
     const includeInGroupMembers =
       typeof item.includeInGroupMembers === "boolean" ? item.includeInGroupMembers : undefined;
+    const includeProxyProviders =
+      typeof item.includeProxyProviders === "boolean" ? item.includeProxyProviders : undefined;
     const advanced = normalizeProxyGroupAdvancedConfig(item.advanced);
     out.push({
       id,
       name,
       emoji,
+      ...(icon ? { icon } : {}),
       ...(enabled === false ? { enabled: false } : {}),
       ...(description ? { description } : {}),
       ...(memberSource ? { memberSource } : {}),
       ...(includeInGroupMembers !== undefined ? { includeInGroupMembers } : {}),
+      ...(includeProxyProviders !== undefined ? { includeProxyProviders } : {}),
       groupType,
       ...(strategy ? { strategy } : {}),
       ...(Object.keys(advanced).length > 0 ? { advanced } : {}),
@@ -292,6 +307,7 @@ export function buildGenerateOptionsFromConfig(
     : normalizeCustomProxyGroups(config.customProxyGroups);
   const customRuleSets = ruleModel.customRuleSets;
   const builtinRuleEdits = ruleModel.builtinRuleEdits;
+  const fallbackPolicyTarget = normalizeRuleTarget(config.fallbackPolicyTarget);
   const dnsYaml = typeof config.dnsYaml === "string" ? config.dnsYaml : undefined;
   const ruleProviderBaseUrl =
     typeof config.ruleProviderBaseUrl === "string" && config.ruleProviderBaseUrl.trim().startsWith("http")
@@ -325,6 +341,7 @@ export function buildGenerateOptionsFromConfig(
     ...(enabledRules ? { enabledRules } : {}),
     ...(customRules ? { customRules } : {}),
     ...(ruleOrder.length > 0 ? { ruleOrder } : {}),
+    ...(fallbackPolicyTarget ? { fallbackPolicyTarget } : {}),
     ...(dnsYaml !== undefined ? { dnsYaml } : {}),
     ...(ruleProviderBaseUrl ? { ruleProviderBaseUrl } : {}),
     ...(listenerPorts ? { listenerPorts } : {}),

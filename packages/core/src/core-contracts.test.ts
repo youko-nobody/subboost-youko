@@ -122,8 +122,11 @@ describe("node and proxy group naming contracts", () => {
 
 describe("builtin template contracts", () => {
   it("maps builtin ids and returns stable public metadata", () => {
+    expect(getBuiltinTemplateId("blank")).toBe("builtin-blank");
     expect(getBuiltinTemplateId("minimal")).toBe("builtin-minimal");
+    expect(getBuiltinTemplateId("my-routing")).toBe("builtin-my-routing");
     expect(builtinIdToType("builtin-standard")).toBe("standard");
+    expect(builtinIdToType("builtin-my-routing")).toBe("my-routing");
     expect(builtinIdToType("missing")).toBeNull();
     expect(isBuiltinTemplateId("builtin-full")).toBe(true);
     expect(isBuiltinTemplateId("custom-template")).toBe(false);
@@ -140,15 +143,28 @@ describe("builtin template contracts", () => {
   it("lists and validates preset templates", () => {
     const list = getTemplateList();
 
-    expect(list.map((item) => item.id)).toEqual(["minimal", "standard", "full"]);
+    expect(list.map((item) => item.id)).toEqual(["blank", "minimal", "standard", "full", "my-routing"]);
     expect(list[0]).toMatchObject({
-      id: "minimal",
-      name: TEMPLATES.minimal.name,
-      groupCount: getModulesForTemplate("minimal").length,
+      id: "blank",
+      name: TEMPLATES.blank.name,
+      groupCount: 0,
+      ruleCount: 0,
     });
-    expect(list[0].ruleCount).toBeGreaterThan(0);
+    expect(list[1].ruleCount).toBeGreaterThan(0);
+    expect(list.find((item) => item.id === "my-routing")).toMatchObject({
+      groupCount: 13,
+      ruleCount: 132,
+    });
     expect(getTemplate("minimal")).toBe(TEMPLATES.minimal);
     expect(getTemplate("missing" as never)).toBe(TEMPLATES.standard);
+    expect(validateTemplateConfig({ id: "blank", name: "Blank", groups: [] })).toEqual({
+      valid: true,
+      errors: [],
+    });
+    expect(validateTemplateConfig({ id: "my-routing", name: "My Routing", groups: [] })).toEqual({
+      valid: true,
+      errors: [],
+    });
     expect(validateTemplateConfig({ name: "Custom", groups: ["select", "final"] })).toEqual({
       valid: true,
       errors: [],

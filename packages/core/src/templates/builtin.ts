@@ -1,9 +1,11 @@
 import type { TemplateType } from "@subboost/core/types/config";
 
 export const BUILTIN_TEMPLATE_IDS: Record<TemplateType, string> = {
+  blank: "builtin-blank",
   minimal: "builtin-minimal",
   standard: "builtin-standard",
   full: "builtin-full",
+  "my-routing": "builtin-my-routing",
 };
 
 export type BuiltinTemplateSummaryMetadata = {
@@ -35,9 +37,11 @@ export function getBuiltinTemplateId(type: TemplateType): string {
 }
 
 export function builtinIdToType(id: string): TemplateType | null {
+  if (id === BUILTIN_TEMPLATE_IDS.blank) return "blank";
   if (id === BUILTIN_TEMPLATE_IDS.minimal) return "minimal";
   if (id === BUILTIN_TEMPLATE_IDS.standard) return "standard";
   if (id === BUILTIN_TEMPLATE_IDS.full) return "full";
+  if (id === BUILTIN_TEMPLATE_IDS["my-routing"]) return "my-routing";
   return null;
 }
 

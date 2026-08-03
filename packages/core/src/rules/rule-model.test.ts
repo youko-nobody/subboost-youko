@@ -17,7 +17,7 @@ describe("rule model normalization", () => {
     expect(normalizeRuleSetPathInput("////geoip/private.mrs")).toBe("geoip/private.mrs");
     expect(isValidRuleSetPathOrUrl("geosite/google.mrs")).toBe(true);
     expect(isValidRuleSetPathOrUrl("https://example.com/rules/list.txt")).toBe(true);
-    expect(isValidRuleSetPathOrUrl("plain.txt")).toBe(false);
+    expect(isValidRuleSetPathOrUrl("plain.txt")).toBe(true);
     expect(buildRuleSetUrlFromPath("https://cdn.example.com/custom.mrs", "https://base.example.com/")).toBe("https://cdn.example.com/custom.mrs");
     expect(normalizeRuleSetPathInput("geosite/google.mrs.bak")).toBe("geosite/google.mrs.bak");
     expect(buildRuleSetUrlFromPath("/geosite/google.mrs", "https://base.example.com////")).toBe("https://base.example.com/geosite/google.mrs");
@@ -80,6 +80,8 @@ describe("rule model normalization", () => {
         { id: "dup", name: "", behavior: "domain", path: "geosite/dup.mrs", target: { kind: "custom", id: " select " }, noResolve: false },
         { id: "dup", name: "Duplicate", behavior: "domain", path: "geosite/dup-2.mrs", target: "DIRECT" },
         { id: "ip", name: "IP", behavior: "ipcidr", path: "geoip/private.mrs", target: "DIRECT", noResolve: true },
+        { id: "classic", name: "Classic", behavior: "classical", path: "https://rules.example.com/classic.yaml", target: "DIRECT" },
+        { id: "classic-mrs", name: "Classic MRS", behavior: "classical", format: "mrs", path: "geosite/classic.mrs", target: "DIRECT" },
       ],
       builtinRuleEdits: {
         "module:cn:cn-ip": { enabled: false },
@@ -101,6 +103,15 @@ describe("rule model normalization", () => {
     expect(result.customRuleSets).toEqual([
       {
         behavior: "domain",
+        format: "text",
+        id: "path",
+        name: "Path",
+        path: "plain.txt",
+        target: "DIRECT",
+      },
+      {
+        behavior: "domain",
+        format: "mrs",
         id: "dup",
         name: "dup",
         noResolve: false,
@@ -109,10 +120,19 @@ describe("rule model normalization", () => {
       },
       {
         behavior: "ipcidr",
+        format: "mrs",
         id: "ip",
         name: "IP",
         noResolve: true,
         path: "geoip/private.mrs",
+        target: "DIRECT",
+      },
+      {
+        behavior: "classical",
+        format: "yaml",
+        id: "classic",
+        name: "Classic",
+        path: "https://rules.example.com/classic.yaml",
         target: "DIRECT",
       },
     ]);

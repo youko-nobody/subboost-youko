@@ -64,6 +64,7 @@ function buildGenerateClashYamlOptions(
       enabledRules: state.enabledProxyGroups, // 规则和组现在使用同一列表
       customRules: state.customRules,
       ruleOrder: state.ruleOrder,
+      fallbackPolicyTarget: state.fallbackPolicyTarget,
       cnIpNoResolve: state.cnIpNoResolve,
       experimentalCnUseCnRuleSet: state.experimentalCnUseCnRuleSet,
       dnsYaml: state.dnsYaml,

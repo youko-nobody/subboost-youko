@@ -156,8 +156,13 @@ describe("ProxyGroupNameEditor", () => {
     expect(searchInput).toEqual(expect.objectContaining({ value: "🤖" }));
     searchInput.onChange({ target: { value: "🚀" } });
     expect(stateMock.setter).toHaveBeenCalledWith("🚀");
-    expect(mocks.dropdownItems[0]).toEqual(expect.objectContaining({ title: "随机 emoji" }));
+    expect(mocks.dropdownItems[0]).toEqual(expect.objectContaining({ title: "不使用 emoji" }));
     expect(mocks.dropdownItems[0].className).toContain("justify-center");
-    expect(mocks.dropdownItems.filter((props: any) => props.title !== "随机 emoji").map((props: any) => props.children)).toEqual(["🤖"]);
+    expect(mocks.dropdownItems[1]).toEqual(expect.objectContaining({ title: "随机 emoji" }));
+    expect(mocks.dropdownItems[1].className).toContain("justify-center");
+    expect(mocks.dropdownItems
+      .filter((props: any) => props.title !== "随机 emoji" && props.title !== "不使用 emoji")
+      .map((props: any) => props.children)
+    ).toEqual(["🤖"]);
   });
 });

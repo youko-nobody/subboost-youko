@@ -8,7 +8,13 @@ import {
   type SubscriptionSource,
   type DialerProxyGroup,
 } from "@subboost/ui/store/config-store";
-import type { BuiltinRuleEdits, CustomRule, CustomProxyGroup, CustomRuleSet } from "@subboost/core/types/config";
+import type {
+  BuiltinRuleEdits,
+  CustomRule,
+  CustomProxyGroup,
+  CustomRuleSet,
+  ProxyGroupRuleTarget,
+} from "@subboost/core/types/config";
 import type { User } from "@subboost/ui/store/user-store";
 import { useConfigStore } from "@subboost/ui/store/config-store";
 import { captureAuthConfigHandoff } from "@subboost/ui/store/config-store/auth-handoff";
@@ -80,6 +86,7 @@ type Options = {
   customRuleSets: CustomRuleSet[];
   builtinRuleEdits: BuiltinRuleEdits;
   ruleOrder: string[];
+  fallbackPolicyTarget: ProxyGroupRuleTarget;
   moduleRuleEditWarningAccepted: boolean;
   dialerProxyGroups: DialerProxyGroup[];
   proxyGroupNameOverrides: Record<string, string>;
@@ -114,6 +121,7 @@ export function useSubscriptionLink({
   customRuleSets,
   builtinRuleEdits,
   ruleOrder,
+  fallbackPolicyTarget,
   moduleRuleEditWarningAccepted,
   dialerProxyGroups,
   proxyGroupNameOverrides,
@@ -387,6 +395,7 @@ export function useSubscriptionLink({
             proxyGroupAdvanced: useConfigStore.getState().proxyGroupAdvanced,
             proxyGroupAdvancedModeEnabled: Boolean(useConfigStore.getState().proxyGroupAdvancedModeEnabled),
             moduleRuleEditWarningAccepted,
+            fallbackPolicyTarget,
             dialerProxyGroups,
             proxyGroupNameOverrides,
             proxyGroupOrder: useConfigStore.getState().proxyGroupOrder,
@@ -469,6 +478,7 @@ export function useSubscriptionLink({
     builtinRuleEdits,
     customRules,
     ruleOrder,
+    fallbackPolicyTarget,
     deletedNodeNames,
     deletedNodes,
     dialerProxyGroups,

@@ -42,10 +42,46 @@ describe("validateSubBoostTemplateConfig", () => {
     });
 
     expect(result.ok).toBe(false);
-    expectInvalid({ enabledProxyGroups: [] }, "至少需要一个代理组");
+    expectInvalid({ enabledProxyGroups: [] }, "至少需要一个可见代理组");
     expectInvalid({ enabledProxyGroups: ["missing"] }, "enabledProxyGroups 包含未知代理组");
     expectInvalid({ hiddenProxyGroups: ["missing"] }, "hiddenProxyGroups 包含未知代理组");
     expectInvalid({ ruleOrder: [1 as never] }, "ruleOrder 只能包含字符串");
+  });
+
+  it("accepts blank templates without built-in modules", () => {
+    const result = validateSubBoostTemplateConfig(
+      validConfig({
+        template: "blank",
+        enabledProxyGroups: [],
+        hiddenProxyGroups: [],
+        customProxyGroups: [],
+        experimentalCnUseCnRuleSet: false,
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.config.template).toBe("blank");
+    expect(result.config.enabledProxyGroups).toEqual([]);
+    expect(result.config.customProxyGroups).toEqual([]);
+  });
+
+  it("accepts non-blank templates that only use visible custom proxy groups", () => {
+    const result = validateSubBoostTemplateConfig(
+      validConfig({
+        enabledProxyGroups: [],
+        customProxyGroups: [
+          {
+            id: "custom",
+            name: "Custom",
+            emoji: "",
+            groupType: "select",
+          },
+        ],
+      })
+    );
+
+    expect(result.ok).toBe(true);
   });
 
   it("normalizes rich template config fields", () => {

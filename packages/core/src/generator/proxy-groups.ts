@@ -14,6 +14,7 @@ import type {
   ProxyGroupAdvancedConfig,
   ProxyGroupGroupType,
   RuleProvider,
+  TemplateType,
 } from "@subboost/core/types/config";
 import { resolveProxyGroupMembers } from "@subboost/core/proxy-group-advanced";
 import { isSubscriptionInfoNodeName } from "@subboost/core/subscription/info-node-name";
@@ -26,7 +27,12 @@ import {
   resolveModuleNameFromModule,
 } from "./rules";
 import { getModuleRuleOrderKey } from "./module-rules";
-import { buildRuleSetUrlFromPath } from "@subboost/core/rules/rule-model";
+import {
+  buildRuleSetUrlFromPath,
+  getRuleSetProviderPath,
+  inferRuleSetFormatFromPath,
+  isValidRuleSetBehaviorFormat,
+} from "@subboost/core/rules/rule-model";
 import { buildTypedProxyGroup } from "./proxy-group-type";
 
 export { PROXY_GROUP_MODULES };
@@ -363,6 +369,11 @@ export function generateProxyGroups(options: ProxyGroupGenerateOptions): ProxyGr
   };
 
   const createCustomProxyGroup = (customGroup: CustomProxyGroup): ProxyGroup => {
+    const groupProviderUse = customGroup.includeProxyProviders === false ? {} : providerUse;
+    const customGroupExtraFields = customGroup.icon?.trim()
+      ? { ...groupProviderUse, icon: customGroup.icon.trim() }
+      : groupProviderUse;
+    const customGroupOwnFields = customGroup.icon?.trim() ? { icon: customGroup.icon.trim() } : {};
     const resolveCustom = (defaultProxyNames: string[]) =>
       resolveGroupProxyNames(defaultProxyNames, customGroup.advanced, {
         kind: "custom",
@@ -372,7 +383,7 @@ export function generateProxyGroups(options: ProxyGroupGenerateOptions): ProxyGr
 
     if (usesFilteredNodeMembers(customGroup)) {
       if (customGroup.groupType === "url-test" || customGroup.groupType === "fallback") {
-        return createGeneratedProxyGroup(customGroup.name, customGroup.groupType, resolveCustom(filteredNodeNames), undefined, {});
+        return createGeneratedProxyGroup(customGroup.name, customGroup.groupType, resolveCustom(filteredNodeNames), undefined, customGroupOwnFields);
       }
       if (customGroup.groupType === "load-balance") {
         return createGeneratedProxyGroup(
@@ -380,7 +391,7 @@ export function generateProxyGroups(options: ProxyGroupGenerateOptions): ProxyGr
           customGroup.groupType,
           resolveCustom(filteredNodeNames),
           customGroup.strategy ?? DEFAULT_LOAD_BALANCE_STRATEGY,
-          {}
+          customGroupOwnFields
         );
       }
       return {
@@ -389,20 +400,22 @@ export function generateProxyGroups(options: ProxyGroupGenerateOptions): ProxyGr
         proxies: customGroup.groupType === "reject-first"
           ? resolveCustom(["REJECT", "DIRECT", ...filteredNodeNames])
           : resolveCustom(["DIRECT", "REJECT", ...filteredNodeNames]),
+        ...customGroupOwnFields,
       };
     }
     if (customGroup.groupType === "url-test") {
-      return createGeneratedProxyGroup(customGroup.name, customGroup.groupType, resolveCustom(filteredNodeNames));
+      return createGeneratedProxyGroup(customGroup.name, customGroup.groupType, resolveCustom(filteredNodeNames), undefined, customGroupExtraFields);
     }
     if (customGroup.groupType === "fallback") {
-      return createGeneratedProxyGroup(customGroup.name, customGroup.groupType, resolveCustom(filteredNodeNames));
+      return createGeneratedProxyGroup(customGroup.name, customGroup.groupType, resolveCustom(filteredNodeNames), undefined, customGroupExtraFields);
     }
     if (customGroup.groupType === "load-balance") {
       return createGeneratedProxyGroup(
         customGroup.name,
         customGroup.groupType,
         resolveCustom(filteredNodeNames),
-        customGroup.strategy ?? DEFAULT_LOAD_BALANCE_STRATEGY
+        customGroup.strategy ?? DEFAULT_LOAD_BALANCE_STRATEGY,
+        customGroupExtraFields
       );
     }
     if (customGroup.groupType === "direct-first") {
@@ -414,7 +427,7 @@ export function generateProxyGroups(options: ProxyGroupGenerateOptions): ProxyGr
             (target) => target !== customGroup.name
           )
         ),
-        ...providerUse,
+        ...customGroupExtraFields,
       };
     }
     if (customGroup.groupType === "reject-first") {
@@ -426,14 +439,14 @@ export function generateProxyGroups(options: ProxyGroupGenerateOptions): ProxyGr
             (target) => target !== customGroup.name
           )
         ),
-        ...providerUse,
+        ...customGroupExtraFields,
       };
     }
     return {
       name: customGroup.name,
       type: "select",
       proxies: resolveCustom(customBaseProxies.filter((target) => target !== customGroup.name)),
-      ...providerUse,
+      ...customGroupExtraFields,
     };
   };
 
@@ -526,13 +539,15 @@ export function generateRuleProviders(options: ProxyGroupGenerateOptions): Recor
   for (const ruleSet of customRuleSets) {
     if (customTargetIsDisabled(ruleSet.target, customProxyGroups)) continue;
     if (!ruleSet?.id || !ruleSet.path || providers[ruleSet.id]) continue;
+    const format = ruleSet.format ?? inferRuleSetFormatFromPath(ruleSet.path);
+    if (!isValidRuleSetBehaviorFormat(ruleSet.behavior, format)) continue;
     providers[ruleSet.id] = {
       type: "http",
       behavior: ruleSet.behavior,
       url: buildRuleSetUrlFromPath(ruleSet.path, ruleProviderBaseUrl),
-      path: `./ruleset/${ruleSet.id}.mrs`,
+      path: getRuleSetProviderPath(ruleSet.id, format),
       interval: 86400,
-      format: "mrs",
+      format,
     };
   }
 
@@ -542,8 +557,11 @@ export function generateRuleProviders(options: ProxyGroupGenerateOptions): Recor
 /**
  * 根据模板获取启用的模块列表
  */
-export function getModulesForTemplate(template: "minimal" | "standard" | "full"): string[] {
+export function getModulesForTemplate(template: TemplateType): string[] {
   switch (template) {
+    case "blank":
+    case "my-routing":
+      return [];
     case "minimal":
       return ["select", "auto", "ad", "private", "cn", "global", "final"];
     case "standard":

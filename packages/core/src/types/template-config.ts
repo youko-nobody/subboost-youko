@@ -6,6 +6,7 @@ import type {
   LoadBalanceStrategy,
   ProxyGroupAdvancedConfig,
   ProxyGroupGroupType,
+  ProxyGroupRuleTarget,
   TemplateType,
 } from "./config";
 
@@ -14,6 +15,7 @@ export interface DialerProxyGroup {
   id: string;
   enabled?: boolean; // 默认启用；停用后不会写入配置
   name: string; // 组名，如 "美国中转"
+  icon?: string; // 远程图标 URL
   relayNodes: string[]; // 用于中转的节点名称列表
   type: ProxyGroupGroupType; // 组类型
   strategy?: LoadBalanceStrategy; // 负载均衡策略，仅 type=load-balance 时生效
@@ -32,6 +34,7 @@ export type SubBoostTemplateConfig = {
   builtinRuleEdits?: BuiltinRuleEdits;
   customRules: CustomRule[];
   ruleOrder?: string[];
+  fallbackPolicyTarget?: ProxyGroupRuleTarget;
   cnIpNoResolve?: boolean;
   experimentalCnUseCnRuleSet?: boolean;
   dialerProxyGroups: DialerProxyGroup[];

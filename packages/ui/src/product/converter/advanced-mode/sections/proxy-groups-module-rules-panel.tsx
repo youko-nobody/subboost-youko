@@ -33,7 +33,7 @@ import {
 } from "./proxy-group-rule-row";
 import { CnIpNoResolveHelpButton, ExperimentalCnRuleHelpButton } from "./proxy-groups-module-rules-help";
 
-type MoveTarget = { kind: "module" | "custom"; id: string };
+type MoveTarget = { kind: "module" | "custom" | "direct" | "reject"; id: string };
 type ActiveRuleRow = EffectiveModuleRule & { state: "active" };
 type InactiveRuleRow = ProxyGroupRule & { source: "preset"; state: "removed" | "moved" };
 type RuleRow = ActiveRuleRow | InactiveRuleRow;
@@ -49,7 +49,7 @@ type CnCandidateRule = {
 function isModuleRuleMoveTarget(
   target: ProxyGroupRuleTargetOption,
 ): target is ProxyGroupRuleTargetOption & MoveTarget {
-  return target.kind === "module" || target.kind === "custom";
+  return target.kind === "module" || target.kind === "custom" || target.kind === "direct" || target.kind === "reject";
 }
 
 function isCnCandidateRule(value: unknown): value is CnCandidateRule {
@@ -192,6 +192,8 @@ export function ProxyGroupsModuleRulesPanel({
   );
   const ruleSetMoveTargets = React.useMemo<RuleSetMoveTarget[]>(
     () => [
+      { kind: "direct" as const, id: "DIRECT", name: "DIRECT" },
+      { kind: "reject" as const, id: "REJECT", name: "REJECT" },
       ...visibleProxyGroupModules.map((targetModule) => ({
         kind: "module" as const,
         id: targetModule.id,
@@ -279,8 +281,10 @@ export function ProxyGroupsModuleRulesPanel({
       };
       if (target.kind === "module") {
         onAddRulesToModule(target.id, [rule]);
-      } else {
+      } else if (target.kind === "custom") {
         onAddRuleToCustomGroup(target.id, rule);
+      } else {
+        onAddRulesToModule(target.kind === "direct" ? "DIRECT" : "REJECT", [rule]);
       }
       onChangeExperimentalCnUseCnRuleSet(false);
     },
@@ -360,7 +364,7 @@ export function ProxyGroupsModuleRulesPanel({
                       title="移动规则集"
                       ariaLabel={`移动 ${rule.name} 规则集`}
                       targets={ruleSetMoveTargets}
-                      kinds={["module", "custom"]}
+                      kinds={["direct", "reject", "module", "custom"]}
                       currentTarget={{ kind: "module", id: module.id, name: moduleDisplayName }}
                       onMove={(target) => {
                         if (isRuleSetMoveTarget(target) && isModuleRuleMoveTarget(target)) {
@@ -454,7 +458,7 @@ export function ProxyGroupsModuleRulesPanel({
                     title="移动规则集"
                     ariaLabel={`移动 ${EXPERIMENTAL_CN_RULE.name} 规则集`}
                     targets={ruleSetMoveTargets}
-                    kinds={["module", "custom"]}
+                    kinds={["direct", "reject", "module", "custom"]}
                     currentTarget={{ kind: "module", id: module.id, name: moduleDisplayName }}
                     onMove={(target) => {
                       if (isRuleSetMoveTarget(target) && isModuleRuleMoveTarget(target)) {

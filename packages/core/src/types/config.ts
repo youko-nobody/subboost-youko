@@ -193,6 +193,7 @@ export interface UserConfig {
   enabledRules: string[];
   customRules: CustomRule[];
   ruleOrder?: string[];
+  fallbackPolicyTarget?: ProxyGroupRuleTarget;
   // 国内服务 GeoIP 规则是否使用 no-resolve（默认 true；关闭可提升命中率但可能造成 DNS 泄露）
   cnIpNoResolve?: boolean;
   // 实验性：为“国内服务”额外启用 cn（geosite/cn.mrs），并将其规则后置（放到 global 之后）
@@ -217,7 +218,8 @@ export interface CustomRule {
   noResolve?: boolean;
 }
 
-export type RuleSetBehavior = "domain" | "ipcidr";
+export type RuleSetBehavior = "domain" | "ipcidr" | "classical";
+export type RuleSetFormat = "mrs" | "yaml" | "text";
 
 export type NodeRegion =
   | "us"
@@ -277,6 +279,7 @@ export interface CustomRuleSet {
   id: string;
   name: string;
   behavior: RuleSetBehavior;
+  format?: RuleSetFormat;
   path: string;
   target: ProxyGroupRuleTarget;
   noResolve?: boolean;
@@ -296,10 +299,12 @@ export interface CustomProxyGroup {
   id: string;
   name: string;
   emoji: string;
+  icon?: string;
   enabled?: boolean;
   description?: string;
   memberSource?: "filtered-nodes";
   includeInGroupMembers?: boolean;
+  includeProxyProviders?: boolean;
   groupType: ProxyGroupGroupType;
   strategy?: LoadBalanceStrategy;
   advanced?: ProxyGroupAdvancedConfig;
@@ -308,7 +313,7 @@ export interface CustomProxyGroup {
 /**
  * 预设模板类型
  */
-export type TemplateType = "minimal" | "standard" | "full";
+export type TemplateType = "blank" | "minimal" | "standard" | "full" | "my-routing";
 
 export interface TemplateConfig {
   id: TemplateType;

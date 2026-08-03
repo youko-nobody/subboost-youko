@@ -7,6 +7,7 @@ import type {
   GroupListenerBinding,
   GroupListenerTarget,
   ProxyGroupAdvancedConfig,
+  ProxyGroupRuleTarget,
   TemplateType,
 } from "@subboost/core/types/config";
 import { DEFAULT_BASE_CONFIG_YAML, DEFAULT_SUBBOOST_CONFIG } from "@subboost/core/config/defaults";
@@ -205,6 +206,7 @@ export interface ConfigState {
   // 用户可编辑规则窗口顺序
   // Key 格式：custom-rule:<id> / custom-rule-set:<id> / module:<moduleId>:<ruleId> / special:<id>
   ruleOrder: string[];
+  fallbackPolicyTarget: ProxyGroupRuleTarget;
 
   // 当前配置是否已确认过“编辑预设规则”风险提示；只影响 UI，不参与生成。
   moduleRuleEditWarningAccepted: boolean;
@@ -268,6 +270,7 @@ export interface ConfigActions {
   updateCustomRule: (id: string, rule: Partial<Omit<CustomRule, "id">>) => void;
   removeCustomRule: (index: number) => void;
   setRuleOrder: (order: string[]) => void;
+  setFallbackPolicyTarget: (target: ProxyGroupRuleTarget) => void;
 
   // 自定义分流组
   addCustomProxyGroup: (group: Omit<CustomProxyGroup, "id">) => void;
@@ -291,7 +294,7 @@ export interface ConfigActions {
   moveModuleRule: (
     moduleId: string,
     ruleId: string,
-    target: { kind: "module" | "custom"; id: string }
+    target: { kind: "module" | "custom" | "direct" | "reject"; id: string }
   ) => void;
   restoreModuleRule: (moduleId: string, ruleId: string) => void;
   resetModuleRuleTarget: (moduleId: string, ruleId: string) => void;
@@ -362,9 +365,9 @@ export const initialState: ConfigState = {
     { id: "2", type: "yaml", content: "" },
     { id: "3", type: "nodes", content: "" },
   ],
-  // 默认选择“精简版”模板
-  template: "minimal",
-  enabledProxyGroups: TEMPLATES.minimal.groups,
+  // 默认从空白配置开始，内置策略组和规则由用户自行启用或添加。
+  template: "blank",
+  enabledProxyGroups: TEMPLATES.blank.groups,
   hiddenProxyGroups: [],
   customProxyGroups: [], // 自定义分流组
   proxyGroupAdvanced: {},
@@ -376,8 +379,9 @@ export const initialState: ConfigState = {
   proxyGroupNameOverrides: {},
   proxyGroupOrder: [],
   ruleOrder: [],
+  fallbackPolicyTarget: "DIRECT",
   moduleRuleEditWarningAccepted: false,
-  appliedTemplateId: getBuiltinTemplateId("minimal"),
+  appliedTemplateId: getBuiltinTemplateId("blank"),
   dnsYaml: DEFAULT_BASE_CONFIG_YAML,
   mixedPort: DEFAULT_SUBBOOST_CONFIG.mixedPort,
   allowLan: DEFAULT_SUBBOOST_CONFIG.allowLan,
@@ -385,7 +389,7 @@ export const initialState: ConfigState = {
   testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,
   ruleProviderBaseUrl: DEFAULT_SUBBOOST_CONFIG.ruleProviderBaseUrl,
   cnIpNoResolve: DEFAULT_SUBBOOST_CONFIG.cnIpNoResolve,
-  experimentalCnUseCnRuleSet: DEFAULT_SUBBOOST_CONFIG.experimentalCnUseCnRuleSet,
+  experimentalCnUseCnRuleSet: false,
   listenerPorts: {},
   groupListeners: [],
   generatedYaml: "",

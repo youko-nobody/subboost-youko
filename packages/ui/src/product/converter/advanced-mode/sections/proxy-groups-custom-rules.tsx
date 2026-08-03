@@ -238,7 +238,7 @@ export function ProxyGroupsCustomRules() {
     <div className="min-w-0 space-y-2">
       <div className={RULE_HEADER_ROW_CLASS}>
         <span className="text-xs font-medium text-white/80">
-          方法二：手动添加规则
+          方法三：手动添加规则
         </span>
         <Button
           type="button"

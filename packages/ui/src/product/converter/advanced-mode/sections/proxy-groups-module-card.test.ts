@@ -27,7 +27,9 @@ vi.mock("lucide-react", () => ({
   Check: () => React.createElement("span", null, "check-icon"),
   ChevronDown: () => React.createElement("span", null, "down-icon"),
   ChevronRight: () => React.createElement("span", null, "right-icon"),
+  ExternalLink: () => React.createElement("span", null, "external-link-icon"),
   HelpCircle: () => React.createElement("span", null, "help-icon"),
+  ImageOff: () => React.createElement("span", null, "image-off-icon"),
   Pencil: () => React.createElement("span", null, "pencil-icon"),
   Shuffle: () => React.createElement("span", null, "shuffle-icon"),
   SlidersHorizontal: () => React.createElement("span", null, "sliders-icon"),
@@ -190,10 +192,13 @@ describe("ProxyGroupsModuleCard", () => {
 
   it("handles optional description editing and advanced rule rendering", () => {
     const onChangeEditingDescription = vi.fn();
+    const onChangeEditingIcon = vi.fn();
     const editingHandlers = props({
       isEditing: true,
       editingDescription: "Draft description",
+      editingIcon: "https://icons.example/gemini.png",
       onChangeEditingDescription,
+      onChangeEditingIcon,
       isRulesExpanded: false,
     });
     renderToStaticMarkup(React.createElement(ProxyGroupsModuleCard, editingHandlers));
@@ -210,6 +215,19 @@ describe("ProxyGroupsModuleCard", () => {
     expect(onChangeEditingDescription).toHaveBeenCalledWith("Updated description");
     expect(editingHandlers.onCommitEditing).toHaveBeenCalled();
     expect(editingHandlers.onCancelEditing).toHaveBeenCalled();
+    const iconInput = mocks.inputs.find(
+      (input) => input["aria-label"] === "Gemini Display 远程图标 URL",
+    );
+    expect(iconInput).toEqual(
+      expect.objectContaining({
+        value: "https://icons.example/gemini.png",
+        placeholder: "https://example.com/icon.png（可选）",
+      }),
+    );
+    iconInput.onChange({ target: { value: "https://icons.example/new.png" } });
+    iconInput.onKeyDown({ key: "Enter" });
+    iconInput.onKeyDown({ key: "Escape" });
+    expect(onChangeEditingIcon).toHaveBeenCalledWith("https://icons.example/new.png");
 
     mocks.inputs = [];
     const onChangeEmptyDescription = vi.fn();
@@ -307,6 +325,29 @@ describe("ProxyGroupsModuleCard", () => {
       )
     );
     expect(overrideHtml).toContain("Override description");
+
+    const iconHtml = renderToStaticMarkup(
+      React.createElement(
+        ProxyGroupsModuleCard,
+        props({
+          icon: "https://icons.example/manual.png",
+          onChangeEditingIcon: vi.fn(),
+        })
+      )
+    );
+    expect(iconHtml).toContain("https://icons.example/manual.png");
+    expect(mocks.buttons.find((button) => button.title === "编辑名称/描述/图标")).toBeTruthy();
+
+    const missingIconHtml = renderToStaticMarkup(
+      React.createElement(
+        ProxyGroupsModuleCard,
+        props({
+          icon: "",
+          onChangeEditingIcon: vi.fn(),
+        })
+      )
+    );
+    expect(missingIconHtml).toContain("image-off-icon");
 
     const emptyDescriptionHtml = renderToStaticMarkup(
       React.createElement(

@@ -4,6 +4,7 @@ import { safeParseJsonObject } from "@subboost/core/json";
 import { normalizeNodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
 import { resolveProxyGroupAdvancedModeEnabled } from "@subboost/core/proxy-group-advanced-mode";
 import { normalizeRuleModelFromConfig } from "@subboost/core/rules/rule-model";
+import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
 
 export const AUTH_CONFIG_HANDOFF_STORAGE_NAME = "subboost-auth-config-handoff";
 
@@ -97,6 +98,14 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return Object.values(value).every((item) => typeof item === "string");
 }
 
+function normalizeRuleTarget(value: unknown): ConfigState["fallbackPolicyTarget"] | undefined {
+  const ref = normalizeProxyGroupTargetRef(value);
+  if (ref) return ref;
+  if (typeof value !== "string") return undefined;
+  const target = value.trim();
+  return target ? target : undefined;
+}
+
 function hasRecordEntries(value: Record<string, unknown> | undefined): boolean {
   return Boolean(value && Object.keys(value).length > 0);
 }
@@ -123,6 +132,7 @@ function hasMeaningfulConfig(state: ConfigState): boolean {
     hasRecordEntries(state.proxyGroupNameOverrides) ||
     state.proxyGroupOrder.length > 0 ||
     state.ruleOrder.length > 0 ||
+    state.fallbackPolicyTarget !== initialState.fallbackPolicyTarget ||
     state.proxyGroupAdvancedModeEnabled !== initialState.proxyGroupAdvancedModeEnabled ||
     state.moduleRuleEditWarningAccepted !== initialState.moduleRuleEditWarningAccepted ||
     state.appliedTemplateId !== initialState.appliedTemplateId ||
@@ -161,6 +171,7 @@ function buildHandoffState(state: ConfigState): Partial<ConfigState> {
     proxyGroupNameOverrides: state.proxyGroupNameOverrides,
     proxyGroupOrder: state.proxyGroupOrder,
     ruleOrder: state.ruleOrder,
+    fallbackPolicyTarget: state.fallbackPolicyTarget,
     proxyGroupAdvancedModeEnabled: state.proxyGroupAdvancedModeEnabled,
     moduleRuleEditWarningAccepted: state.moduleRuleEditWarningAccepted,
     appliedTemplateId: state.appliedTemplateId,
@@ -190,7 +201,15 @@ function normalizeHandoffState(raw: unknown): Partial<ConfigState> | null {
   if (deletedNodeNames) out.deletedNodeNames = deletedNodeNames;
   const deletedNodes = objectArray<ConfigState["deletedNodes"][number]>(raw.deletedNodes);
   if (deletedNodes) out.deletedNodes = deletedNodes;
-  if (raw.template === "minimal" || raw.template === "standard" || raw.template === "full") out.template = raw.template;
+  if (
+    raw.template === "blank" ||
+    raw.template === "minimal" ||
+    raw.template === "standard" ||
+    raw.template === "full" ||
+    raw.template === "my-routing"
+  ) {
+    out.template = raw.template;
+  }
   const enabledProxyGroups = stringArray(raw.enabledProxyGroups);
   if (enabledProxyGroups) out.enabledProxyGroups = enabledProxyGroups;
   const hiddenProxyGroups = stringArray(raw.hiddenProxyGroups);
@@ -224,6 +243,8 @@ function normalizeHandoffState(raw: unknown): Partial<ConfigState> | null {
   if (proxyGroupOrder) out.proxyGroupOrder = proxyGroupOrder;
   const ruleOrder = stringArray(raw.ruleOrder);
   if (ruleOrder) out.ruleOrder = ruleOrder;
+  const fallbackPolicyTarget = normalizeRuleTarget(raw.fallbackPolicyTarget);
+  if (fallbackPolicyTarget) out.fallbackPolicyTarget = fallbackPolicyTarget;
   if (typeof raw.moduleRuleEditWarningAccepted === "boolean") out.moduleRuleEditWarningAccepted = raw.moduleRuleEditWarningAccepted;
   if (typeof raw.appliedTemplateId === "string" || raw.appliedTemplateId === null) {
     out.appliedTemplateId = raw.appliedTemplateId;

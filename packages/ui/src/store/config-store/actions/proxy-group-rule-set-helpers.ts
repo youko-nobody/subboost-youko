@@ -2,7 +2,13 @@ import { PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
 import { normalizePersistedRuleOrder } from "@subboost/core/generator/rules";
 import { resolveProxyGroupModuleName } from "@subboost/core/proxy-group-name";
 import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
-import { isValidRuleSetPathOrUrl, normalizeRuleSetPathInput } from "@subboost/core/rules/rule-model";
+import {
+  inferRuleSetFormatFromPath,
+  isValidRuleSetBehaviorFormat,
+  isValidRuleSetPathOrUrl,
+  normalizeRuleSetFormat,
+  normalizeRuleSetPathInput,
+} from "@subboost/core/rules/rule-model";
 import type {
   BuiltinRuleEdits,
   CustomProxyGroup,
@@ -10,21 +16,34 @@ import type {
   ProxyGroupRuleTarget,
   ProxyGroupTargetRef,
   RuleSetBehavior,
+  RuleSetFormat,
 } from "@subboost/core/types/config";
 import type { RuleSetDraft } from "../definitions";
+
+export type RuleSetContainerTargetRef =
+  | ProxyGroupTargetRef
+  | { kind: "direct"; id: "DIRECT" }
+  | { kind: "reject"; id: "REJECT" };
 
 export function normalizeRuleSetDraft(rule: RuleSetDraft): RuleSetDraft | null {
   if (!rule || typeof rule.id !== "string" || typeof rule.path !== "string") return null;
   const id = rule.id.trim();
   const path = normalizeRuleSetPathInput(rule.path);
   if (!id || !path || !isValidRuleSetPathOrUrl(path)) return null;
-  const behavior: RuleSetBehavior = rule.behavior === "ipcidr" || path.toLowerCase().startsWith("geoip/")
+  const behavior: RuleSetBehavior = rule.behavior === "classical"
+    ? "classical"
+    : rule.behavior === "ipcidr" || path.toLowerCase().startsWith("geoip/")
     ? "ipcidr"
     : "domain";
+  const format: RuleSetFormat = rule.format
+    ? normalizeRuleSetFormat(rule.format, path)
+    : inferRuleSetFormatFromPath(path);
+  if (!isValidRuleSetBehaviorFormat(behavior, format)) return null;
   return {
     id,
     name: typeof rule.name === "string" && rule.name.trim() ? rule.name.trim() : id,
     behavior,
+    format,
     path,
     ...(rule.noResolve || behavior === "ipcidr" ? { noResolve: true } : {}),
   };
@@ -61,10 +80,12 @@ export function resolveModuleTargetName(moduleId: string, overrides?: Record<str
 }
 
 export function resolveMoveTargetName(
-  target: { kind: "module" | "custom"; id: string },
+  target: { kind: "module" | "custom" | "direct" | "reject"; id: string },
   customProxyGroups: CustomProxyGroup[],
   proxyGroupNameOverrides?: Record<string, string>
 ): string | null {
+  if (target.kind === "direct") return "DIRECT";
+  if (target.kind === "reject") return "REJECT";
   if (target.kind === "module") return resolveModuleTargetName(target.id, proxyGroupNameOverrides);
   const group = customProxyGroups.find((item) => item.id === target.id);
   return group?.name?.trim() || null;
@@ -75,6 +96,8 @@ export function resolveRuleSetContainerTargetName(
   customProxyGroups: CustomProxyGroup[],
   proxyGroupNameOverrides?: Record<string, string>
 ): string | null {
+  if (id === "DIRECT") return "DIRECT";
+  if (id === "REJECT") return "REJECT";
   return (
     resolveModuleTargetName(id, proxyGroupNameOverrides) ||
     customProxyGroups.find((group) => group.id === id)?.name?.trim() ||
@@ -134,7 +157,7 @@ export function retargetBuiltinRuleEdits(edits: BuiltinRuleEdits, from: string, 
 
 export function findBuiltinRuleEditKeyByTarget(
   edits: BuiltinRuleEdits,
-  target: ProxyGroupTargetRef,
+  target: RuleSetContainerTargetRef,
   legacyTargetName: string,
   ruleId: string
 ): string | null {
@@ -166,9 +189,12 @@ export function appendUniqueCustomRuleSets(
 
 export function ruleTargetMatchesContainer(
   target: ProxyGroupRuleTarget | undefined,
-  container: ProxyGroupTargetRef,
+  container: RuleSetContainerTargetRef,
   legacyTargetName: string
 ): boolean {
+  if (container.kind === "direct" || container.kind === "reject") {
+    return typeof target === "string" && target.trim() === legacyTargetName.trim();
+  }
   const ref = normalizeProxyGroupTargetRef(target);
   if (ref) return ref.kind === container.kind && ref.id === container.id;
   return typeof target === "string" && target.trim() === legacyTargetName.trim();

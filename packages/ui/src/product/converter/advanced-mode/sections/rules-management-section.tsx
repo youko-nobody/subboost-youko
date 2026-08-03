@@ -6,13 +6,26 @@ import { Badge } from "@subboost/ui/components/ui/badge";
 import { confirmDialog } from "@subboost/ui/components/ui/confirm-dialog";
 import { Input } from "@subboost/ui/components/ui/input";
 import { IconButton } from "@subboost/ui/components/ui/icon-button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@subboost/ui/components/ui/select";
 import { Switch } from "@subboost/ui/components/ui/switch";
 import {
   buildGeneratedRuleEntries,
   hasFullRuleOrderKeys,
   type GeneratedRuleEntry,
 } from "@subboost/core/generator/rules";
+import { resolveProxyGroupTargetName } from "@subboost/core/proxy-group-targets";
+import type { ProxyGroupRuleTarget } from "@subboost/core/types/config";
 import { useConfigStore } from "@subboost/ui/store/config-store";
+import {
+  buildManualRuleTargets,
+  type ProxyGroupRuleTargetOption,
+} from "./proxy-group-rule-targets";
 import { SectionHeader } from "../section-header";
 
 function clamp(value: number, min: number, max: number): number {
@@ -34,6 +47,24 @@ function getRuleDisplayDetail(entry: GeneratedRuleEntry): string {
   return detail || entry.text;
 }
 
+function targetOptionValue(option: ProxyGroupRuleTargetOption): string {
+  return `${option.kind}:${option.id}`;
+}
+
+function targetFromOptionValue(value: string): ProxyGroupRuleTarget | null {
+  if (value === "direct:DIRECT") return "DIRECT";
+  if (value === "reject:REJECT") return "REJECT";
+  if (value.startsWith("module:")) {
+    const id = value.slice("module:".length).trim();
+    return id ? { kind: "module", id } : null;
+  }
+  if (value.startsWith("custom:")) {
+    const id = value.slice("custom:".length).trim();
+    return id ? { kind: "custom", id } : null;
+  }
+  return null;
+}
+
 export function RulesManagementSection({
   isExpanded,
   onToggle,
@@ -46,14 +77,62 @@ export function RulesManagementSection({
     customRules,
     customRuleSets,
     builtinRuleEdits,
+    customProxyGroups,
+    hiddenProxyGroups,
     proxyGroupNameOverrides,
     cnIpNoResolve,
     experimentalCnUseCnRuleSet,
     ruleOrder,
+    fallbackPolicyTarget,
     setRuleOrder,
+    setFallbackPolicyTarget,
   } = useConfigStore();
   const [orderDrafts, setOrderDrafts] = React.useState<Record<string, string>>({});
   const allRulesMode = ruleOrder.length === 0 || hasFullRuleOrderKeys(ruleOrder);
+  const fallbackTargetOptions = React.useMemo(
+    () =>
+      buildManualRuleTargets({
+        enabledProxyGroups,
+        hiddenProxyGroups,
+        customProxyGroups,
+        proxyGroupNameOverrides,
+      }),
+    [customProxyGroups, enabledProxyGroups, hiddenProxyGroups, proxyGroupNameOverrides],
+  );
+  const moduleNames = React.useMemo(
+    () =>
+      Object.fromEntries(
+        fallbackTargetOptions
+          .filter((target) => target.kind === "module")
+          .map((target) => [target.id, target.name])
+      ),
+    [fallbackTargetOptions],
+  );
+  const resolvedFallbackPolicyTarget = React.useMemo(
+    () =>
+      resolveProxyGroupTargetName(fallbackPolicyTarget, {
+        moduleNames,
+        customProxyGroups,
+        fallbackTarget: "DIRECT",
+      }),
+    [customProxyGroups, fallbackPolicyTarget, moduleNames],
+  );
+  const effectiveFallbackPolicyTarget = React.useMemo(
+    () =>
+      fallbackTargetOptions.some((target) => target.name === resolvedFallbackPolicyTarget)
+        ? resolvedFallbackPolicyTarget
+        : fallbackTargetOptions[0]?.name ?? "DIRECT",
+    [fallbackTargetOptions, resolvedFallbackPolicyTarget],
+  );
+  const fallbackTargetSelectValue = React.useMemo(
+    () =>
+      targetOptionValue(
+        fallbackTargetOptions.find((target) => target.name === effectiveFallbackPolicyTarget) ??
+          fallbackTargetOptions[0] ??
+          { kind: "direct", id: "DIRECT", name: "DIRECT" }
+      ),
+    [effectiveFallbackPolicyTarget, fallbackTargetOptions],
+  );
 
   const entries = React.useMemo(
     () =>
@@ -61,16 +140,20 @@ export function RulesManagementSection({
         enabledModules: enabledProxyGroups,
         customRules,
         customRuleSets,
+        customProxyGroups,
         builtinRuleEdits,
         proxyGroupNameOverrides,
         cnIpNoResolve,
         experimentalCnUseCnRuleSet,
         ruleOrder,
+        fallbackPolicyTarget: effectiveFallbackPolicyTarget,
       }),
     [
       cnIpNoResolve,
       customRuleSets,
       customRules,
+      customProxyGroups,
+      effectiveFallbackPolicyTarget,
       enabledProxyGroups,
       experimentalCnUseCnRuleSet,
       builtinRuleEdits,
@@ -177,7 +260,28 @@ export function RulesManagementSection({
       {isExpanded && (
         <div className="mt-2 pl-6 space-y-2">
           <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-white/10 pb-2">
+              <span className="text-[11px] whitespace-nowrap text-white/55">MATCH</span>
+              <Select
+                value={fallbackTargetSelectValue}
+                onValueChange={(value) => {
+                  const target = targetFromOptionValue(value);
+                  if (target) setFallbackPolicyTarget(target);
+                }}
+              >
+                <SelectTrigger className="h-8 min-w-[9rem] max-w-full flex-1 border-white/10 bg-white/5 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {fallbackTargetOptions.map((target) => (
+                    <SelectItem key={targetOptionValue(target)} value={targetOptionValue(target)} className="text-xs">
+                      {target.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 pt-2">
               <div className="min-w-0 flex-[1_1_13rem] text-[11px] leading-5 text-white/60">
                 {allRulesMode
                   ? "已开启全规则排序：可移动任意规则，但 MATCH 固定最后。"

@@ -152,6 +152,7 @@ export function ProxyGroupNameEditor({
   const filteredEmojis = React.useMemo(() => {
     const keyword = query.trim();
     if (!keyword) return PROXY_GROUP_EMOJI_LIBRARY;
+    if (keyword === "无" || keyword.toLowerCase() === "none") return [];
     return PROXY_GROUP_EMOJI_LIBRARY.filter((emoji) => emoji.includes(keyword));
   }, [query]);
 
@@ -195,6 +196,16 @@ export function ProxyGroupNameEditor({
               placeholder="搜索 emoji"
             />
             <div className="grid max-h-64 grid-cols-8 gap-1 overflow-y-auto pr-1">
+              {allowEmptyEmoji && (
+                <DropdownMenuItem
+                  className="col-span-8 flex h-8 items-center justify-center p-0 text-xs text-white/70"
+                  title="不使用 emoji"
+                  aria-label="不使用 emoji"
+                  onClick={() => setEmoji("")}
+                >
+                  无 emoji
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className="flex h-8 items-center justify-center p-0 text-white/75"
                 title="随机 emoji"

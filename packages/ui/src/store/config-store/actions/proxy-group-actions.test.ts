@@ -187,7 +187,7 @@ describe("createProxyGroupActions", () => {
 
     expect(getState().builtinRuleEdits).toEqual({});
     expect(getState().customRuleSets).toEqual([
-      { id: "custom-ai", name: "Custom AI", behavior: "domain", path: "geosite/custom-ai.mrs", target: { kind: "module", id: "ai" } },
+      { id: "custom-ai", name: "Custom AI", behavior: "domain", format: "mrs", path: "geosite/custom-ai.mrs", target: { kind: "module", id: "ai" } },
     ]);
 
     const beforeDuplicateAdd = getState();
@@ -206,6 +206,7 @@ describe("createProxyGroupActions", () => {
       id: "custom-ai",
       name: "Custom AI IP",
       behavior: "ipcidr",
+      format: "mrs",
       path: "geoip/custom-ai.mrs",
       target: { kind: "module", id: "ai" },
       noResolve: true,
@@ -372,7 +373,7 @@ describe("createProxyGroupActions", () => {
     ]);
 
     expect(getState().customRuleSets).toEqual([
-      { id: "custom", name: "custom", behavior: "ipcidr", path: "geoip/custom.mrs", target: { kind: "custom", id: "custom-module" }, noResolve: true },
+      { id: "custom", name: "custom", behavior: "ipcidr", format: "mrs", path: "geoip/custom.mrs", target: { kind: "custom", id: "custom-module" }, noResolve: true },
     ]);
 
     const beforePresetNoop = getState();
@@ -426,6 +427,7 @@ describe("createProxyGroupActions", () => {
         id: "telegram",
         name: "Telegram",
         behavior: "ipcidr",
+        format: "mrs",
         path: "geoip/telegram.mrs",
         target: { kind: "custom", id: "custom-1" },
         noResolve: true,
@@ -447,6 +449,50 @@ describe("createProxyGroupActions", () => {
 
     actions.removeModuleRule("custom-2", "telegram");
     expect(getState().customRuleSets).toEqual([]);
+  });
+
+  it("adds, updates, moves, and removes custom rule sets for DIRECT and REJECT targets", () => {
+    const { actions, getState } = createHarness({
+      customRuleSets: [],
+      builtinRuleEdits: {},
+    });
+
+    actions.addModuleRules("DIRECT", [
+      { id: "direct-rule", name: "Direct Rule", behavior: "domain", path: "geosite/direct.mrs" },
+    ]);
+
+    expect(getState().customRuleSets).toEqual([
+      {
+        id: "direct-rule",
+        name: "Direct Rule",
+        behavior: "domain",
+        format: "mrs",
+        path: "geosite/direct.mrs",
+        target: "DIRECT",
+      },
+    ]);
+
+    actions.updateModuleRule("DIRECT", "direct-rule", {
+      path: "geoip/direct-rule.mrs",
+    });
+    expect(getState().customRuleSets[0]).toMatchObject({
+      id: "direct-rule",
+      behavior: "ipcidr",
+      path: "geoip/direct-rule.mrs",
+      target: "DIRECT",
+      noResolve: true,
+    });
+
+    actions.moveModuleRule("DIRECT", "direct-rule", { kind: "reject", id: "REJECT" });
+    expect(getState().customRuleSets[0].target).toBe("REJECT");
+
+    actions.removeModuleRule("REJECT", "direct-rule");
+    expect(getState().customRuleSets).toEqual([]);
+
+    actions.moveModuleRule("ai", "openai", { kind: "direct", id: "DIRECT" });
+    expect(getState().builtinRuleEdits).toEqual({
+      "module:ai:openai": { target: "DIRECT" },
+    });
   });
 
   it("restores all default module rules for one module and accepts edit warnings", () => {

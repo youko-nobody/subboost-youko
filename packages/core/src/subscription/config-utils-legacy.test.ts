@@ -334,7 +334,17 @@ describe("subscription config utils legacy and mixed persistence", () => {
         },
       },
     ]);
-    expect(options.customRuleSets).toBeUndefined();
+    expect(options.customRuleSets).toEqual([
+      {
+        id: "manual",
+        name: "Manual",
+        behavior: "classical",
+        format: "yaml",
+        path: "https://rules.example.com/manual.yaml",
+        target: { kind: "module", id: "cn" },
+        noResolve: true,
+      },
+    ]);
     expect(options.dialerProxyGroups).toEqual([
       {
         id: "direct",

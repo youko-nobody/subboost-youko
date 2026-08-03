@@ -12,18 +12,79 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@subboost/ui/components/ui/select";
+import { Switch } from "@subboost/ui/components/ui/switch";
 import { toast } from "@subboost/ui/components/ui/toaster";
 import { cn } from "@subboost/ui/lib/utils";
 import { PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
 import { getModuleRuleOrderKey } from "@subboost/core/generator/module-rules";
 import { resolveProxyGroupModuleName } from "@subboost/core/proxy-group-name";
 import { resolveProxyGroupTargetName } from "@subboost/core/proxy-group-targets";
-import { normalizeRuleSetPathInput } from "@subboost/core/rules/rule-model";
+import {
+  inferRuleSetFormatFromPath,
+  isValidRuleSetBehaviorFormat,
+  isValidRuleSetPathOrUrl,
+  normalizeRuleSetFormat,
+  normalizeRuleSetPathInput,
+} from "@subboost/core/rules/rule-model";
 import { RULE_CATEGORIES, type RuleSetInfo } from "@subboost/core/rules/metadata";
+import type { RuleSetBehavior, RuleSetFormat } from "@subboost/core/types/config";
 import { useConfigStore } from "@subboost/ui/store/config-store";
 import { useProductInteractionAdapter } from "@subboost/ui/product/interactions";
 import { ProxyGroupsAddedRuleSets } from "./proxy-groups-added-rule-sets";
 import { getRuleDisplayName, useRulesLibrarySearch } from "./proxy-groups-rules-search";
+
+type AddRuleSetTarget =
+  | { kind: "direct"; id: "DIRECT" }
+  | { kind: "reject"; id: "REJECT" }
+  | { kind: "module"; id: string }
+  | { kind: "custom"; id: string };
+
+function parseAddRuleSetTarget(raw: string): AddRuleSetTarget | null {
+  if (raw === "direct:DIRECT") return { kind: "direct", id: "DIRECT" };
+  if (raw === "reject:REJECT") return { kind: "reject", id: "REJECT" };
+  if (raw.startsWith("module:")) {
+    const id = raw.slice("module:".length).trim();
+    return id ? { kind: "module", id } : null;
+  }
+  if (raw.startsWith("custom:")) {
+    const id = raw.slice("custom:".length).trim();
+    return id ? { kind: "custom", id } : null;
+  }
+  return null;
+}
+
+function targetIdForAddRuleSet(target: AddRuleSetTarget): string {
+  if (target.kind === "direct") return "DIRECT";
+  if (target.kind === "reject") return "REJECT";
+  return target.id;
+}
+
+function sanitizeRuleSetId(value: string): string {
+  return value
+    .trim()
+    .replace(/\.(mrs|ya?ml|txt|text)$/i, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+function inferRuleSetId(path: string, name: string): string {
+  const explicitName = sanitizeRuleSetId(name);
+  if (explicitName) return explicitName;
+
+  try {
+    const parsed = new URL(path);
+    const segment = parsed.pathname.split("/").filter(Boolean).at(-1) || "";
+    const inferred = sanitizeRuleSetId(segment);
+    if (inferred) return inferred;
+  } catch {
+    const segment = path.split(/[?#]/)[0]?.split("/").filter(Boolean).at(-1) || path;
+    const inferred = sanitizeRuleSetId(segment);
+    if (inferred) return inferred;
+  }
+
+  return `custom-ruleset-${Date.now()}`;
+}
 
 export function ProxyGroupsRulesLibrary() {
   const {
@@ -40,6 +101,13 @@ export function ProxyGroupsRulesLibrary() {
 
   const [selectedRules, setSelectedRules] = React.useState<RuleSetInfo[]>([]);
   const [addToGroupId, setAddToGroupId] = React.useState("");
+  const [manualRuleSetId, setManualRuleSetId] = React.useState("");
+  const [manualRuleSetName, setManualRuleSetName] = React.useState("");
+  const [manualRuleSetPath, setManualRuleSetPath] = React.useState("");
+  const [manualRuleSetBehavior, setManualRuleSetBehavior] = React.useState<RuleSetBehavior>("domain");
+  const [manualRuleSetFormat, setManualRuleSetFormat] = React.useState<RuleSetFormat>("yaml");
+  const [manualRuleSetTarget, setManualRuleSetTarget] = React.useState("direct:DIRECT");
+  const [manualRuleSetNoResolve, setManualRuleSetNoResolve] = React.useState(false);
   const {
     ruleSearchKeyword,
     setRuleSearchKeyword,
@@ -77,6 +145,21 @@ export function ProxyGroupsRulesLibrary() {
       ),
     [resolveModuleFullName],
   );
+  const addTargetOptions = React.useMemo(
+    () => [
+      { value: "direct:DIRECT", label: "DIRECT" },
+      { value: "reject:REJECT", label: "REJECT" },
+      ...visibleProxyGroupModules.map((module) => ({
+        value: `module:${module.id}`,
+        label: resolveModuleFullName(module),
+      })),
+      ...activeCustomProxyGroups.map((group) => ({
+        value: `custom:${group.id}`,
+        label: group.name,
+      })),
+    ],
+    [activeCustomProxyGroups, resolveModuleFullName, visibleProxyGroupModules],
+  );
 
   React.useEffect(() => {
     if (addToGroupId.startsWith("module:")) {
@@ -85,6 +168,8 @@ export function ProxyGroupsRulesLibrary() {
     } else if (addToGroupId.startsWith("custom:")) {
       const groupId = addToGroupId.slice("custom:".length);
       if (activeCustomProxyGroups.some((group) => group.id === groupId)) return;
+    } else if (addToGroupId === "direct:DIRECT" || addToGroupId === "reject:REJECT") {
+      return;
     } else {
       return;
     }
@@ -153,16 +238,22 @@ export function ProxyGroupsRulesLibrary() {
                 ? visibleProxyGroupModules.find((m) => resolveModuleFullName(m) === resolvedBuiltinTargetName)
                 : null;
               const customRuleSet = customRuleSets.find((item) => item.id === rule.id);
+              const customRuleSetTargetName = customRuleSet
+                ? resolveProxyGroupTargetName(customRuleSet.target, {
+                    moduleNames,
+                    customProxyGroups: activeCustomProxyGroups,
+                  })
+                : "";
               const belongsToCustom = customRuleSet
                 ? activeCustomProxyGroups.find(
                     (g) =>
-                      g.name ===
-                      resolveProxyGroupTargetName(customRuleSet.target, {
-                        moduleNames,
-                        customProxyGroups: activeCustomProxyGroups,
-                      }),
+                      g.name === customRuleSetTargetName,
                   )
                 : null;
+              const belongsToBuiltinPolicy =
+                customRuleSetTargetName === "DIRECT" || customRuleSetTargetName === "REJECT"
+                  ? customRuleSetTargetName
+                  : "";
               const isModuleEnabled = belongsToModule
                 ? enabledProxyGroups.includes(belongsToModule.id)
                 : false;
@@ -213,6 +304,39 @@ export function ProxyGroupsRulesLibrary() {
                         开启代理组
                       </Button>
                     )}
+                  </div>
+                );
+              }
+
+              if (belongsToBuiltinPolicy) {
+                return (
+                  <div
+                    key={rule.id}
+                    className="flex items-center gap-1.5 px-1.5 py-1.5 rounded transition-colors bg-green-500/10 border border-green-500/30"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] font-medium truncate text-white">
+                          {getRuleDisplayName(rule)}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] px-1 py-0 text-white/50"
+                        >
+                          {rule.behavior === "ipcidr" ? "IP" : "域名"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[9px] text-white/50">属于</span>
+                        <span className="text-[9px] font-medium text-indigo-400">
+                          {belongsToBuiltinPolicy}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge className="text-[9px] px-1.5 py-0 bg-green-500/20 text-green-400 border-green-500/30">
+                      <Check className="h-2.5 w-2.5 mr-0.5" />
+                      已添加
+                    </Badge>
                   </div>
                 );
               }
@@ -391,6 +515,18 @@ export function ProxyGroupsRulesLibrary() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem
+                    value="direct:DIRECT"
+                    className="text-xs"
+                  >
+                    DIRECT
+                  </SelectItem>
+                  <SelectItem
+                    value="reject:REJECT"
+                    className="text-xs"
+                  >
+                    REJECT
+                  </SelectItem>
+                  <SelectItem
                     value="__label_builtin__"
                     className="text-xs"
                     disabled
@@ -443,6 +579,16 @@ export function ProxyGroupsRulesLibrary() {
                   };
 
                   const parseTarget = (raw: string) => {
+                    if (raw === "direct:DIRECT")
+                      return {
+                        kind: "direct" as const,
+                        id: "DIRECT",
+                      };
+                    if (raw === "reject:REJECT")
+                      return {
+                        kind: "reject" as const,
+                        id: "REJECT",
+                      };
                     if (raw.startsWith("module:"))
                       return {
                         kind: "module" as const,
@@ -463,6 +609,7 @@ export function ProxyGroupsRulesLibrary() {
                       ? visibleProxyGroupModules.find((m) => m.id === target.id)
                       : null;
                   if (target.kind === "module" && !targetModule) return;
+                  if (target.kind === "custom" && !activeCustomProxyGroups.some((g) => g.id === target.id)) return;
                   const usedRuleIds = new Map<string, string>();
                   for (const m of visibleProxyGroupModules) {
                     const groupName = resolveModuleFullName(m);
@@ -496,7 +643,11 @@ export function ProxyGroupsRulesLibrary() {
                   }
 
                   const targetDisplayName =
-                    target.kind === "custom"
+                    target.kind === "direct"
+                      ? "DIRECT"
+                      : target.kind === "reject"
+                        ? "REJECT"
+                        : target.kind === "custom"
                       ? activeCustomProxyGroups.find((g) => g.id === target.id)
                           ?.name || ""
                       : targetModule
@@ -533,9 +684,10 @@ export function ProxyGroupsRulesLibrary() {
                   let skippedExistingCount = 0;
                   let skippedInvalidCount = 0;
 
-                  if (target.kind === "custom") {
+                  if (target.kind === "custom" || target.kind === "direct" || target.kind === "reject") {
                     const group = activeCustomProxyGroups.find((g) => g.id === target.id);
-                    if (!group) return;
+                    const targetId = target.kind === "direct" ? "DIRECT" : target.kind === "reject" ? "REJECT" : group?.id;
+                    if (!targetId) return;
                     const existing = new Set(customRuleSets.map((r) => r.id));
                     const rulesToAdd = selectedRules
                       .filter((r) => !existing.has(r.id))
@@ -553,7 +705,7 @@ export function ProxyGroupsRulesLibrary() {
                     skippedExistingCount =
                       selectedRules.length - rulesToAdd.length;
                     if (rulesToAdd.length > 0) {
-                      addModuleRules(group.id, rulesToAdd);
+                      addModuleRules(targetId, rulesToAdd);
                       addedCount = rulesToAdd.length;
                     }
                   } else {
@@ -652,6 +804,171 @@ export function ProxyGroupsRulesLibrary() {
             </div>
           </div>
         )}
+
+        <div className="space-y-2 rounded border border-white/10 bg-white/[0.04] p-2">
+          <div className="flex min-h-5 items-center gap-2">
+            <span className="text-xs font-medium text-white/75">
+              方法二：手动添加远程规则集
+            </span>
+          </div>
+          <div className="grid min-w-0 grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)] gap-1.5">
+            <Input
+              value={manualRuleSetId}
+              onChange={(event) => setManualRuleSetId(event.target.value)}
+              placeholder="规则集 ID（可选）"
+              className="h-7 min-w-0 border-white/10 bg-white/5 text-xs"
+            />
+            <Input
+              value={manualRuleSetName}
+              onChange={(event) => setManualRuleSetName(event.target.value)}
+              placeholder="显示名称（可选）"
+              className="h-7 min-w-0 border-white/10 bg-white/5 text-xs"
+            />
+          </div>
+          <Input
+            value={manualRuleSetPath}
+            onChange={(event) => {
+              const value = event.target.value;
+              setManualRuleSetPath(value);
+              const normalizedPath = normalizeRuleSetPathInput(value);
+              if (normalizedPath) setManualRuleSetFormat(inferRuleSetFormatFromPath(normalizedPath));
+            }}
+            placeholder="Remote URL or path, e.g. https://example.com/rules.yaml"
+            className="h-7 min-w-0 border-white/10 bg-white/5 font-mono text-xs"
+          />
+          <div className="grid min-w-0 grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1fr)_auto_auto] items-center gap-1.5">
+            <Select
+              value={manualRuleSetBehavior}
+              onValueChange={(value) => {
+                const behavior: RuleSetBehavior =
+                  value === "classical" ? "classical" : value === "ipcidr" ? "ipcidr" : "domain";
+                setManualRuleSetBehavior(behavior);
+                setManualRuleSetNoResolve(behavior === "ipcidr");
+              }}
+            >
+              <SelectTrigger className="h-7 min-w-0 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="domain" className="text-xs">
+                  域名
+                </SelectItem>
+                <SelectItem value="ipcidr" className="text-xs">
+                  IP
+                </SelectItem>
+                <SelectItem value="classical" className="text-xs">
+                  classical
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={manualRuleSetFormat}
+              onValueChange={(value) => {
+                setManualRuleSetFormat(
+                  value === "mrs" || value === "text" || value === "yaml" ? value : "yaml"
+                );
+              }}
+            >
+              <SelectTrigger className="h-7 min-w-0 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yaml" className="text-xs">
+                  yaml
+                </SelectItem>
+                <SelectItem value="text" className="text-xs">
+                  text
+                </SelectItem>
+                <SelectItem value="mrs" className="text-xs">
+                  mrs
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={manualRuleSetTarget} onValueChange={setManualRuleSetTarget}>
+              <SelectTrigger className="h-7 min-w-0 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {addTargetOptions.map((target) => (
+                  <SelectItem key={target.value} value={target.value} className="text-xs">
+                    {target.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex h-7 shrink-0 items-center gap-1 rounded border border-white/10 bg-white/5 px-2">
+              <Switch
+                aria-label="远程规则集 no-resolve"
+                checked={manualRuleSetNoResolve}
+                onCheckedChange={setManualRuleSetNoResolve}
+              />
+              <span className="text-[10px] text-white/50">no-resolve</span>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-7 shrink-0 px-3 text-[10px]"
+              onClick={() => {
+                const path = normalizeRuleSetPathInput(manualRuleSetPath);
+                if (!path || !isValidRuleSetPathOrUrl(path)) {
+                  toast({ title: "规则集 URL 或路径无效", variant: "warning" });
+                  return;
+                }
+                const target = parseAddRuleSetTarget(manualRuleSetTarget);
+                if (!target) {
+                  toast({ title: "请选择目标策略", variant: "warning" });
+                  return;
+                }
+                const id = sanitizeRuleSetId(manualRuleSetId) || inferRuleSetId(path, manualRuleSetName);
+                if (!id) {
+                  toast({ title: "规则集 ID 无效", variant: "warning" });
+                  return;
+                }
+                if (customRuleSets.some((ruleSet) => ruleSet.id === id)) {
+                  toast({ title: "规则集已存在", description: "请换一个规则集 ID。", variant: "warning" });
+                  return;
+                }
+                const behavior: RuleSetBehavior =
+                  manualRuleSetBehavior === "classical"
+                    ? "classical"
+                    : manualRuleSetBehavior === "ipcidr" || path.toLowerCase().startsWith("geoip/")
+                      ? "ipcidr"
+                      : "domain";
+                const format = normalizeRuleSetFormat(manualRuleSetFormat, path);
+                if (!isValidRuleSetBehaviorFormat(behavior, format)) {
+                  toast({ title: "classical rule-set cannot use mrs format", variant: "warning" });
+                  return;
+                }
+                addModuleRules(targetIdForAddRuleSet(target), [
+                  {
+                    id,
+                    name: manualRuleSetName.trim() || id,
+                    behavior,
+                    format,
+                    path,
+                    ...(manualRuleSetNoResolve || behavior === "ipcidr" ? { noResolve: true } : {}),
+                  },
+                ]);
+                interactions.ruleAdded?.({
+                  source: "manual",
+                  kind: "ruleset",
+                });
+                toast({ title: "已添加远程规则集" });
+                setManualRuleSetId("");
+                setManualRuleSetName("");
+                setManualRuleSetPath("");
+                setManualRuleSetBehavior("domain");
+                setManualRuleSetFormat("yaml");
+                setManualRuleSetTarget("direct:DIRECT");
+                setManualRuleSetNoResolve(false);
+              }}
+              disabled={!manualRuleSetPath.trim()}
+            >
+              添加规则集
+            </Button>
+          </div>
+        </div>
 
         <ProxyGroupsAddedRuleSets
           showSearchHint={!ruleSearchKeyword && selectedRules.length === 0}

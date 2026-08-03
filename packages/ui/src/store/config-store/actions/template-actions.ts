@@ -1,5 +1,6 @@
 import { getBuiltinTemplateId } from "@subboost/core/templates/builtin";
 import { TEMPLATES } from "@subboost/core/templates";
+import { DEFAULT_SUBBOOST_CONFIG, buildDefaultSubBoostTemplateConfig } from "@subboost/core/config/defaults";
 import { ensureCustomRulesHaveIds } from "@subboost/core/rules/custom-rule-utils";
 import { normalizePersistedRuleOrder } from "@subboost/core/generator/rules";
 import { PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
@@ -39,6 +40,54 @@ export function createTemplateActions(
 ): TemplateActions {
   return {
     setTemplate: (template) => {
+      if (template === "my-routing") {
+        const config = buildDefaultSubBoostTemplateConfig(template);
+        setAndGenerateConfig((state) => {
+          const ruleModel = normalizeRuleModelFromConfig(config);
+          const nextRuleOrder = normalizePersistedRuleOrder({
+            enabledModules: config.enabledProxyGroups,
+            customRules: config.customRules,
+            customRuleSets: ruleModel.customRuleSets,
+            customProxyGroups: ruleModel.customProxyGroups,
+            builtinRuleEdits: ruleModel.builtinRuleEdits,
+            proxyGroupNameOverrides: config.proxyGroupNameOverrides,
+            experimentalCnUseCnRuleSet: config.experimentalCnUseCnRuleSet,
+            cnIpNoResolve: config.cnIpNoResolve,
+            ruleOrder: config.ruleOrder,
+          });
+          return {
+            template,
+            enabledProxyGroups: config.enabledProxyGroups,
+            hiddenProxyGroups: config.hiddenProxyGroups ?? [],
+            appliedTemplateId: getBuiltinTemplateId(template),
+            customProxyGroups: ruleModel.customProxyGroups,
+            proxyGroupAdvanced: config.proxyGroupAdvanced ?? {},
+            proxyGroupAdvancedModeEnabled: resolveProxyGroupAdvancedModeEnabled({
+              proxyGroupAdvancedModeEnabled: config.proxyGroupAdvancedModeEnabled,
+              customProxyGroups: ruleModel.customProxyGroups,
+              proxyGroupAdvanced: config.proxyGroupAdvanced,
+            }),
+            customRules: ensureCustomRulesHaveIds(config.customRules),
+            customRuleSets: ruleModel.customRuleSets,
+            builtinRuleEdits: ruleModel.builtinRuleEdits,
+            ruleOrder: nextRuleOrder,
+            fallbackPolicyTarget: config.fallbackPolicyTarget ?? state.fallbackPolicyTarget,
+            cnIpNoResolve:
+              typeof config.cnIpNoResolve === "boolean" ? config.cnIpNoResolve : state.cnIpNoResolve,
+            experimentalCnUseCnRuleSet:
+              typeof config.experimentalCnUseCnRuleSet === "boolean"
+                ? config.experimentalCnUseCnRuleSet
+                : state.experimentalCnUseCnRuleSet,
+            dialerProxyGroups: config.dialerProxyGroups,
+            proxyGroupNameOverrides: config.proxyGroupNameOverrides ?? {},
+            testUrl: config.testUrl,
+            testInterval: config.testInterval,
+            moduleRuleEditWarningAccepted: false,
+          };
+        });
+        return;
+      }
+
       const templateConfig = TEMPLATES[template];
       setAndGenerateConfig(() => ({
         template,
@@ -49,6 +98,7 @@ export function createTemplateActions(
         customRuleSets: [],
         builtinRuleEdits: {},
         ruleOrder: [],
+        fallbackPolicyTarget: template === "blank" ? "DIRECT" : DEFAULT_SUBBOOST_CONFIG.fallbackPolicyTarget,
         moduleRuleEditWarningAccepted: false,
       }));
     },
@@ -152,6 +202,10 @@ export function createTemplateActions(
           moduleRuleEditWarningAccepted: false,
           customRules: nextCustomRules,
           ruleOrder: nextRuleOrder,
+          fallbackPolicyTarget:
+            config.fallbackPolicyTarget !== undefined
+              ? config.fallbackPolicyTarget
+              : state.fallbackPolicyTarget,
           cnIpNoResolve:
             typeof config.cnIpNoResolve === "boolean" ? config.cnIpNoResolve : state.cnIpNoResolve,
           experimentalCnUseCnRuleSet:

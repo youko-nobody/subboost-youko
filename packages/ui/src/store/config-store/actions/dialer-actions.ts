@@ -18,11 +18,13 @@ export function createDialerActions(
   return {
     addDialerProxyGroup: (group: Omit<DialerProxyGroup, "id">) => {
       const id = `dialer-${Date.now()}`;
+      const { icon: rawIcon, ...restGroup } = group;
       setAndGenerateConfig((state) => ({
         dialerProxyGroups: [
           ...state.dialerProxyGroups,
           {
-            ...group,
+            ...restGroup,
+            ...(typeof rawIcon === "string" && rawIcon.trim() ? { icon: rawIcon.trim() } : {}),
             enabled: group.enabled ?? true,
             id,
           },
@@ -47,9 +49,16 @@ export function createDialerActions(
 
     updateDialerProxyGroup: (id: string, group: Partial<DialerProxyGroup>) => {
       setAndGenerateConfig((state) => ({
-        dialerProxyGroups: state.dialerProxyGroups.map((g) =>
-          g.id === id ? { ...g, ...group } : g
-        ),
+        dialerProxyGroups: state.dialerProxyGroups.map((g) => {
+          if (g.id !== id) return g;
+          const next = { ...g, ...group };
+          if ("icon" in group) {
+            const icon = typeof group.icon === "string" ? group.icon.trim() : "";
+            if (icon) next.icon = icon;
+            else delete next.icon;
+          }
+          return next;
+        }),
       }));
     },
 

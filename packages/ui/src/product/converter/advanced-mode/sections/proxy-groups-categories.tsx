@@ -31,6 +31,7 @@ import { useConfigStore, type RuleSetDraft } from "@subboost/ui/store/config-sto
 import {
   buildManualRuleTargets,
   listCustomRulesForTarget,
+  type ProxyGroupRuleTargetOption,
 } from "./proxy-group-rule-targets";
 import { ProxyGroupsCustomGroupsPanel } from "./proxy-groups-custom-groups-panel";
 import { ProxyGroupsCustomRoutingRules } from "./proxy-groups-custom-routing-rules";
@@ -42,6 +43,12 @@ import { findGroupListenerBinding } from "./group-listener-settings";
 const PROXY_GROUP_SECTION_LABEL_ROW_CLASS = "flex min-h-7 items-center gap-2";
 const PROXY_GROUP_SECTION_LABEL_CLASS = "text-xs text-white/50";
 const CUSTOM_CATEGORY_ID = "custom";
+
+function toConfigRuleTarget(target: ProxyGroupRuleTargetOption) {
+  if (target.kind === "direct") return "DIRECT";
+  if (target.kind === "reject") return "REJECT";
+  return { kind: target.kind, id: target.id };
+}
 
 export function ProxyGroupsCategories() {
   const {
@@ -273,6 +280,14 @@ export function ProxyGroupsCategories() {
         const targetModuleId = moduleNameToId.get(editTarget);
         if (targetModuleId) {
           pushRuleSetForTarget(targetModuleId, {
+            id: sourceRule.id,
+            name: sourceRule.name,
+            behavior: sourceRule.behavior,
+            path: sourceRule.path,
+            ...(sourceRule.noResolve ? { noResolve: true } : {}),
+          });
+        } else if (editTarget === "DIRECT" || editTarget === "REJECT") {
+          pushRuleSetForTarget(editTarget, {
             id: sourceRule.id,
             name: sourceRule.name,
             behavior: sourceRule.behavior,
@@ -590,7 +605,10 @@ export function ProxyGroupsCategories() {
                               }
                               onAddRulesToModule={(moduleId, rules) => {
                                 addModuleRules(moduleId, rules);
-                                if (!enabledProxyGroups.includes(moduleId)) {
+                                if (
+                                  PROXY_GROUP_MODULES.some((item) => item.id === moduleId) &&
+                                  !enabledProxyGroups.includes(moduleId)
+                                ) {
                                   toggleProxyGroup(moduleId);
                                 }
                               }}
@@ -604,7 +622,7 @@ export function ProxyGroupsCategories() {
                                 moveModuleRule(module.id, ruleId, target)
                               }
                               onMoveManualRule={(ruleId, target) =>
-                                updateCustomRule(ruleId, { target: { kind: target.kind, id: target.id } })
+                                updateCustomRule(ruleId, { target: toConfigRuleTarget(target) })
                               }
                               onRemoveManualRule={removeCustomRule}
                               onRestoreRule={(ruleId) =>

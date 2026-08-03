@@ -9,12 +9,13 @@
 /**
  * 分流代理组规则
  */
-import type { ProxyGroupGroupType } from "@subboost/core/types/config";
+import type { ProxyGroupGroupType, RuleSetBehavior, RuleSetFormat } from "@subboost/core/types/config";
 
 export interface ProxyGroupRule {
   id: string;
   name: string;
-  behavior: "domain" | "ipcidr";
+  behavior: RuleSetBehavior;
+  format?: RuleSetFormat;
   path: string;
   noResolve?: boolean;
 }

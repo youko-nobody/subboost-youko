@@ -23,6 +23,7 @@ import {
   normalizeRuleSetPathInput,
   parseRuleSetTargetValue,
   type CustomRoutingRuleSetItem,
+  type CustomRoutingRuleSetTarget,
 } from "@subboost/core/rules/custom-routing-rule-sets";
 import {
   useConfigStore,
@@ -103,6 +104,14 @@ export function ProxyGroupsAddedRuleSets({
 
   const targetOptions = React.useMemo(
     () => [
+      {
+        value: getRuleSetTargetValue({ kind: "direct", id: "DIRECT" }),
+        label: "DIRECT",
+      },
+      {
+        value: getRuleSetTargetValue({ kind: "reject", id: "REJECT" }),
+        label: "REJECT",
+      },
       ...visibleProxyGroupModules.map((module) => ({
         value: getRuleSetTargetValue({ kind: "module", id: module.id }),
         label: resolveProxyGroupModuleName(
@@ -139,8 +148,21 @@ export function ProxyGroupsAddedRuleSets({
   const hasConflict = React.useCallback(
     (
       item: CustomRoutingRuleSetItem,
-      target: { kind: "module" | "custom"; id: string },
+      target: Pick<CustomRoutingRuleSetTarget, "kind" | "id">,
     ) => {
+      if (target.kind === "direct" || target.kind === "reject") {
+        const targetName = target.kind === "direct" ? "DIRECT" : "REJECT";
+        return customRuleSets.some(
+          (ruleSet) =>
+            ruleSet.id === item.id &&
+            resolveProxyGroupTargetName(ruleSet.target, {
+              moduleNames,
+              customProxyGroups,
+            }) === targetName &&
+            item.target.value !== getRuleSetTargetValue(target),
+        );
+      }
+
       if (target.kind === "module") {
         const proxyModule = visibleProxyGroupModules.find(
           (entry) => entry.id === target.id,
@@ -233,6 +255,7 @@ export function ProxyGroupsAddedRuleSets({
       id: item.id,
       name: item.name,
       behavior: item.behavior,
+      ...(item.format ? { format: item.format } : {}),
       path,
       ...(draft.noResolve ? { noResolve: true } : {}),
     };

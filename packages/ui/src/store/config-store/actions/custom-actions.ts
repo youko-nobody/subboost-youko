@@ -142,6 +142,7 @@ export function createCustomActions(
           id,
           name: group.name,
           emoji: group.emoji,
+          ...(typeof group.icon === "string" && group.icon.trim() ? { icon: group.icon.trim() } : {}),
           ...(group.enabled === false ? { enabled: false } : {}),
           ...(typeof group.description === "string" ? { description: group.description.trim() } : {}),
           ...(group.memberSource === "filtered-nodes" ? { memberSource: "filtered-nodes" as const } : {}),
@@ -233,6 +234,11 @@ export function createCustomActions(
           if (g.id !== id) return g;
           const next = { ...g, ...group };
           if (typeof group.enabled === "boolean") next.enabled = group.enabled;
+          if ("icon" in group) {
+            const icon = typeof group.icon === "string" ? group.icon.trim() : "";
+            if (icon) next.icon = icon;
+            else delete next.icon;
+          }
           if (group.advanced) next.advanced = normalizeProxyGroupAdvancedConfig(group.advanced);
           if (typeof group.description === "string") next.description = group.description.trim();
           return next;

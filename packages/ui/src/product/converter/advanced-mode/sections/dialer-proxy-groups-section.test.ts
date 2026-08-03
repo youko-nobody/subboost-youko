@@ -62,6 +62,8 @@ vi.mock("lucide-react", () => ({
   Check: () => null,
   ChevronDown: () => null,
   ChevronRight: () => null,
+  ExternalLink: () => null,
+  ImageOff: () => null,
   Link: () => null,
   Pencil: () => null,
   Plus: () => null,
@@ -223,6 +225,12 @@ function findIntrinsics(type: string, predicate: (props: any) => boolean) {
     .map((item: any) => item.props);
 }
 
+function findCustomDialerAddButton() {
+  return mocks.captures.buttons.find(
+    (props: any) => props.variant === "ghost" && String(props.className).includes("h-7 text-xs px-2"),
+  );
+}
+
 describe("DialerProxyGroupsSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -293,15 +301,23 @@ describe("DialerProxyGroupsSection", () => {
   });
 
   it("adds custom groups, rejects duplicates, and records interactions", () => {
-    const { setters } = renderSection({ 1: true, 2: { emoji: "🧩", name: "New Dialer" } });
+    const { setters } = renderSection({
+      1: true,
+      2: { emoji: "🧩", name: "New Dialer" },
+      8: " https://icons.example/dialer.png ",
+    });
 
     const customNameInput = mocks.captures.inputs.find((props: any) => props.placeholder === "自定义名称");
     customNameInput.onChange({ target: { value: "Typed" } });
     expect(setters[2]).toHaveBeenCalledWith({ emoji: "🧩", name: "Typed" });
+    const customIconInput = mocks.captures.inputs.find((props: any) => props["aria-label"] === "新中转组 远程图标 URL");
+    customIconInput.onChange({ target: { value: "https://icons.example/next.png" } });
+    expect(setters[8]).toHaveBeenCalledWith("https://icons.example/next.png");
     customNameInput.onKeyDown({ key: "Enter" });
     expect(mocks.store.addDialerProxyGroup).toHaveBeenCalledWith({
       name: "🧩 New Dialer",
       enabled: true,
+      icon: "https://icons.example/dialer.png",
       relayNodes: [],
       targetNodes: [],
       type: "select",
@@ -309,16 +325,17 @@ describe("DialerProxyGroupsSection", () => {
     expect(mocks.interactions.proxyGroupAdded).toHaveBeenCalledWith({ groupType: "dialer_select" });
     expect(setters[1]).toHaveBeenCalledWith(false);
     expect(setters[2]).toHaveBeenCalledWith({ emoji: "🔗", name: "" });
+    expect(setters[8]).toHaveBeenCalledWith("");
 
     renderSection({ 1: true, 2: { emoji: "", name: "Custom" } });
-    const addButton = mocks.captures.buttons.at(-1);
+    const addButton = findCustomDialerAddButton();
     addButton.onClick();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "代理组名称已存在，请换一个名称。", variant: "warning" }));
 
     renderSection({ 1: true, 2: { emoji: "🧩", name: "   " } });
-    expect(mocks.captures.buttons.at(-1)).toEqual(expect.objectContaining({ disabled: true }));
+    expect(findCustomDialerAddButton()).toEqual(expect.objectContaining({ disabled: true }));
     mocks.store.addDialerProxyGroup.mockClear();
-    mocks.captures.buttons.at(-1).onClick();
+    findCustomDialerAddButton().onClick();
     expect(mocks.store.addDialerProxyGroup).not.toHaveBeenCalled();
   });
 
@@ -333,7 +350,7 @@ describe("DialerProxyGroupsSection", () => {
     ];
 
     renderSection({ 1: true, 2: { emoji: "", name: "Brand New" } });
-    mocks.captures.buttons.at(-1).onClick();
+    findCustomDialerAddButton().onClick();
 
     expect(mocks.store.addDialerProxyGroup).toHaveBeenCalledWith({
       name: "Brand New",
@@ -389,10 +406,11 @@ describe("DialerProxyGroupsSection", () => {
 
   it("toggles group expansion and fixes conflicts when enabling disabled groups", () => {
     const { setters } = renderSection({ 0: new Set(["g-a"]) });
-    const editButton = mocks.captures.buttons.find((props: any) => props.title === "改名");
+    const editButton = mocks.captures.buttons.find((props: any) => props.title === "编辑名称/图标");
     editButton.onClick({ stopPropagation: vi.fn() });
     expect(setters[3]).toHaveBeenCalledWith("g-a");
     expect(setters[4]).toHaveBeenCalledWith({ emoji: "", name: "Group A" });
+    expect(setters[9]).toHaveBeenCalledWith("");
 
     mocks.captures.switches[0].onCheckedChange(false);
     expect(mocks.store.updateDialerProxyGroup).toHaveBeenCalledWith("g-a", { enabled: false });

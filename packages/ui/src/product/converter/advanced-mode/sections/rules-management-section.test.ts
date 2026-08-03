@@ -40,6 +40,13 @@ vi.mock("@subboost/ui/components/ui/confirm-dialog", () => ({ confirmDialog: moc
 vi.mock("@subboost/ui/components/ui/input", () => ({
   Input: (props: any) => React.createElement("input", props),
 }));
+vi.mock("@subboost/ui/components/ui/select", () => ({
+  Select: (props: any) => React.createElement("select", { value: props.value, onChange: props.onValueChange }, props.children),
+  SelectContent: (props: any) => React.createElement(React.Fragment, null, props.children),
+  SelectItem: (props: any) => React.createElement("option", { value: props.value }, props.children),
+  SelectTrigger: (props: any) => React.createElement(React.Fragment, null, props.children),
+  SelectValue: () => React.createElement("span", null),
+}));
 vi.mock("@subboost/ui/components/ui/switch", () => ({
   Switch: (props: any) => React.createElement("button", props),
 }));
@@ -89,11 +96,14 @@ function renderSection(overrides: Record<string, unknown> = {}) {
     customProxyGroups: [],
     customRuleSets: [],
     builtinRuleEdits: {},
+    hiddenProxyGroups: [],
     proxyGroupNameOverrides: {},
     cnIpNoResolve: true,
     experimentalCnUseCnRuleSet: true,
     ruleOrder: ["custom:one"],
+    fallbackPolicyTarget: "DIRECT",
     setRuleOrder: vi.fn(),
+    setFallbackPolicyTarget: vi.fn(),
     ...overrides,
   };
   stateMock.setter.mockClear();
@@ -369,6 +379,22 @@ describe("RulesManagementSection", () => {
     expect(collectText(header.props.badge)).toContain("可调 2 / 全部 3");
   });
 
+  it("lets the final MATCH target point at a custom group", () => {
+    const setFallbackPolicyTarget = vi.fn();
+    const tree = renderSection({
+      customProxyGroups: [{ id: "final", name: "FINAL", emoji: "", groupType: "select" }],
+      fallbackPolicyTarget: { kind: "custom", id: "final" },
+      setFallbackPolicyTarget,
+    });
+    const selects = collectElements(tree, (element) => typeof element.props.onValueChange === "function");
+
+    expect(mocks.buildGeneratedRuleEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackPolicyTarget: "FINAL" })
+    );
+    selects[0].props.onValueChange("custom:final");
+    expect(setFallbackPolicyTarget).toHaveBeenCalledWith({ kind: "custom", id: "final" });
+  });
+
   it("keeps collapsed sections lightweight", () => {
     mocks.store = {
       enabledProxyGroups: [],
@@ -376,11 +402,14 @@ describe("RulesManagementSection", () => {
       customProxyGroups: [],
       customRuleSets: [],
       builtinRuleEdits: {},
+      hiddenProxyGroups: [],
       proxyGroupNameOverrides: {},
       cnIpNoResolve: false,
       experimentalCnUseCnRuleSet: false,
       ruleOrder: [],
+      fallbackPolicyTarget: "DIRECT",
       setRuleOrder: vi.fn(),
+      setFallbackPolicyTarget: vi.fn(),
     };
     const tree = RulesManagementSection({ isExpanded: false, onToggle: vi.fn() });
     const header = collectElements(tree, (element) => element.props.title === "规则管理")[0];

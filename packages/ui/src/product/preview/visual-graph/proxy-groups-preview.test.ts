@@ -15,6 +15,12 @@ vi.mock("lucide-react", () => ({
   Zap: () => null,
 }));
 vi.mock("@subboost/ui/lib/utils", () => ({ cn: (...parts: unknown[]) => parts.filter(Boolean).join(" ") }));
+vi.mock("@subboost/ui/components/ui/safe-image", () => ({
+  SafeImage: (props: any) =>
+    props.src
+      ? React.createElement("img", { src: props.src, alt: props.alt ?? "" })
+      : props.fallback,
+}));
 
 import { ProxyGroupsPreview, type VisualDisplayGroup } from "./proxy-groups-preview";
 
@@ -23,6 +29,7 @@ const groups: VisualDisplayGroup[] = [
     id: "module:select",
     name: "🚀 节点选择",
     emoji: "🚀",
+    icon: "https://icons.example/select.png",
     groupType: "select",
     category: "core",
     rules: [{ id: "r1", name: "Rule One", behavior: "domain" }],
@@ -141,6 +148,7 @@ describe("ProxyGroupsPreview", () => {
     const html = renderPreview();
 
     expect(html).toContain("节点选择");
+    expect(html).toContain("https://icons.example/select.png");
     expect(html).toContain("默认：直连");
     expect(html).toContain("默认：拒绝");
     expect(html).toContain("默认：Hong Kong");

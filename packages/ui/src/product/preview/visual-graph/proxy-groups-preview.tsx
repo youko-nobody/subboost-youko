@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 import type { ProxyGroupGroupType } from "@subboost/core/types/config";
 import { cn } from "@subboost/ui/lib/utils";
+import { SafeImage } from "@subboost/ui/components/ui/safe-image";
 
 export type VisualDisplayGroup = {
   id: string;
   name: string;
   emoji: string;
+  icon?: string;
   groupType: string;
   strategy?: string;
   category: string;
@@ -95,6 +97,11 @@ function getStrategyLabel(strategy: string | undefined) {
     default:
       return strategy;
   }
+}
+
+function getValidIconSrc(value: string | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : undefined;
 }
 
 function getGroupColor(category: string) {
@@ -336,7 +343,15 @@ export function ProxyGroupsPreview({
                 <Box className="h-3.5 w-3.5 text-white/50" />
               )}
 
-              <span className="text-sm">{group.emoji}</span>
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/5 text-sm">
+                <SafeImage
+                  src={getValidIconSrc(group.icon)}
+                  alt=""
+                  className="h-full w-full object-contain"
+                  referrerPolicy="no-referrer"
+                  fallback={<span>{group.emoji}</span>}
+                />
+              </span>
               <span className="text-xs font-medium flex-1 min-w-0 flex flex-wrap items-center gap-x-2">
                 <span className="truncate">{getDisplayName(group.name)}</span>
                 {isDialerGroup && (

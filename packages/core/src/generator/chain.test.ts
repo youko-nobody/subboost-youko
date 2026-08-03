@@ -40,6 +40,7 @@ describe("dialer proxy chain helpers", () => {
           dialerGroup({
             id: "auto-relay",
             name: "Auto Relay",
+            icon: " https://icons.example/auto.png ",
             type: "url-test",
             relayNodes: ["Relay B"],
           }),
@@ -95,6 +96,7 @@ describe("dialer proxy chain helpers", () => {
         url: "https://probe.example.com/204",
         interval: 120,
         lazy: true,
+        icon: "https://icons.example/auto.png",
       },
       {
         name: "Fallback Relay",

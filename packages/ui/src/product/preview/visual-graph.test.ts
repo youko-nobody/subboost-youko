@@ -160,9 +160,28 @@ describe("VisualGraph", () => {
     mocks.store = {
       nodes,
       enabledProxyGroups: ["select", "auto"],
-      dialerProxyGroups: [{ id: "d1", name: "Relay", enabled: true, relayNodes: ["Relay"], targetNodes: ["Beta"], type: "select" }],
+      dialerProxyGroups: [
+        {
+          id: "d1",
+          name: "Relay",
+          icon: "https://icons.example/dialer.png",
+          enabled: true,
+          relayNodes: ["Relay"],
+          targetNodes: ["Beta"],
+          type: "select",
+        },
+      ],
       customRules: [{ id: "manual" }],
-      customProxyGroups: [{ id: "custom-1", name: "🧩 Custom", emoji: "🧩", groupType: "load-balance", strategy: "round-robin" }],
+      customProxyGroups: [
+        {
+          id: "custom-1",
+          name: "🧩 Custom",
+          emoji: "🧩",
+          icon: "https://icons.example/custom.png",
+          groupType: "load-balance",
+          strategy: "round-robin",
+        },
+      ],
       customRuleSets: [],
       builtinRuleEdits: {},
       proxyGroupNameOverrides: {},
@@ -231,6 +250,12 @@ describe("VisualGraph", () => {
     expect(preview.displayGroups.find((group: any) => group.id === "module:auto").rules).toEqual([
       { id: "r1", name: "Rule One", behavior: "domain" },
     ]);
+    expect(preview.displayGroups.find((group: any) => group.id === "dialer:d1").icon).toBe(
+      "https://icons.example/dialer.png",
+    );
+    expect(preview.displayGroups.find((group: any) => group.id === "custom:custom-1").icon).toBe(
+      "https://icons.example/custom.png",
+    );
     expect(preview.defaultProxyByGroupName.get("🚀 节点选择")).toBe("DIRECT");
 
     preview.onToggleExpand("module:auto");

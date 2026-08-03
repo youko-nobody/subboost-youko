@@ -37,6 +37,10 @@ import {
   getProxyGroupTypeLabel,
   type ProxyGroupTypeMenuValue,
 } from "./proxy-group-type-menu";
+import {
+  ProxyGroupIconPreview,
+  ProxyGroupIconUrlEditor,
+} from "./proxy-group-icon-url-editor";
 
 function ModuleHintPopover({ moduleId }: { moduleId: string }) {
   const isGemini = moduleId === "gemini";
@@ -104,8 +108,11 @@ export function ProxyGroupsModuleCard({
   isEditing,
   editingName,
   editingDescription,
+  editingIcon,
+  icon,
   onChangeEditingName,
   onChangeEditingDescription,
+  onChangeEditingIcon,
   onStartEditing,
   onCancelEditing,
   onCommitEditing,
@@ -155,8 +162,11 @@ export function ProxyGroupsModuleCard({
   isEditing: boolean;
   editingName: string;
   editingDescription?: string;
+  editingIcon?: string;
+  icon?: string;
   onChangeEditingName: (value: string) => void;
   onChangeEditingDescription?: (value: string) => void;
+  onChangeEditingIcon?: (value: string) => void;
   onStartEditing: () => void;
   onCancelEditing: () => void;
   onCommitEditing: () => void;
@@ -178,7 +188,7 @@ export function ProxyGroupsModuleCard({
   onAddRulesToModule: (moduleId: string, rules: RuleSetDraft[]) => void;
   onAddRuleToCustomGroup: (groupId: string, rule: RuleSetDraft) => void;
   onRemoveExtraRule: (ruleId: string) => void;
-  onMoveRule: (ruleId: string, target: { kind: "module" | "custom"; id: string }) => void;
+  onMoveRule: (ruleId: string, target: { kind: "module" | "custom" | "direct" | "reject"; id: string }) => void;
   onMoveManualRule: (ruleId: string, target: ProxyGroupRuleTargetOption) => void;
   onRemoveManualRule: (index: number) => void;
   onRestoreRule: (ruleId: string) => void;
@@ -215,6 +225,12 @@ export function ProxyGroupsModuleCard({
           strategy ?? DEFAULT_LOAD_BALANCE_STRATEGY,
         )}`
       : getProxyGroupTypeLabel(effectiveGroupType);
+  const trimmedIcon = icon?.trim() ?? "";
+  const editButtonTitle = onChangeEditingIcon
+    ? "编辑名称/描述/图标"
+    : onChangeEditingDescription
+      ? "编辑名称/描述"
+      : "改名";
   const summaryItems = [
     { label: description ?? module.description ?? "", tone: "accent" as const },
     { label: `${totalRules} 规则`, tone: "success" as const },
@@ -290,28 +306,48 @@ export function ProxyGroupsModuleCard({
               <div
                 className={cn(
                   "min-w-0",
-                  onChangeEditingDescription
-                    ? "grid grid-cols-[minmax(5.75rem,1fr)_minmax(0,1.42fr)] gap-1"
+                  onChangeEditingDescription || onChangeEditingIcon
+                    ? "space-y-1.5"
                     : "flex-1",
                 )}
               >
-                <ProxyGroupNameEditor
-                  value={parseProxyGroupNameDraft(editingName, module.emoji)}
-                  onChange={(draft) => onChangeEditingName(buildProxyGroupName(draft))}
-                  namePlaceholder="代理组名称"
-                  allowEmptyEmoji={false}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") onCommitEditing();
-                    if (e.key === "Escape") onCancelEditing();
-                  }}
-                />
-                {onChangeEditingDescription && (
-                  <Input
-                    value={editingDescription ?? ""}
-                    placeholder="描述文本（默认: 自定义代理组）"
-                    className="h-7 min-w-0 border-white/10 bg-white/5 text-xs"
-                    onChange={(event) => onChangeEditingDescription(event.target.value)}
+                <div
+                  className={cn(
+                    "min-w-0",
+                    onChangeEditingDescription
+                      ? "grid grid-cols-[minmax(5.75rem,1fr)_minmax(0,1.2fr)] gap-1"
+                      : "flex-1",
+                  )}
+                >
+                  <ProxyGroupNameEditor
+                    value={parseProxyGroupNameDraft(editingName, module.emoji)}
+                    onChange={(draft) => onChangeEditingName(buildProxyGroupName(draft))}
+                    namePlaceholder="代理组名称"
+                    allowEmptyEmoji={!isCore}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") onCommitEditing();
+                      if (e.key === "Escape") onCancelEditing();
+                    }}
+                  />
+                  {onChangeEditingDescription && (
+                    <Input
+                      value={editingDescription ?? ""}
+                      placeholder="描述文本（默认: 自定义代理组）"
+                      className="h-7 min-w-0 border-white/10 bg-white/5 text-xs"
+                      onChange={(event) => onChangeEditingDescription(event.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") onCommitEditing();
+                        if (e.key === "Escape") onCancelEditing();
+                      }}
+                    />
+                  )}
+                </div>
+                {onChangeEditingIcon && (
+                  <ProxyGroupIconUrlEditor
+                    value={editingIcon ?? ""}
+                    onChange={onChangeEditingIcon}
+                    displayName={display.full}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") onCommitEditing();
                       if (e.key === "Escape") onCancelEditing();
@@ -343,6 +379,13 @@ export function ProxyGroupsModuleCard({
           ) : (
             <div className="proxy-group-module-header flex min-w-0 w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
               <div className="flex min-w-0 max-w-full items-center gap-2">
+                {onChangeEditingIcon && (
+                  <ProxyGroupIconPreview
+                    src={trimmedIcon}
+                    label={`${display.full} 图标预览`}
+                    className="h-6 w-6"
+                  />
+                )}
                 <span className="min-w-0 break-words text-sm font-medium text-white">
                   {display.full}
                 </span>
@@ -356,7 +399,8 @@ export function ProxyGroupsModuleCard({
                         e.stopPropagation();
                         onStartEditing();
                       }}
-                      title="改名"
+                      title={editButtonTitle}
+                      aria-label={editButtonTitle}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>

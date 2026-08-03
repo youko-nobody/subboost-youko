@@ -9,7 +9,7 @@ import { toast } from "@subboost/ui/components/ui/toaster";
 import { PROXY_GROUP_MODULES, type ProxyGroupModule } from "@subboost/core/generator/proxy-groups";
 import { resolveProxyGroupModuleName } from "@subboost/core/proxy-group-name";
 import { resolveProxyGroupTargetName } from "@subboost/core/proxy-group-targets";
-import { DEFAULT_LOAD_BALANCE_STRATEGY, type LoadBalanceStrategy, type ProxyGroupGroupType } from "@subboost/core/types/config";
+import { DEFAULT_LOAD_BALANCE_STRATEGY, type ProxyGroupGroupType } from "@subboost/core/types/config";
 import { useConfigStore } from "@subboost/ui/store/config-store";
 import { useProductInteractionAdapter } from "@subboost/ui/product/interactions";
 import {
@@ -29,7 +29,6 @@ import { ProxyGroupAdvancedPanel } from "./proxy-group-advanced-panel";
 import {
   buildProxyGroupName,
   parseProxyGroupNameDraft,
-  pickRandomEmoji,
   ProxyGroupNameEditor,
   toProxyGroupNameDraft,
   type ProxyGroupNameDraft,
@@ -37,6 +36,16 @@ import {
 import { ProxyGroupsModuleCard } from "./proxy-groups-module-card";
 import { GroupAdvancedSettingsDialog } from "./group-advanced-settings-dialog";
 import { findGroupListenerBinding } from "./group-listener-settings";
+import {
+  isValidOptionalHttpIconUrl,
+  ProxyGroupIconUrlEditor,
+} from "./proxy-group-icon-url-editor";
+
+function toConfigRuleTarget(target: ProxyGroupRuleTargetOption) {
+  if (target.kind === "direct") return "DIRECT";
+  if (target.kind === "reject") return "REJECT";
+  return { kind: target.kind, id: target.id };
+}
 
 export function ProxyGroupsCustomGroupsPanel({
   advancedMode = false,
@@ -70,7 +79,7 @@ export function ProxyGroupsCustomGroupsPanel({
 
   const [expandedCustomGroups, setExpandedCustomGroups] = React.useState<Set<string>>(new Set());
   const [newCustomGroupDraft, setNewCustomGroupDraft] = React.useState<ProxyGroupNameDraft>(() => ({
-    emoji: pickRandomEmoji(),
+    emoji: "",
     name: "",
   }));
   const [newCustomGroupDescription, setNewCustomGroupDescription] = React.useState("");
@@ -79,6 +88,8 @@ export function ProxyGroupsCustomGroupsPanel({
   const [editingCustomGroupDescription, setEditingCustomGroupDescription] = React.useState("");
   // 注意：新增 useState 追加在末尾，保持既有测试的 setter 索引稳定
   const [settingsGroupId, setSettingsGroupId] = React.useState<string | null>(null);
+  const [newCustomGroupIcon, setNewCustomGroupIcon] = React.useState("");
+  const [editingCustomGroupIcon, setEditingCustomGroupIcon] = React.useState("");
   const interactions = useProductInteractionAdapter();
   const listenerConflictState = React.useMemo(
     () => ({ dnsYaml, mixedPort, listenerPorts, groupListeners }),
@@ -125,6 +136,8 @@ export function ProxyGroupsCustomGroupsPanel({
   const ruleSetMoveTargets = React.useMemo<RuleSetMoveTarget[]>(() => {
     const hidden = new Set(hiddenProxyGroups);
     return [
+      { kind: "direct" as const, id: "DIRECT", name: "DIRECT" },
+      { kind: "reject" as const, id: "REJECT", name: "REJECT" },
       ...PROXY_GROUP_MODULES.filter((module) => !hidden.has(module.id)).map((module) => ({
         kind: "module" as const,
         id: module.id,
@@ -140,7 +153,7 @@ export function ProxyGroupsCustomGroupsPanel({
 
   const moveManualRule = React.useCallback(
     (item: { rule: { id: string }; index: number }, target: ProxyGroupRuleTargetOption) => {
-      updateCustomRule(item.rule.id, { target: { kind: target.kind, id: target.id } });
+      updateCustomRule(item.rule.id, { target: toConfigRuleTarget(target) });
     },
     [updateCustomRule],
   );
@@ -162,6 +175,26 @@ export function ProxyGroupsCustomGroupsPanel({
           )
         : null;
       if (!sourceGroup || !sourceRule) return;
+
+      if (target.kind === "direct" || target.kind === "reject") {
+        if (
+          state.customRuleSets.some(
+            (rule) =>
+              rule.id === sourceRule.id &&
+              resolveProxyGroupTargetName(rule.target, {
+                moduleNames,
+                customProxyGroups: state.customProxyGroups,
+              }) === target.name,
+          )
+        ) {
+          toast({
+            title: "规则集已存在",
+            description: "目标策略里已经有同名规则集，请先移除重复项。",
+            variant: "warning",
+          });
+          return;
+        }
+      }
 
       if (target.kind === "custom") {
         const targetGroup = state.customProxyGroups.find((group) => group && group.id === target.id);
@@ -195,18 +228,25 @@ export function ProxyGroupsCustomGroupsPanel({
   return (
     <div className="space-y-2">
       {/* 新建自定义分组 */}
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
-        <div className="grid min-w-0 grid-cols-[minmax(5.75rem,1fr)_minmax(0,1.47fr)] gap-1.5">
-          <ProxyGroupNameEditor
-            value={newCustomGroupDraft}
-            onChange={setNewCustomGroupDraft}
-            namePlaceholder="自定义分组名称"
-          />
-          <Input
-            value={newCustomGroupDescription}
-            onChange={(event) => setNewCustomGroupDescription(event.target.value)}
-            placeholder="描述文本（默认: 自定义代理组）"
-            className="h-7 min-w-0 border-white/10 bg-white/5 text-xs"
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-1.5">
+        <div className="min-w-0 space-y-1.5">
+          <div className="grid min-w-0 grid-cols-[minmax(5.75rem,1fr)_minmax(0,1.25fr)] gap-1.5">
+            <ProxyGroupNameEditor
+              value={newCustomGroupDraft}
+              onChange={setNewCustomGroupDraft}
+              namePlaceholder="自定义分组名称"
+            />
+            <Input
+              value={newCustomGroupDescription}
+              onChange={(event) => setNewCustomGroupDescription(event.target.value)}
+              placeholder="描述文本（默认: 自定义代理组）"
+              className="h-7 min-w-0 border-white/10 bg-white/5 text-xs"
+            />
+          </div>
+          <ProxyGroupIconUrlEditor
+            value={newCustomGroupIcon}
+            onChange={setNewCustomGroupIcon}
+            displayName="新自定义分组"
           />
         </div>
         <Button
@@ -218,6 +258,15 @@ export function ProxyGroupsCustomGroupsPanel({
             const full = buildProxyGroupName(draft);
             if (!full) return;
             const emoji = draft.emoji.trim();
+            const icon = newCustomGroupIcon.trim();
+            if (!isValidOptionalHttpIconUrl(icon)) {
+              toast({
+                title: "远程图标 URL 无效",
+                description: "图标地址需要以 http:// 或 https:// 开头。",
+                variant: "warning",
+              });
+              return;
+            }
 
             const all = new Set(getAllGroupNamesForUniqCheck());
             if (all.has(full)) {
@@ -232,11 +281,13 @@ export function ProxyGroupsCustomGroupsPanel({
               name: full,
               emoji,
               description: newCustomGroupDescription.trim(),
+              ...(icon ? { icon } : {}),
               groupType: "select",
             });
             interactions.proxyGroupAdded?.({ groupType: "select" });
-            setNewCustomGroupDraft({ emoji: pickRandomEmoji(emoji), name: "" });
+            setNewCustomGroupDraft({ emoji: "", name: "" });
             setNewCustomGroupDescription("");
+            setNewCustomGroupIcon("");
           }}
           title="新增"
         >
@@ -290,10 +341,19 @@ export function ProxyGroupsCustomGroupsPanel({
             };
 
             const commitCustomRename = () => {
-              const draft = parseProxyGroupNameDraft(editingCustomGroupName, group.emoji || "🧩");
+              const draft = parseProxyGroupNameDraft(editingCustomGroupName, group.emoji || "");
               const nextFull = buildProxyGroupName(draft);
               if (!nextFull) return;
               const emoji = draft.emoji.trim();
+              const icon = editingCustomGroupIcon.trim();
+              if (!isValidOptionalHttpIconUrl(icon)) {
+                toast({
+                  title: "远程图标 URL 无效",
+                  description: "图标地址需要以 http:// 或 https:// 开头。",
+                  variant: "warning",
+                });
+                return;
+              }
               const all = new Set(getAllGroupNamesForUniqCheck());
               all.delete(group.name);
               if (all.has(nextFull)) {
@@ -308,10 +368,12 @@ export function ProxyGroupsCustomGroupsPanel({
                 name: nextFull,
                 emoji,
                 description: editingCustomGroupDescription,
+                ...(icon || group.icon ? { icon } : {}),
               });
               setEditingCustomGroupId(null);
               setEditingCustomGroupName("");
               setEditingCustomGroupDescription("");
+              setEditingCustomGroupIcon("");
             };
 
             const rulesContent =
@@ -331,7 +393,7 @@ export function ProxyGroupsCustomGroupsPanel({
                             title="移动规则集"
                             ariaLabel={`移动 ${r.name} 规则集`}
                             targets={ruleSetMoveTargets}
-                            kinds={["module", "custom"]}
+                            kinds={["direct", "reject", "module", "custom"]}
                             currentTarget={{ kind: "custom", id: group.id, name: group.name }}
                             onMove={(target) => {
                               if (isRuleSetMoveTarget(target)) {
@@ -369,7 +431,7 @@ export function ProxyGroupsCustomGroupsPanel({
                             title="移动规则集"
                             ariaLabel={`移动 ${rule.name} 规则集`}
                             targets={ruleSetMoveTargets}
-                            kinds={["module", "custom"]}
+                            kinds={["direct", "reject", "module", "custom"]}
                             currentTarget={{ kind: "custom", id: group.id, name: group.name }}
                             onMove={(target) => {
                               if (isRuleSetMoveTarget(target)) {
@@ -407,7 +469,7 @@ export function ProxyGroupsCustomGroupsPanel({
             const cardModule: ProxyGroupModule = {
               id: group.id,
               name: group.name,
-              emoji: group.emoji || "🧩",
+              emoji: group.emoji || "",
               category: "other",
               description,
               groupType: group.groupType,
@@ -425,17 +487,22 @@ export function ProxyGroupsCustomGroupsPanel({
                 isEditing={isEditing}
                 editingName={editingCustomGroupName}
                 editingDescription={editingCustomGroupDescription}
+                icon={group.icon}
                 onChangeEditingName={setEditingCustomGroupName}
                 onChangeEditingDescription={setEditingCustomGroupDescription}
+                editingIcon={editingCustomGroupIcon}
+                onChangeEditingIcon={setEditingCustomGroupIcon}
                 onStartEditing={() => {
                   setEditingCustomGroupId(group.id);
                   setEditingCustomGroupName(group.name);
                   setEditingCustomGroupDescription(group.description ?? "");
+                  setEditingCustomGroupIcon(group.icon ?? "");
                 }}
                 onCancelEditing={() => {
                   setEditingCustomGroupId(null);
                   setEditingCustomGroupName("");
                   setEditingCustomGroupDescription("");
+                  setEditingCustomGroupIcon("");
                 }}
                 onCommitEditing={commitCustomRename}
                 onHide={async () => {
@@ -477,7 +544,7 @@ export function ProxyGroupsCustomGroupsPanel({
                 onRemoveExtraRule={() => undefined}
                 onMoveRule={() => undefined}
                 onMoveManualRule={(ruleId, target) =>
-                  updateCustomRule(ruleId, { target: { kind: target.kind, id: target.id } })
+                  updateCustomRule(ruleId, { target: toConfigRuleTarget(target) })
                 }
                 onRemoveManualRule={removeCustomRule}
                 onRestoreRule={() => undefined}

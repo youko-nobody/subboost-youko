@@ -207,6 +207,21 @@ const customItem = {
   },
 };
 
+const directItem = {
+  key: "custom-rule-set:rule-direct",
+  id: "rule-direct",
+  name: "Rule Direct",
+  behavior: "domain",
+  path: "geosite/rule-direct.mrs",
+  source: { kind: "custom-rule-set", id: "rule-direct" },
+  target: {
+    kind: "direct",
+    id: "DIRECT",
+    value: "direct:DIRECT",
+    name: "DIRECT",
+  },
+};
+
 function renderAdded(
   overrides: Record<number, unknown> = {},
   props = { showSearchHint: false, totalRules: null as number | null },
@@ -238,6 +253,12 @@ function findEditingDeleteButton() {
     (props: any) =>
       props.title === "删除规则集" &&
       String(props.className).includes("h-7 w-7"),
+  );
+}
+
+function findEditingSaveButton() {
+  return mocks.captures.buttons.find((props: any) =>
+    String(props.className).includes("text-emerald"),
   );
 }
 
@@ -513,6 +534,41 @@ describe("ProxyGroupsAddedRuleSets", () => {
       behavior: "ipcidr",
       path: "geoip/rule-b.mrs",
       noResolve: true,
+    });
+  });
+
+  it("saves DIRECT and REJECT rule-set target edits", () => {
+    mocks.ruleSets = [directItem];
+    mocks.store.customRuleSets = [
+      {
+        id: "rule-direct",
+        name: "Rule Direct",
+        behavior: "domain",
+        path: "geosite/rule-direct.mrs",
+        target: "DIRECT",
+      },
+    ];
+
+    const { html } = renderAdded({
+      0: directItem.key,
+      1: {
+        path: "geosite/rule-direct.mrs",
+        targetValue: "reject:REJECT",
+        noResolve: false,
+      },
+    });
+
+    expect(html).toContain("REJECT");
+    findEditingSaveButton().onClick();
+    expect(mocks.store.moveModuleRule).toHaveBeenCalledWith("DIRECT", "rule-direct", {
+      kind: "reject",
+      id: "REJECT",
+    });
+    expect(mocks.store.updateModuleRule).toHaveBeenCalledWith("REJECT", "rule-direct", {
+      id: "rule-direct",
+      name: "Rule Direct",
+      behavior: "domain",
+      path: "geosite/rule-direct.mrs",
     });
   });
 

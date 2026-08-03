@@ -1,6 +1,7 @@
 import { DEFAULT_DNS_CONFIG } from "@subboost/core/generator/dns";
 import { DEFAULT_RULE_PROVIDER_BASE_URL } from "@subboost/core/rules/metadata";
 import { TEMPLATES } from "@subboost/core/templates";
+import { createMyRoutingTemplateParts } from "@subboost/core/templates/my-routing-template";
 import { SUBBOOST_TEMPLATE_CONFIG_SCHEMA } from "@subboost/core/templates/config-template";
 import type { ClashConfig, TemplateType, UserConfig } from "@subboost/core/types/config";
 import type { SubBoostTemplateConfig } from "@subboost/core/types/template-config";
@@ -12,6 +13,7 @@ export const DEFAULT_SUBBOOST_CONFIG = {
   ruleProviderBaseUrl: DEFAULT_RULE_PROVIDER_BASE_URL,
   customRules: [],
   ruleOrder: [],
+  fallbackPolicyTarget: "",
   cnIpNoResolve: true,
   experimentalCnUseCnRuleSet: true,
   dnsYaml: "",
@@ -21,17 +23,19 @@ export const DEFAULT_SUBBOOST_CONFIG = {
 
 export function buildDefaultUserConfig(template: TemplateType): UserConfig {
   const templateConfig = TEMPLATES[template];
+  const usesBlankDefaults = template === "blank" || template === "my-routing";
   return {
     enabledGroups: templateConfig.groups,
     enabledRules: templateConfig.rules,
     autoSelectStrategy: DEFAULT_SUBBOOST_CONFIG.autoSelectStrategy,
-    testUrl: DEFAULT_SUBBOOST_CONFIG.testUrl,
+    testUrl: template === "my-routing" ? "http://www.google.com/blank.html" : DEFAULT_SUBBOOST_CONFIG.testUrl,
     testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,
     ruleProviderBaseUrl: DEFAULT_SUBBOOST_CONFIG.ruleProviderBaseUrl,
     customRules: [...DEFAULT_SUBBOOST_CONFIG.customRules],
     ruleOrder: [...DEFAULT_SUBBOOST_CONFIG.ruleOrder],
+    fallbackPolicyTarget: usesBlankDefaults ? "DIRECT" : DEFAULT_SUBBOOST_CONFIG.fallbackPolicyTarget,
     cnIpNoResolve: DEFAULT_SUBBOOST_CONFIG.cnIpNoResolve,
-    experimentalCnUseCnRuleSet: DEFAULT_SUBBOOST_CONFIG.experimentalCnUseCnRuleSet,
+    experimentalCnUseCnRuleSet: usesBlankDefaults ? false : DEFAULT_SUBBOOST_CONFIG.experimentalCnUseCnRuleSet,
     dnsYaml: DEFAULT_SUBBOOST_CONFIG.dnsYaml,
     mixedPort: DEFAULT_SUBBOOST_CONFIG.mixedPort,
     allowLan: DEFAULT_SUBBOOST_CONFIG.allowLan,
@@ -79,26 +83,33 @@ export function buildDefaultBaseConfigPatch(options: {
 
 export function buildDefaultSubBoostTemplateConfig(type: TemplateType): SubBoostTemplateConfig {
   const template = TEMPLATES[type];
+  const myRoutingParts = type === "my-routing" ? createMyRoutingTemplateParts() : null;
   return {
     schema: SUBBOOST_TEMPLATE_CONFIG_SCHEMA,
     template: type,
     enabledProxyGroups: template.groups,
     hiddenProxyGroups: [],
-    customProxyGroups: [],
+    customProxyGroups: myRoutingParts?.customProxyGroups ?? [],
     proxyGroupAdvanced: {},
-    proxyGroupAdvancedModeEnabled: false,
-    customRuleSets: [],
+    proxyGroupAdvancedModeEnabled: type === "my-routing" ? true : false,
+    customRuleSets: myRoutingParts?.customRuleSets ?? [],
     builtinRuleEdits: {},
-    customRules: [],
-    ruleOrder: [],
+    customRules: myRoutingParts?.customRules ?? [],
+    ruleOrder: myRoutingParts?.ruleOrder ?? [],
+    fallbackPolicyTarget:
+      myRoutingParts?.fallbackPolicyTarget ??
+      (type === "blank" ? "DIRECT" : DEFAULT_SUBBOOST_CONFIG.fallbackPolicyTarget),
     cnIpNoResolve: DEFAULT_SUBBOOST_CONFIG.cnIpNoResolve,
-    experimentalCnUseCnRuleSet: DEFAULT_SUBBOOST_CONFIG.experimentalCnUseCnRuleSet,
+    experimentalCnUseCnRuleSet:
+      type === "blank" || type === "my-routing"
+        ? false
+        : DEFAULT_SUBBOOST_CONFIG.experimentalCnUseCnRuleSet,
     dialerProxyGroups: [],
     proxyGroupNameOverrides: {},
     dnsYaml: DEFAULT_SUBBOOST_CONFIG.dnsYaml,
     mixedPort: DEFAULT_SUBBOOST_CONFIG.mixedPort,
     allowLan: DEFAULT_SUBBOOST_CONFIG.allowLan,
-    testUrl: DEFAULT_SUBBOOST_CONFIG.testUrl,
+    testUrl: type === "my-routing" ? "http://www.google.com/blank.html" : DEFAULT_SUBBOOST_CONFIG.testUrl,
     testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,
     ruleProviderBaseUrl: DEFAULT_SUBBOOST_CONFIG.ruleProviderBaseUrl,
   };

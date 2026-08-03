@@ -5,7 +5,9 @@ import { resolveProxyGroupAdvancedModeEnabled } from "@subboost/core/proxy-group
 import { normalizeProxyGroupAdvancedConfig } from "@subboost/core/proxy-group-advanced";
 import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
 import {
+  isValidRuleSetBehaviorFormat,
   isValidRuleSetPathOrUrl,
+  normalizeRuleSetFormat,
   normalizeRuleModelFromConfig,
   normalizeRuleSetPathInput,
 } from "@subboost/core/rules/rule-model";
@@ -52,17 +54,18 @@ export function validateSubBoostTemplateConfig(value: unknown): ValidationResult
 
   const enabledProxyGroups = parseModuleIdArray(value.enabledProxyGroups, "enabledProxyGroups", { required: true });
   if (!enabledProxyGroups.ok) return enabledProxyGroups;
-  if (enabledProxyGroups.value.length === 0) return invalid("至少需要一个代理组");
 
   const hiddenProxyGroups = parseModuleIdArray(value.hiddenProxyGroups, "hiddenProxyGroups", { required: false });
   if (!hiddenProxyGroups.ok) return hiddenProxyGroups;
   const hiddenSet = new Set(hiddenProxyGroups.value);
-  if (enabledProxyGroups.value.every((id) => hiddenSet.has(id))) {
-    return invalid("至少需要一个可见代理组");
-  }
 
   const customProxyGroups = parseCustomProxyGroups(value.customProxyGroups);
   if (!customProxyGroups.ok) return customProxyGroups;
+  const visibleBuiltinGroupCount = enabledProxyGroups.value.filter((id) => !hiddenSet.has(id)).length;
+  const enabledCustomGroupCount = customProxyGroups.value.filter((group) => group.enabled !== false).length;
+  if (template !== "blank" && visibleBuiltinGroupCount + enabledCustomGroupCount === 0) {
+    return invalid("至少需要一个可见代理组");
+  }
   const proxyGroupAdvanced = parseProxyGroupAdvanced(value.proxyGroupAdvanced);
   if (!proxyGroupAdvanced.ok) return proxyGroupAdvanced;
   const proxyGroupAdvancedModeEnabled = parseOptionalBoolean(
@@ -83,6 +86,11 @@ export function validateSubBoostTemplateConfig(value: unknown): ValidationResult
   if (!proxyGroupNameOverrides.ok) return proxyGroupNameOverrides;
   const ruleOrder = parseOptionalStringArray(value.ruleOrder, "ruleOrder");
   if (!ruleOrder.ok) return ruleOrder;
+  const fallbackPolicyTarget =
+    value.fallbackPolicyTarget === undefined
+      ? { ok: true as const, value: undefined }
+      : parseRuleTarget(value.fallbackPolicyTarget, "fallbackPolicyTarget");
+  if (!fallbackPolicyTarget.ok) return fallbackPolicyTarget;
 
   const dnsYaml = parseRequiredString(value.dnsYaml, "dnsYaml", { allowEmpty: true });
   if (!dnsYaml.ok) return dnsYaml;
@@ -133,6 +141,7 @@ export function validateSubBoostTemplateConfig(value: unknown): ValidationResult
       builtinRuleEdits: ruleModel.builtinRuleEdits,
       customRules: customRules.value,
       ruleOrder: normalizedRuleOrder,
+      ...(fallbackPolicyTarget.value !== undefined ? { fallbackPolicyTarget: fallbackPolicyTarget.value } : {}),
       ...(cnIpNoResolve.value !== undefined ? { cnIpNoResolve: cnIpNoResolve.value } : {}),
       ...(experimentalCnUseCnRuleSet.value !== undefined
         ? { experimentalCnUseCnRuleSet: experimentalCnUseCnRuleSet.value }
@@ -172,7 +181,15 @@ function findRemovedTemplateField(value: Record<string, unknown>): string | null
 }
 
 function parseTemplateType(value: unknown): TemplateType | null {
-  if (value === "minimal" || value === "standard" || value === "full") return value;
+  if (
+    value === "blank" ||
+    value === "minimal" ||
+    value === "standard" ||
+    value === "full" ||
+    value === "my-routing"
+  ) {
+    return value;
+  }
   return null;
 }
 
@@ -332,6 +349,10 @@ function parseCustomProxyGroups(value: unknown): { ok: true; value: CustomProxyG
     if (!name.ok) return name;
     const emoji = parseRequiredString(item.emoji, "customProxyGroups.emoji", { allowEmpty: true });
     if (!emoji.ok) return emoji;
+    const icon = item.icon === undefined
+      ? { ok: true as const, value: "" }
+      : parseHttpUrlString(item.icon, "customProxyGroups.icon");
+    if (!icon.ok) return icon;
     const groupType = parseProxyGroupType(item.groupType, "customProxyGroups.groupType");
     if (!groupType.ok) return groupType;
     const strategy = parseOptionalLoadBalanceStrategy(item.strategy, "customProxyGroups.strategy");
@@ -344,17 +365,22 @@ function parseCustomProxyGroups(value: unknown): { ok: true; value: CustomProxyG
     if (item.includeInGroupMembers !== undefined && typeof item.includeInGroupMembers !== "boolean") {
       return invalid("customProxyGroups.includeInGroupMembers 必须是布尔值");
     }
+    if (item.includeProxyProviders !== undefined && typeof item.includeProxyProviders !== "boolean") {
+      return invalid("customProxyGroups.includeProxyProviders 必须是布尔值");
+    }
     const description = typeof item.description === "string" ? item.description.trim() : "";
     out.push({
       id: id.value,
       name: name.value,
       emoji: emoji.value,
+      ...(icon.value ? { icon: icon.value } : {}),
       ...(enabled.value !== undefined ? { enabled: enabled.value } : {}),
       ...(description ? { description } : {}),
       ...(item.memberSource === "filtered-nodes" ? { memberSource: "filtered-nodes" as const } : {}),
       ...(typeof item.includeInGroupMembers === "boolean"
         ? { includeInGroupMembers: item.includeInGroupMembers }
         : {}),
+      ...(typeof item.includeProxyProviders === "boolean" ? { includeProxyProviders: item.includeProxyProviders } : {}),
       groupType: groupType.value,
       ...(groupType.value === "load-balance"
         ? { strategy: strategy.value ?? DEFAULT_LOAD_BALANCE_STRATEGY }
@@ -388,11 +414,15 @@ function parseCustomRuleSets(value: unknown): { ok: true; value: true } | { ok: 
     if (!id.ok) return id;
     const name = parseRequiredString(item.name, "customRuleSets.name");
     if (!name.ok) return name;
-    if (item.behavior !== "domain" && item.behavior !== "ipcidr") return invalid("customRuleSets.behavior 无效");
+    if (item.behavior !== "domain" && item.behavior !== "ipcidr" && item.behavior !== "classical") {
+      return invalid("customRuleSets.behavior 无效");
+    }
     const path = parseRequiredString(item.path, "customRuleSets.path");
     if (!path.ok) return path;
     const normalizedPath = normalizeRuleSetPathInput(path.value);
     if (!isValidRuleSetPathOrUrl(normalizedPath)) return invalid("customRuleSets.path 无效");
+    const format = normalizeRuleSetFormat(item.format, normalizedPath);
+    if (!isValidRuleSetBehaviorFormat(item.behavior, format)) return invalid("customRuleSets.format 无效");
     const target = parseRuleTarget(item.target, "customRuleSets.target");
     if (!target.ok) return target;
     const noResolve = parseOptionalBoolean(item.noResolve, "customRuleSets.noResolve");
@@ -428,6 +458,10 @@ function parseDialerProxyGroups(value: unknown): { ok: true; value: DialerProxyG
     if (!id.ok) return id;
     const name = parseRequiredString(item.name, "dialerProxyGroups.name");
     if (!name.ok) return name;
+    const icon = item.icon === undefined
+      ? { ok: true as const, value: "" }
+      : parseHttpUrlString(item.icon, "dialerProxyGroups.icon");
+    if (!icon.ok) return icon;
     const groupType = parseProxyGroupType(item.type, "dialerProxyGroups.type");
     if (!groupType.ok) return groupType;
     const strategy = parseOptionalLoadBalanceStrategy(item.strategy, "dialerProxyGroups.strategy");
@@ -441,6 +475,7 @@ function parseDialerProxyGroups(value: unknown): { ok: true; value: DialerProxyG
     out.push({
       id: id.value,
       name: name.value,
+      ...(icon.value ? { icon: icon.value } : {}),
       type: groupType.value,
       ...(groupType.value === "load-balance"
         ? { strategy: strategy.value ?? DEFAULT_LOAD_BALANCE_STRATEGY }

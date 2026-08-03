@@ -59,6 +59,7 @@ export function makeOptions(overrides: Record<string, unknown> = {}) {
     customRuleSets: [],
     builtinRuleEdits: {},
     ruleOrder: [],
+    fallbackPolicyTarget: "DIRECT",
     moduleRuleEditWarningAccepted: false,
     dialerProxyGroups: [],
     proxyGroupNameOverrides: {},

@@ -107,7 +107,7 @@ describe("useConfigStore", () => {
     setConfigDraftUserScope("u1");
 
     expect(useConfigStore.getState()).toMatchObject({
-      template: "minimal",
+      template: "blank",
     });
     expect(useConfigStore.getState().dnsYaml).not.toBe("legacy base config");
   });

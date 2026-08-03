@@ -29,6 +29,14 @@ describe("default config builders", () => {
     expect(config.ruleOrder).not.toBe(DEFAULT_SUBBOOST_CONFIG.ruleOrder);
   });
 
+  it("builds a blank user config without built-in groups or rule sets", () => {
+    const config = buildDefaultUserConfig("blank");
+
+    expect(config.enabledGroups).toEqual([]);
+    expect(config.enabledRules).toEqual([]);
+    expect(config.experimentalCnUseCnRuleSet).toBe(false);
+  });
+
   it("builds the base Clash patch with optional overrides", () => {
     const patch = buildDefaultBaseConfigPatch({
       mixedPort: 12345,
@@ -82,6 +90,51 @@ describe("default config builders", () => {
       ruleProviderBaseUrl: DEFAULT_SUBBOOST_CONFIG.ruleProviderBaseUrl,
     });
     expect(config.enabledProxyGroups.length).toBeGreaterThan(0);
+  });
+
+  it("builds the blank SubBoost template config from an empty preset", () => {
+    const config = buildDefaultSubBoostTemplateConfig("blank");
+
+    expect(config).toMatchObject({
+      schema: SUBBOOST_TEMPLATE_CONFIG_SCHEMA,
+      template: "blank",
+      enabledProxyGroups: [],
+      customProxyGroups: [],
+      customRuleSets: [],
+      builtinRuleEdits: {},
+      customRules: [],
+      ruleOrder: [],
+      experimentalCnUseCnRuleSet: false,
+    });
+  });
+
+  it("builds the user-provided routing template with custom groups and remote rule sets", () => {
+    const config = buildDefaultSubBoostTemplateConfig("my-routing");
+
+    expect(config).toMatchObject({
+      schema: SUBBOOST_TEMPLATE_CONFIG_SCHEMA,
+      template: "my-routing",
+      enabledProxyGroups: [],
+      proxyGroupAdvancedModeEnabled: true,
+      fallbackPolicyTarget: { kind: "custom", id: "my-final" },
+      experimentalCnUseCnRuleSet: false,
+      testUrl: "http://www.google.com/blank.html",
+    });
+    expect(config.customProxyGroups).toHaveLength(13);
+    expect(config.customProxyGroups.find((group) => group.id === "my-block")).toMatchObject({
+      name: "BLOCK",
+      groupType: "reject-first",
+      includeProxyProviders: false,
+    });
+    expect(config.customRuleSets).toHaveLength(107);
+    expect(config.customRuleSets[0]).toMatchObject({
+      id: "PRE_REPAIR_EASY_PRIVACY_DIRECT",
+      behavior: "classical",
+      format: "yaml",
+      target: "DIRECT",
+    });
+    expect(config.customRules).toHaveLength(25);
+    expect(config.ruleOrder).toHaveLength(132);
   });
 
   it("keeps the default YAML example aligned with important base defaults", () => {

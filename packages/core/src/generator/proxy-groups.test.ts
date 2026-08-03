@@ -79,6 +79,45 @@ describe("proxy group generator", () => {
     });
   });
 
+  it("emits optional icons for custom proxy groups", () => {
+    const groups = generateProxyGroups({
+      nodes: [node("Node A")],
+      proxyProviderNames: ["remote"],
+      enabledModules: ["select"],
+      ruleProviderBaseUrl: "https://rules.example.com",
+      testUrl: "https://probe.example.com/204",
+      testInterval: 120,
+      customProxyGroups: [
+        {
+          id: "icon-group",
+          name: "Icon Group",
+          emoji: "",
+          icon: " https://cdn.example/icon.png ",
+          groupType: "select",
+        },
+        {
+          id: "filtered-icon",
+          name: "Filtered Icon",
+          emoji: "",
+          icon: "https://cdn.example/filtered.png",
+          memberSource: "filtered-nodes",
+          groupType: "url-test",
+        },
+      ],
+    });
+
+    expect(groups.find((group) => group.name === "Icon Group")).toMatchObject({
+      type: "select",
+      use: ["remote"],
+      icon: "https://cdn.example/icon.png",
+    });
+    expect(groups.find((group) => group.name === "Filtered Icon")).toMatchObject({
+      type: "url-test",
+      icon: "https://cdn.example/filtered.png",
+    });
+    expect(groups.find((group) => group.name === "Filtered Icon")).not.toHaveProperty("use");
+  });
+
   it("generates providers and template metadata helpers", () => {
     const providers = generateRuleProviders({
       nodes: [node("Node A")],
@@ -110,11 +149,61 @@ describe("proxy group generator", () => {
     expect(providers["custom-rule"]).toMatchObject({
       url: "https://rules.example.com/custom.mrs",
     });
+    expect(getModulesForTemplate("blank")).toEqual([]);
     expect(getModulesForTemplate("minimal")).toContain("final");
     expect(getModulesForTemplate("standard")).toContain("github");
     expect(getModulesForTemplate("full")).not.toContain("adult");
     expect(getGroupTarget("missing")).toContain("节点选择");
     expect(getAllGroupNames(["select"], [customGroup("custom", "select")])).toContain("Custom custom");
+  });
+
+  it("emits custom yaml and text rule-set provider formats", () => {
+    const providers = generateRuleProviders({
+      nodes: [node("Node A")],
+      enabledModules: [],
+      ruleProviderBaseUrl: "https://rules.example.com",
+      testUrl: "https://probe.example.com/204",
+      testInterval: 120,
+      customRuleSets: [
+        {
+          id: "tiktok",
+          name: "TikTok",
+          behavior: "classical",
+          format: "yaml",
+          path: "https://cdn.example.com/TikTok.yaml",
+          target: "DIRECT",
+        },
+        {
+          id: "plain",
+          name: "Plain",
+          behavior: "domain",
+          path: "rules/plain.txt",
+          target: "DIRECT",
+        },
+        {
+          id: "invalid-classical",
+          name: "Invalid",
+          behavior: "classical",
+          format: "mrs",
+          path: "geosite/invalid.mrs",
+          target: "DIRECT",
+        },
+      ],
+    });
+
+    expect(providers.tiktok).toMatchObject({
+      behavior: "classical",
+      format: "yaml",
+      path: "./ruleset/tiktok.yaml",
+      url: "https://cdn.example.com/TikTok.yaml",
+    });
+    expect(providers.plain).toMatchObject({
+      behavior: "domain",
+      format: "text",
+      path: "./ruleset/plain.text",
+      url: "https://rules.example.com/rules/plain.txt",
+    });
+    expect(providers["invalid-classical"]).toBeUndefined();
   });
 
   it("applies built-in group type overrides and explicitly added members", () => {
@@ -353,6 +442,39 @@ describe("proxy group generator", () => {
     expect(getAllGroupNames(["select"], [disabledGroup])).not.toContain("Custom disabled");
     expect(providers["disabled-rule"]).toBeUndefined();
     expect(rules).toEqual(["MATCH,DIRECT"]);
+  });
+
+  it("generates custom rule sets for DIRECT and REJECT targets", () => {
+    const rules = generateRules({
+      enabledModules: [],
+      customRules: [],
+      customRuleSets: [
+        {
+          id: "direct-rule",
+          name: "Direct rule",
+          behavior: "domain",
+          path: "geosite/direct.mrs",
+          target: "DIRECT",
+        },
+        {
+          id: "reject-rule",
+          name: "Reject rule",
+          behavior: "domain",
+          path: "geosite/reject.mrs",
+          target: "REJECT",
+          noResolve: true,
+        },
+      ],
+      customProxyGroups: [],
+      availablePolicyTargets: ["DIRECT", "REJECT"],
+      fallbackPolicyTarget: "DIRECT",
+    });
+
+    expect(rules).toEqual([
+      "RULE-SET,direct-rule,DIRECT",
+      "RULE-SET,reject-rule,REJECT,no-resolve",
+      "MATCH,DIRECT",
+    ]);
   });
 
   it("covers provider target guards and module group type overrides", () => {

@@ -37,13 +37,14 @@ describe("config store definitions", () => {
       { id: "2", type: "yaml", content: "" },
       { id: "3", type: "nodes", content: "" },
     ]);
-    expect(initialState.template).toBe("minimal");
-    expect(initialState.enabledProxyGroups).toBe(TEMPLATES.minimal.groups);
+    expect(initialState.template).toBe("blank");
+    expect(initialState.enabledProxyGroups).toBe(TEMPLATES.blank.groups);
     expect(initialState.mixedPort).toBe(DEFAULT_SUBBOOST_CONFIG.mixedPort);
     expect(initialState.allowLan).toBe(DEFAULT_SUBBOOST_CONFIG.allowLan);
     expect(initialState.testUrl).toBe(DEFAULT_SUBBOOST_CONFIG.testUrl);
     expect(initialState.testInterval).toBe(DEFAULT_SUBBOOST_CONFIG.testInterval);
     expect(initialState.ruleProviderBaseUrl).toBe(DEFAULT_SUBBOOST_CONFIG.ruleProviderBaseUrl);
+    expect(initialState.experimentalCnUseCnRuleSet).toBe(false);
     expect(initialState.nodeNameFilter).toEqual(DEFAULT_NODE_NAME_FILTER_CONFIG);
     expect(initialState.nodeNameFilter).not.toBe(DEFAULT_NODE_NAME_FILTER_CONFIG);
     expect(initialState.generatedYaml).toBe("");

@@ -65,15 +65,18 @@ describe("subscription config utils", () => {
           {
             id: "youtube",
             name: "YouTube",
-            behavior: "domain",
-            path: "https://rules.example.com/youtube.mrs",
+            behavior: "classical",
+            format: "yaml",
+            path: "https://rules.example.com/youtube.yaml",
             target: "Media",
           },
         ],
+        fallbackPolicyTarget: "Media",
         dialerProxyGroups: [
           {
             id: "chain",
             name: "Chain",
+            icon: " https://icons.example/chain.png ",
             type: "load-balance",
             strategy: "round-robin",
             enabled: true,
@@ -119,6 +122,7 @@ describe("subscription config utils", () => {
       testUrl: "https://cp.cloudflare.com",
       testInterval: 180,
       listenerPorts: { Node: 12000 },
+      fallbackPolicyTarget: "Media",
     });
     expect(userConfig.customRules?.[0]).toMatchObject({
       type: "DOMAIN-SUFFIX",
@@ -143,11 +147,14 @@ describe("subscription config utils", () => {
     expect(options.customRuleSets?.[0]).toMatchObject({
       id: "youtube",
       name: "YouTube",
+      behavior: "classical",
+      format: "yaml",
       target: "Media",
-      path: "https://rules.example.com/youtube.mrs",
+      path: "https://rules.example.com/youtube.yaml",
     });
     expect(options.dialerProxyGroups?.[0]).toMatchObject({
       id: "chain",
+      icon: "https://icons.example/chain.png",
       type: "load-balance",
       strategy: "round-robin",
       relayNodes: ["Relay"],
