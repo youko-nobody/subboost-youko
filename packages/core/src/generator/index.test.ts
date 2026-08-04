@@ -482,7 +482,7 @@ describe("generateClashConfig", () => {
           name: "Chain",
           type: "select",
           enabled: true,
-          relayNodes: ["remote", "DIRECT", "Relay", "Relay", " "],
+          relayNodes: ["remote", "DIRECT", "REJECT", "Relay", "Relay", " "],
           targetNodes: ["Target", "Missing"],
         },
       ],
@@ -494,7 +494,7 @@ describe("generateClashConfig", () => {
 
     expect(config["proxy-groups"]?.[0]).toMatchObject({
       name: "Chain",
-      proxies: ["DIRECT", "Relay"],
+      proxies: ["DIRECT", "REJECT", "Relay"],
     });
     expect(config.proxies?.find((proxy) => proxy.name === "Target")).toMatchObject({
       "dialer-proxy": "Chain",
@@ -618,7 +618,7 @@ describe("generateClashConfig", () => {
           id: "messy",
           name: "Messy Chain",
           type: "select",
-          relayNodes: [1 as never, " Relay ", "DIRECT", "Relay"],
+          relayNodes: [1 as never, " Relay ", "REJECT", "DIRECT", "Relay"],
           targetNodes: [2 as never, " Target ", "Missing"],
         },
         {
@@ -669,6 +669,9 @@ describe("generateClashConfig", () => {
       "Messy Chain",
       "⚡ 自动选择",
     ]);
+    expect(config["proxy-groups"]?.find((group) => group.name === "Messy Chain")).toMatchObject({
+      proxies: ["Relay", "REJECT", "DIRECT"],
+    });
   });
 
   it("generates YAML through the public helper", () => {

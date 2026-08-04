@@ -279,7 +279,7 @@ export function generateClashConfig(options: GenerateOptions): ClashConfig {
     availableNodeNames: Set<string>,
     availableGroupNames: Set<string>
   ): DialerProxyGroup[] => {
-    const builtinRelays = new Set<string>(["DIRECT"]);
+    const builtinRelays = new Set<string>(["DIRECT", "REJECT"]);
     const normalizeList = (list: string[]) => {
       const out: string[] = [];
       const seen = new Set<string>();
@@ -331,6 +331,7 @@ export function generateClashConfig(options: GenerateOptions): ClashConfig {
     : uniqueNodes;
   const validDialerProxyNames = new Set<string>([
     "DIRECT",
+    "REJECT",
     ...nodeNameSet,
     ...proxyProviderNames,
     ...moduleGroupNameSet,

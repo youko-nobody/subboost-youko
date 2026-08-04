@@ -45,6 +45,7 @@ function pickUrlFetchParseResult(fetched: Awaited<ReturnType<typeof fetchUrlCont
 }
 
 const DEFAULT_PARSE_FAILURE_MESSAGE = "解析失败";
+const BUILTIN_DIALER_RELAY_NAMES = new Set(["DIRECT", "REJECT"]);
 
 function toSubscriptionImportErrorInfo(
   error: unknown,
@@ -70,7 +71,7 @@ function filterDialerProxyGroupsByAvailableNames(
 ): StoreState["dialerProxyGroups"] {
   return dialerProxyGroups.map((group) => ({
     ...group,
-    relayNodes: group.relayNodes.filter((name) => name === "DIRECT" || availableNames.has(name)),
+    relayNodes: group.relayNodes.filter((name) => BUILTIN_DIALER_RELAY_NAMES.has(name) || availableNames.has(name)),
     targetNodes: group.targetNodes.filter((name) => availableNames.has(name)),
   }));
 }
@@ -325,11 +326,11 @@ export function createSourceActions(set: SetState, get: GetState, setAndGenerate
             nextListenerPorts[mappedName] = port;
           }
 
-          const replaceNames = (list: string[], opts?: { keepDirect?: boolean }) => {
+          const replaceNames = (list: string[], opts?: { keepBuiltinRelays?: boolean }) => {
             const out: string[] = [];
             const seen = new Set<string>();
             for (const item of list) {
-              if (opts?.keepDirect && item === "DIRECT") {
+              if (opts?.keepBuiltinRelays && BUILTIN_DIALER_RELAY_NAMES.has(item)) {
                 if (!seen.has(item)) out.push(item);
                 seen.add(item);
                 continue;
@@ -343,8 +344,8 @@ export function createSourceActions(set: SetState, get: GetState, setAndGenerate
           };
 
           const nextDialerProxyGroups = state.dialerProxyGroups.map((g) => {
-            const relayNodes = replaceNames(g.relayNodes, { keepDirect: true }).filter(
-              (n) => n === "DIRECT" || availableNames.has(n)
+            const relayNodes = replaceNames(g.relayNodes, { keepBuiltinRelays: true }).filter(
+              (n) => BUILTIN_DIALER_RELAY_NAMES.has(n) || availableNames.has(n)
             );
             const targetNodes = replaceNames(g.targetNodes).filter((n) => availableNames.has(n));
             return { ...g, relayNodes, targetNodes };

@@ -53,7 +53,7 @@ describe("createSourceActions", () => {
         {
           id: "dialer-1",
           name: "Relay",
-          relayNodes: ["DIRECT", "Only S1", "Shared", "Manual"],
+          relayNodes: ["DIRECT", "REJECT", "Only S1", "Shared", "Manual"],
           targetNodes: ["Only S1", "Only S2"],
         },
       ],
@@ -68,7 +68,7 @@ describe("createSourceActions", () => {
       "Only S2": 41002,
     });
     expect(getState().dialerProxyGroups[0]).toMatchObject({
-      relayNodes: ["DIRECT", "Shared", "Manual"],
+      relayNodes: ["DIRECT", "REJECT", "Shared", "Manual"],
       targetNodes: ["Only S2"],
     });
   });
@@ -183,7 +183,7 @@ describe("createSourceActions", () => {
         {
           id: "dialer-1",
           name: "Relay",
-          relayNodes: ["DIRECT", "Provider Node", "Manual"],
+          relayNodes: ["DIRECT", "REJECT", "Provider Node", "Manual"],
           targetNodes: ["Provider Node"],
         },
       ],
@@ -196,7 +196,7 @@ describe("createSourceActions", () => {
     expect(getState().nodes.map((item: ParsedNode) => item.name)).toEqual(["Manual"]);
     expect(getState().listenerPorts).toEqual({ Manual: 41001 });
     expect(getState().dialerProxyGroups[0]).toMatchObject({
-      relayNodes: ["DIRECT", "Manual"],
+      relayNodes: ["DIRECT", "REJECT", "Manual"],
       targetNodes: [],
     });
     expect(getState().sources[0]).toMatchObject({
@@ -506,7 +506,7 @@ describe("createSourceActions", () => {
         {
           id: "dialer-1",
           name: "Relay",
-          relayNodes: ["DIRECT", "Fresh", "Fresh", "Stale", "Relay Target"],
+          relayNodes: ["DIRECT", "REJECT", "Fresh", "Fresh", "Stale", "Relay Target"],
           targetNodes: ["Fresh", "Stale", "Relay Target"],
         },
       ],
@@ -517,7 +517,7 @@ describe("createSourceActions", () => {
     expect(getState().nodes.map((item: ParsedNode) => item.name)).toEqual(["Fresh", "Relay Target"]);
     expect(getState().listenerPorts).toEqual({ Fresh: 41000 });
     expect(getState().dialerProxyGroups[0]).toMatchObject({
-      relayNodes: ["DIRECT", "Fresh", "Relay Target"],
+      relayNodes: ["DIRECT", "REJECT", "Fresh", "Relay Target"],
       targetNodes: ["Fresh", "Relay Target"],
     });
     expect(getState().sources[0]).toMatchObject({

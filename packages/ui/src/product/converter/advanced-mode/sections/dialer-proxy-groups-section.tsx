@@ -50,7 +50,15 @@ type DialerSelectableNode = {
 };
 
 const DIRECT_RELAY_OPTION: DialerSelectableNode = { name: "DIRECT", type: "DIRECT" };
+const REJECT_RELAY_OPTION: DialerSelectableNode = { name: "REJECT", type: "REJECT" };
+const BUILTIN_RELAY_NAMES = new Set(["DIRECT", "REJECT"]);
 const DIALER_NODE_LIST_HEIGHT_CLASS = "max-h-56 overflow-y-auto custom-scrollbar space-y-1";
+
+function formatDialerRelayDisplayName(name: string): string {
+  if (name === "DIRECT") return "DIRECT（直连）";
+  if (name === "REJECT") return "REJECT（拒绝）";
+  return name;
+}
 
 export function DialerProxyGroupsSection({
   isExpanded,
@@ -204,10 +212,10 @@ export function DialerProxyGroupsSection({
         .filter((group) => group.name),
     ];
 
-    // 中转组允许选择 DIRECT（直连）作为“入口”
-    // 注意：这里只用于 dialer-proxy 的代理组 proxies 字段，Clash/Mihomo 支持 DIRECT。
+    // 中转组允许选择 DIRECT/REJECT 作为内置入口。
+    // 注意：这里只用于 dialer-proxy 的代理组 proxies 字段，Clash/Mihomo 支持这些内置策略。
     // excludeGroupId 用于在该组停用时仍保留“自身 targetNodes 不可作为中转节点”的约束
-    return [DIRECT_RELAY_OPTION, ...available, ...availableProxyGroups];
+    return [DIRECT_RELAY_OPTION, REJECT_RELAY_OPTION, ...available, ...availableProxyGroups];
   };
 
   return (
@@ -255,7 +263,7 @@ export function DialerProxyGroupsSection({
             const availableRelayNodes = getAvailableRelayNodes(group.id);
             const visibleRelayNodes = relaySearchKeyword
               ? availableRelayNodes.filter((node) => {
-                  const displayName = node.name === "DIRECT" ? "DIRECT（直连）" : node.name;
+                  const displayName = formatDialerRelayDisplayName(node.name);
                   return displayName.toLowerCase().includes(relaySearchKeyword);
                 })
               : availableRelayNodes;
@@ -422,7 +430,7 @@ export function DialerProxyGroupsSection({
                             (!otherTargets.has(n) && !otherRelayNodeNames.has(n))
                         );
                         const nextRelayNodes = group.relayNodes.filter((n) => {
-                          if (n === "DIRECT") return true;
+                          if (BUILTIN_RELAY_NAMES.has(n)) return true;
                           if (!rawNodeNameSet.has(n)) return true; // 代理组等
                           if (!effectiveNodeNameSet.has(n)) return true;
                           return !otherTargets.has(n);
@@ -529,7 +537,7 @@ export function DialerProxyGroupsSection({
                     <div className={DIALER_NODE_LIST_HEIGHT_CLASS}>
                       {visibleRelayNodes.map((node) => {
                         const isSelected = group.relayNodes.includes(node.name);
-                        const displayName = node.name === "DIRECT" ? "DIRECT（直连）" : node.name;
+                        const displayName = formatDialerRelayDisplayName(node.name);
                         return (
                           <button
                             type="button"

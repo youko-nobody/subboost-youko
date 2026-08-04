@@ -152,17 +152,20 @@ describe("dialer proxy chain helpers", () => {
 
   it("collects dialer target and relay names", () => {
     const groups = [
-      dialerGroup({ relayNodes: ["Relay A", "DIRECT"], targetNodes: ["Target A"] }),
+      dialerGroup({ relayNodes: ["Relay A", "DIRECT", "REJECT"], targetNodes: ["Target A"] }),
       dialerGroup({ relayNodes: ["Relay B"], targetNodes: ["Target A", "Target B"] }),
     ];
 
     expect(Array.from(getDialerTargetNodes(groups)).sort()).toEqual(["Target A", "Target B"]);
-    expect(Array.from(getDialerRelayNodes(groups)).sort()).toEqual(["DIRECT", "Relay A", "Relay B"]);
+    expect(Array.from(getDialerRelayNodes(groups)).sort()).toEqual(["DIRECT", "REJECT", "Relay A", "Relay B"]);
   });
 
   it("validates missing nodes and relay-target overlap", () => {
     expect(
-      validateDialerConfig([node("Relay A"), node("Target A")], dialerGroup({ relayNodes: ["DIRECT"] }))
+      validateDialerConfig(
+        [node("Relay A"), node("Target A")],
+        dialerGroup({ relayNodes: ["DIRECT", "REJECT"] })
+      )
     ).toEqual({ valid: true, errors: [] });
 
     expect(

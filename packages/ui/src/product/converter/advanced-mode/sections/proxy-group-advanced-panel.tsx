@@ -73,6 +73,10 @@ export function memberKindLabel(member: ResolvedMember): string {
   }
 }
 
+function isBasicPolicyMember(member: ResolvedMember): boolean {
+  return member.kind === "direct" || member.kind === "reject";
+}
+
 export function buildMemberFromName(
   name: string,
   options: {
@@ -233,9 +237,8 @@ export function ProxyGroupAdvancedPanel({
     proxyGroupNameOverrides,
   ]);
   const generatedProxyNames = React.useMemo(() => {
-    if (effectiveNodes.length === 0) return [];
     return generatedProxyGroups.find((group) => group.name === target.name)?.proxies ?? [];
-  }, [effectiveNodes.length, generatedProxyGroups, target.name]);
+  }, [generatedProxyGroups, target.name]);
 
   const candidateMembers = React.useMemo(() => {
     const rawNames = [
@@ -277,6 +280,10 @@ export function ProxyGroupAdvancedPanel({
   const nodeMembers = React.useMemo(
     () => candidateMembers.filter(isNodeMember),
     [candidateMembers],
+  );
+  const excludedBasicPolicyMembers = React.useMemo(
+    () => excludedMembers.filter(isBasicPolicyMember),
+    [excludedMembers],
   );
   const includedNodeMembers = React.useMemo(
     () => includedMembers.filter(isNodeMember),
@@ -379,6 +386,54 @@ export function ProxyGroupAdvancedPanel({
       onChange,
       preserveFilteredMemberOrder,
     ],
+  );
+
+  const renderExcludedMembers = React.useCallback(
+    (members: ResolvedMember[]) => {
+      if (members.length === 0) {
+        return <div className="text-[11px] text-white/30">暂无可添加项</div>;
+      }
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          {members.map((member) => {
+            const blockedByCycle = cycleCreatingProxyGroupKeys.has(member.key);
+            return (
+              <Button
+                key={member.key}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={blockedByCycle}
+                className={cn(
+                  "h-auto max-w-full gap-1 rounded px-2 py-1 text-[10px] text-white/55 hover:border-emerald-400/30 hover:bg-emerald-500/10 hover:text-emerald-100",
+                  blockedByCycle && "cursor-not-allowed opacity-40 hover:border-white/10 hover:bg-transparent hover:text-white/55",
+                )}
+                title={
+                  blockedByCycle
+                    ? `${memberLabel(member)} 会形成策略组循环`
+                    : memberLabel(member)
+                }
+                onClick={() => {
+                  if (blockedByCycle) {
+                    toast({
+                      title: "不能添加该策略组",
+                      description: "添加后会形成策略组循环引用。",
+                      variant: "warning",
+                    });
+                    return;
+                  }
+                  enableMember(member);
+                }}
+              >
+                <Plus className="h-3 w-3" />
+                <span className="truncate">{memberLabel(member)}</span>
+              </Button>
+            );
+          })}
+        </div>
+      );
+    },
+    [cycleCreatingProxyGroupKeys, enableMember],
   );
 
   const addAllNodes = React.useCallback(() => {
@@ -602,23 +657,25 @@ export function ProxyGroupAdvancedPanel({
           {excludedMembers.length === 0 ? (
             <div className="text-[11px] text-white/35">暂无未启用成员</div>
           ) : (
-            <div className="max-h-52 overflow-y-auto pr-1 custom-scrollbar flex flex-wrap gap-1.5">
-              {excludedMembers.map((member) => {
-                return (
-                  <Button
-                    key={member.key}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-auto max-w-full gap-1 rounded px-2 py-1 text-[10px] text-white/55 hover:border-emerald-400/30 hover:bg-emerald-500/10 hover:text-emerald-100"
-                    title={memberLabel(member)}
-                    onClick={() => enableMember(member)}
-                  >
-                    <Plus className="h-3 w-3" />
-                    <span className="truncate">{memberLabel(member)}</span>
-                  </Button>
-                );
-              })}
+            <div className="max-h-52 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+              <div className="space-y-1">
+                <div className="text-[10px] font-medium text-white/40">
+                  基础策略
+                </div>
+                {renderExcludedMembers(excludedBasicPolicyMembers)}
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] font-medium text-white/40">
+                  策略组
+                </div>
+                {renderExcludedMembers(excludedProxyGroupMembers)}
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] font-medium text-white/40">
+                  节点
+                </div>
+                {renderExcludedMembers(excludedNodeMembers)}
+              </div>
             </div>
           )}
         </div>

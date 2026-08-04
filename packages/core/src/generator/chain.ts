@@ -123,7 +123,7 @@ export function validateDialerConfig(
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   const nodeNames = new Set(nodes.map((n) => n.name));
-  const builtinRelays = new Set<string>(["DIRECT"]);
+  const builtinRelays = new Set<string>(["DIRECT", "REJECT"]);
 
   // 检查中转节点是否存在
   for (const relayNode of group.relayNodes) {

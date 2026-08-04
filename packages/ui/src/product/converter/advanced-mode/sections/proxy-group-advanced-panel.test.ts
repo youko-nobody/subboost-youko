@@ -215,6 +215,9 @@ describe("ProxyGroupAdvancedPanel", () => {
     expect(html.match(/0 代理组/g)).toHaveLength(2);
     expect(html).toContain("DIRECT");
     expect(html).toContain("REJECT");
+    expect(html).toContain("基础策略");
+    expect(html).toContain("策略组");
+    expect(html).toContain("节点");
     expect(html).toContain("existing-rules");
     expect(html).not.toContain("还没有分流规则");
   });
@@ -272,7 +275,7 @@ describe("ProxyGroupAdvancedPanel", () => {
 
     expect(html).toContain("US Source");
     expect(html).toContain("Japan Source");
-    expect(html).toContain("max-h-52 overflow-y-auto pr-1 custom-scrollbar flex flex-wrap gap-1.5");
+    expect(html).toContain("max-h-52 space-y-3 overflow-y-auto pr-1 custom-scrollbar");
     expect(html).not.toContain("暂无已启用成员");
   });
 

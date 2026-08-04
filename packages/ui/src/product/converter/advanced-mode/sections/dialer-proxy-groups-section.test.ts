@@ -539,6 +539,9 @@ describe("DialerProxyGroupsSection", () => {
     findIntrinsic("button", (props) => textOf(props.children).includes("DIRECT（直连）")).onClick();
     expect(mocks.store.addNodeToDialerGroup).toHaveBeenCalledWith("g-a", "DIRECT", true);
 
+    findIntrinsic("button", (props) => textOf(props.children).includes("REJECT（拒绝）")).onClick();
+    expect(mocks.store.addNodeToDialerGroup).toHaveBeenCalledWith("g-a", "REJECT", true);
+
     findIntrinsic("button", (props) => textOf(props.children).includes("Beta") && props["aria-pressed"] === true).onClick();
     expect(mocks.store.removeNodeFromDialerGroup).toHaveBeenCalledWith("g-a", "Beta", false);
 

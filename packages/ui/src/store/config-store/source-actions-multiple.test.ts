@@ -279,7 +279,7 @@ describe("createSourceActions parseMultipleSources", () => {
           id: "dialer-1",
           name: "Relay",
           type: "select",
-          relayNodes: ["Duplicate", "DIRECT", "Stale"],
+          relayNodes: ["Duplicate", "DIRECT", "REJECT", "Stale"],
           targetNodes: ["Duplicate", "Stale"],
         },
       ],
@@ -295,7 +295,7 @@ describe("createSourceActions parseMultipleSources", () => {
     });
     expect(getState().listenerPorts).toEqual({ Duplicate: 41000 });
     expect(getState().dialerProxyGroups[0]).toMatchObject({
-      relayNodes: ["Duplicate", "DIRECT"],
+      relayNodes: ["Duplicate", "DIRECT", "REJECT"],
       targetNodes: ["Duplicate"],
     });
     expect(getState().parseErrors).toEqual(["源 #1: first warning"]);
