@@ -409,7 +409,8 @@ export function useEditingSubscriptionLoader({
           cfg.template === "blank" ||
           cfg.template === "minimal" ||
           cfg.template === "standard" ||
-          cfg.template === "full"
+          cfg.template === "full" ||
+          cfg.template === "my-routing"
             ? (cfg.template as TemplateType)
             : "standard";
 

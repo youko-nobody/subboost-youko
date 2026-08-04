@@ -313,6 +313,36 @@ describe("useEditingSubscriptionLoader", () => {
     expect(options.setCopied).toHaveBeenCalledWith(false);
   });
 
+  it("preserves the my-routing template when hydrating a saved subscription", async () => {
+    const options = makeOptions({
+      loadSubscription: vi.fn(async () =>
+        response(200, {
+          subscription: {
+            id: "sub-1",
+            token: "token-1",
+            name: "My Routing",
+            urls: [],
+            nodes: [node("Remote")],
+            config: {
+              template: "my-routing",
+              enabledGroups: [],
+              hiddenProxyGroups: [],
+              customProxyGroups: [],
+              customRuleSets: [],
+              customRules: [],
+            },
+          },
+        })
+      ),
+    });
+
+    useEditingSubscriptionLoader(options);
+    await flushAsync();
+
+    expect(mocks.bag.storeState.template).toBe("my-routing");
+    expect(mocks.bag.storeState.template).not.toBe("standard");
+  });
+
   it("falls back to URL sources when config sources are absent", async () => {
     const options = makeOptions({
       loadSubscription: vi.fn(async () =>
