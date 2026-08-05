@@ -223,6 +223,7 @@ export interface ConfigState {
   testUrl: string;
   testInterval: number;
   ruleProviderBaseUrl: string;
+  exposeSubscriptionUserInfo: boolean;
   cnIpNoResolve: boolean;
   experimentalCnUseCnRuleSet: boolean;
 
@@ -317,6 +318,7 @@ export interface ConfigActions {
   setTestUrl: (url: string) => void;
   setTestInterval: (interval: number) => void;
   setRuleProviderBaseUrl: (url: string) => void;
+  setExposeSubscriptionUserInfo: (value: boolean) => void;
   setProxyGroupAdvancedModeEnabled: (value: boolean) => void;
   setCnIpNoResolve: (value: boolean) => void;
   setExperimentalCnUseCnRuleSet: (value: boolean) => void;
@@ -388,6 +390,7 @@ export const initialState: ConfigState = {
   testUrl: DEFAULT_SUBBOOST_CONFIG.testUrl,
   testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,
   ruleProviderBaseUrl: DEFAULT_SUBBOOST_CONFIG.ruleProviderBaseUrl,
+  exposeSubscriptionUserInfo: true,
   cnIpNoResolve: DEFAULT_SUBBOOST_CONFIG.cnIpNoResolve,
   experimentalCnUseCnRuleSet: false,
   listenerPorts: {},

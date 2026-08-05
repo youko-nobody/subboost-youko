@@ -45,4 +45,5 @@ export type SubBoostTemplateConfig = {
   testUrl: string;
   testInterval: number;
   ruleProviderBaseUrl: string;
+  exposeSubscriptionUserInfo?: boolean;
 };

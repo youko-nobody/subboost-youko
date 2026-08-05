@@ -441,6 +441,7 @@ export async function generateSubscriptionYaml(token: string): Promise<Generated
   const row = await prisma.subscription.findUnique({ where: { token }, include: { autoUpdateState: true } });
   if (!row) return null;
   const secrets = readSubscriptionSecrets(row);
+  const exposeSubscriptionUserInfo = secrets.config.exposeSubscriptionUserInfo !== false;
   const { testUrl, testInterval } = getEffectiveTestOptions(secrets.config);
   const proxyProviders = buildProxyProvidersFromConfig(secrets.config, { testUrl, testInterval });
   if (secrets.nodes.length === 0 && !proxyProviders) return null;
@@ -454,7 +455,7 @@ export async function generateSubscriptionYaml(token: string): Promise<Generated
   return {
     yaml,
     name: row.name,
-    subscriptionInfo: secrets.subscriptionInfo,
+    subscriptionInfo: exposeSubscriptionUserInfo ? secrets.subscriptionInfo : {},
     cacheExpirySeconds: CACHE_TTL_SECONDS,
     autoUpdateIntervalSeconds: row.autoUpdateInterval,
     isAdmin: true,

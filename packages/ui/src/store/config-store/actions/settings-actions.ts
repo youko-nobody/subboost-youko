@@ -10,6 +10,7 @@ type SettingsActions = Pick<
   | "setTestUrl"
   | "setTestInterval"
   | "setRuleProviderBaseUrl"
+  | "setExposeSubscriptionUserInfo"
   | "setFallbackPolicyTarget"
   | "setNodeNameFilter"
   | "setProxyGroupAdvancedModeEnabled"
@@ -45,6 +46,10 @@ export function createSettingsActions(
 
     setRuleProviderBaseUrl: (url: string) => {
       setAndGenerateConfig(() => ({ ruleProviderBaseUrl: url }));
+    },
+
+    setExposeSubscriptionUserInfo: (value: boolean) => {
+      setAndGenerateConfig(() => ({ exposeSubscriptionUserInfo: Boolean(value) }));
     },
 
     setFallbackPolicyTarget: (target) => {

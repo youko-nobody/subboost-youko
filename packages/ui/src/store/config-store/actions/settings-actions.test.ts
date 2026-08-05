@@ -25,6 +25,7 @@ describe("config store settings actions", () => {
     actions.setTestUrl("https://cp.cloudflare.com/generate_204");
     actions.setTestInterval(600);
     actions.setRuleProviderBaseUrl("https://rules.example.com");
+    actions.setExposeSubscriptionUserInfo(false);
     actions.setNodeNameFilter({
       enabled: true,
       excludeRegexes: ["  expire  ", "expire", ""],
@@ -39,6 +40,7 @@ describe("config store settings actions", () => {
       testUrl: "https://cp.cloudflare.com/generate_204",
       testInterval: 600,
       ruleProviderBaseUrl: "https://rules.example.com",
+      exposeSubscriptionUserInfo: false,
       nodeNameFilter: {
         enabled: true,
         excludeRegexes: ["expire"],
@@ -46,7 +48,7 @@ describe("config store settings actions", () => {
       cnIpNoResolve: true,
       experimentalCnUseCnRuleSet: true,
     });
-    expect(store.setAndGenerateConfig).toHaveBeenCalledTimes(9);
+    expect(store.setAndGenerateConfig).toHaveBeenCalledTimes(10);
     expect(store.set).not.toHaveBeenCalled();
   });
 

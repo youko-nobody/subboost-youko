@@ -67,6 +67,8 @@ vi.mock("@subboost/ui/store/config-store", () => {
     listenerPorts: {},
     dnsYaml: "",
     ruleProviderBaseUrl: "",
+    exposeSubscriptionUserInfo: true,
+    setExposeSubscriptionUserInfo: vi.fn(),
     testUrl: "https://cp.cloudflare.com/generate_204",
     testInterval: 300,
     cnIpNoResolve: false,

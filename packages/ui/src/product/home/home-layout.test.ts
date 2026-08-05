@@ -138,6 +138,8 @@ function createSubscription(overrides: Record<string, unknown> = {}) {
     },
     smartNodeMatchingEnabled: true,
     setSmartNodeMatchingEnabled: vi.fn(),
+    exposeSubscriptionUserInfo: true,
+    setExposeSubscriptionUserInfo: vi.fn(),
     isCreatingSubscription: false,
     copied: false,
     saveRequirementDialog: false,

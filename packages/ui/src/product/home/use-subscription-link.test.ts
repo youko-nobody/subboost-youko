@@ -265,6 +265,7 @@ describe("useSubscriptionLink", () => {
             proxyGroupOrder: ["select", "auto"],
             nodeNameFilter: { enabled: false, excludeRegexes: [] },
             fallbackPolicyTarget: "DIRECT",
+            exposeSubscriptionUserInfo: true,
           }),
         }),
       })
@@ -272,6 +273,32 @@ describe("useSubscriptionLink", () => {
     expect(hook.subscriptionUrl).toBe("https://subboost.test/s/token-1");
     expect(mocks.bag.interactions.subscriptionLinkSaved).toHaveBeenCalledWith(
       expect.objectContaining({ result: "success", autoUpdateEnabled: true })
+    );
+  });
+
+  it("persists disabled subscription traffic header output", async () => {
+    const adapter = makeAdapter();
+    let hook = useRenderedHook({
+      subscriptionAdapter: adapter,
+      exposeSubscriptionUserInfo: false,
+    });
+    hook.setSubscriptionName("Private Sub");
+    hook = useRenderedHook({
+      subscriptionAdapter: adapter,
+      exposeSubscriptionUserInfo: false,
+    });
+
+    await hook.handleCreateSubscription();
+
+    expect(adapter.saveSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          subscriptionInfo: { upload: 2_048, download: 1_024, total: 4_096 },
+          config: expect.objectContaining({
+            exposeSubscriptionUserInfo: false,
+          }),
+        }),
+      })
     );
   });
 

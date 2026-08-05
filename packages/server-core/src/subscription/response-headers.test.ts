@@ -45,4 +45,13 @@ describe("subscription response headers", () => {
     expect(headers["plan-name"]).toBe("Pro");
     expect(headers["profile-web-page-url"]).toBe("https://example.com/account");
   });
+
+  it("omits subscription metadata headers when no snapshot is exposed", () => {
+    const headers = buildSubscriptionResponseHeaders("Main", {}, { isAdmin: true });
+
+    expect(headers).not.toHaveProperty("subscription-userinfo");
+    expect(headers).not.toHaveProperty("plan-name");
+    expect(headers).not.toHaveProperty("profile-web-page-url");
+    expect(headers["content-type"]).toBe("text/yaml;charset=utf-8");
+  });
 });

@@ -121,6 +121,7 @@ describe("createTemplateActions", () => {
       testUrl: "https://example.com/generate_204",
       testInterval: 60,
       ruleProviderBaseUrl: "https://example.com/rules",
+      exposeSubscriptionUserInfo: false,
     } as unknown as SubBoostTemplateConfig;
 
     actions.applyTemplateConfig(config);
@@ -160,6 +161,7 @@ describe("createTemplateActions", () => {
       testUrl: "https://example.com/generate_204",
       testInterval: 60,
       ruleProviderBaseUrl: "https://example.com/rules",
+      exposeSubscriptionUserInfo: false,
     });
     expect(getState().customRules).toEqual([
       {
@@ -197,6 +199,7 @@ describe("createTemplateActions", () => {
       testUrl: "https://old.example/generate_204",
       testInterval: 300,
       ruleProviderBaseUrl: "https://old.example/rules",
+      exposeSubscriptionUserInfo: false,
     });
     const beforeNoop = getState();
 
@@ -219,6 +222,7 @@ describe("createTemplateActions", () => {
       testUrl: 123,
       testInterval: "60",
       ruleProviderBaseUrl: 123,
+      exposeSubscriptionUserInfo: "yes",
     } as never);
 
     expect(getState()).toMatchObject({
@@ -247,6 +251,7 @@ describe("createTemplateActions", () => {
       testUrl: "https://old.example/generate_204",
       testInterval: 300,
       ruleProviderBaseUrl: "https://old.example/rules",
+      exposeSubscriptionUserInfo: false,
     });
   });
 });

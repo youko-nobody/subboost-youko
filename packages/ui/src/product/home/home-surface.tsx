@@ -81,6 +81,8 @@ function HomeSurfaceInner({ adapter }: Props) {
     experimentalCnUseCnRuleSet,
     proxyGroupNameOverrides,
     appliedTemplateId,
+    exposeSubscriptionUserInfo,
+    setExposeSubscriptionUserInfo,
   } = useConfigStore();
   const { user, fetchUser, clearUser } = useUserStore();
   const userId = user?.id ?? null;
@@ -121,6 +123,8 @@ function HomeSurfaceInner({ adapter }: Props) {
     listenerPorts,
     dnsYaml,
     ruleProviderBaseUrl,
+    exposeSubscriptionUserInfo,
+    setExposeSubscriptionUserInfo,
     testUrl,
     testInterval,
     cnIpNoResolve,

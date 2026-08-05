@@ -48,6 +48,8 @@ type SubscriptionLinkState = {
   autoUpdatePolicy: AutoUpdateIntervalPolicy;
   smartNodeMatchingEnabled: boolean;
   setSmartNodeMatchingEnabled: (value: boolean) => void;
+  exposeSubscriptionUserInfo: boolean;
+  setExposeSubscriptionUserInfo: (value: boolean) => void;
   isCreatingSubscription: boolean;
   copied: boolean;
   saveRequirementDialog: boolean;
@@ -381,6 +383,8 @@ export function HomeLayout({
         autoUpdatePolicy={subscription.autoUpdatePolicy}
         smartNodeMatchingEnabled={subscription.smartNodeMatchingEnabled}
         setSmartNodeMatchingEnabled={subscription.setSmartNodeMatchingEnabled}
+        exposeSubscriptionUserInfo={subscription.exposeSubscriptionUserInfo}
+        setExposeSubscriptionUserInfo={subscription.setExposeSubscriptionUserInfo}
         isCreatingSubscription={subscription.isCreatingSubscription}
         copied={subscription.copied}
         isEditingExistingSubscription={subscription.isEditingExistingSubscription}

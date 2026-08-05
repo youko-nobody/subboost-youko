@@ -35,6 +35,8 @@ type Props = {
   autoUpdatePolicy: AutoUpdateIntervalPolicy;
   smartNodeMatchingEnabled: boolean;
   setSmartNodeMatchingEnabled: (value: boolean) => void;
+  exposeSubscriptionUserInfo: boolean;
+  setExposeSubscriptionUserInfo: (value: boolean) => void;
   isCreatingSubscription: boolean;
   copied: boolean;
   isEditingExistingSubscription: boolean;
@@ -55,6 +57,8 @@ export function SubscriptionLinkDialog({
   autoUpdatePolicy,
   smartNodeMatchingEnabled,
   setSmartNodeMatchingEnabled,
+  exposeSubscriptionUserInfo,
+  setExposeSubscriptionUserInfo,
   isCreatingSubscription,
   copied,
   isEditingExistingSubscription,
@@ -108,6 +112,15 @@ export function SubscriptionLinkDialog({
                   aria-label="更新时智能匹配节点"
                 />
               </div>
+
+              <div className="my-3 border-t border-white/10" />
+
+              <SwitchField
+                label="输出流量/到期信息"
+                description="关闭后订阅响应不会携带 subscription-userinfo、套餐名和账户页信息"
+                checked={exposeSubscriptionUserInfo}
+                onCheckedChange={setExposeSubscriptionUserInfo}
+              />
 
               <div className="my-3 border-t border-white/10" />
 

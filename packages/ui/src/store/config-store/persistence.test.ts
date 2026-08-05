@@ -17,6 +17,7 @@ describe("config store persistence", () => {
         enabled: true,
         excludeRegexes: ["  expire  ", "expire", "", "test"],
       },
+      exposeSubscriptionUserInfo: false,
     } as typeof initialState;
 
     const persisted = partializeConfigState(state);
@@ -26,12 +27,14 @@ describe("config store persistence", () => {
         enabled: true,
         excludeRegexes: ["expire", "test"],
       },
+      exposeSubscriptionUserInfo: false,
     });
     expect(persisted).not.toHaveProperty("nodes");
     expect(normalizePersistedConfigState(persisted).nodeNameFilter).toEqual({
       enabled: true,
       excludeRegexes: ["expire", "test"],
     });
+    expect(normalizePersistedConfigState(persisted).exposeSubscriptionUserInfo).toBe(false);
   });
 
   it("round-trips editable rule model fields for local drafts", () => {
@@ -106,6 +109,7 @@ describe("config store persistence", () => {
     expect(normalizePersistedConfigState({}).nodeNameFilter).toEqual(
       DEFAULT_NODE_NAME_FILTER_CONFIG
     );
+    expect(normalizePersistedConfigState({}).exposeSubscriptionUserInfo).toBe(true);
     expect(normalizePersistedConfigState({})).not.toHaveProperty("experimentalCnUseCnRuleSet");
     expect(
       normalizePersistedConfigState({

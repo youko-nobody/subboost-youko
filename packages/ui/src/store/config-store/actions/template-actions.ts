@@ -229,6 +229,10 @@ export function createTemplateActions(
             typeof config.ruleProviderBaseUrl === "string"
               ? config.ruleProviderBaseUrl
               : state.ruleProviderBaseUrl,
+          exposeSubscriptionUserInfo:
+            typeof config.exposeSubscriptionUserInfo === "boolean"
+              ? config.exposeSubscriptionUserInfo
+              : state.exposeSubscriptionUserInfo,
         };
       });
     },

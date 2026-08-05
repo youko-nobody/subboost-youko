@@ -46,6 +46,7 @@ describe("validateSubBoostTemplateConfig", () => {
     expectInvalid({ enabledProxyGroups: ["missing"] }, "enabledProxyGroups 包含未知代理组");
     expectInvalid({ hiddenProxyGroups: ["missing"] }, "hiddenProxyGroups 包含未知代理组");
     expectInvalid({ ruleOrder: [1 as never] }, "ruleOrder 只能包含字符串");
+    expect(validateSubBoostTemplateConfig(validConfig({ exposeSubscriptionUserInfo: "no" as never })).ok).toBe(false);
   });
 
   it("accepts blank templates without built-in modules", () => {
@@ -146,6 +147,7 @@ describe("validateSubBoostTemplateConfig", () => {
           empty: " ",
         },
         ruleOrder: ["missing", "missing"],
+        exposeSubscriptionUserInfo: false,
       })
     );
 
@@ -161,6 +163,7 @@ describe("validateSubBoostTemplateConfig", () => {
       groupType: "load-balance",
       strategy: DEFAULT_LOAD_BALANCE_STRATEGY,
     });
+    expect(result.config.exposeSubscriptionUserInfo).toBe(false);
     expect(result.config.customRuleSets).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

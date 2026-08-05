@@ -93,6 +93,8 @@ type Options = {
   listenerPorts: Record<string, number>;
   dnsYaml: string;
   ruleProviderBaseUrl: string;
+  exposeSubscriptionUserInfo: boolean;
+  setExposeSubscriptionUserInfo: (value: boolean) => void;
   testUrl: string;
   testInterval: number;
   cnIpNoResolve: boolean;
@@ -128,6 +130,8 @@ export function useSubscriptionLink({
   listenerPorts,
   dnsYaml,
   ruleProviderBaseUrl,
+  exposeSubscriptionUserInfo,
+  setExposeSubscriptionUserInfo,
   testUrl,
   testInterval,
   cnIpNoResolve,
@@ -403,6 +407,7 @@ export function useSubscriptionLink({
             groupListeners: useConfigStore.getState().groupListeners,
             dnsYaml,
             ruleProviderBaseUrl,
+            exposeSubscriptionUserInfo,
             testUrl,
             testInterval,
             cnIpNoResolve,
@@ -485,6 +490,7 @@ export function useSubscriptionLink({
     dnsYaml,
     editingSubscription,
     enabledProxyGroups,
+    exposeSubscriptionUserInfo,
     hiddenProxyGroups,
     generatedYaml,
     isEditingExistingSubscription,
@@ -537,6 +543,8 @@ export function useSubscriptionLink({
     autoUpdatePolicy: autoUpdatePolicy as AutoUpdateIntervalPolicy,
     smartNodeMatchingEnabled,
     setSmartNodeMatchingEnabled,
+    exposeSubscriptionUserInfo,
+    setExposeSubscriptionUserInfo,
     isCreatingSubscription,
     copied,
     setCopied,

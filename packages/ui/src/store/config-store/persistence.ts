@@ -167,6 +167,8 @@ export function normalizePersistedConfigState(
     ...(typeof state.testUrl === "string" ? { testUrl: state.testUrl } : {}),
     ...(typeof state.testInterval === "number" ? { testInterval: state.testInterval } : {}),
     ...(typeof state.ruleProviderBaseUrl === "string" ? { ruleProviderBaseUrl: state.ruleProviderBaseUrl } : {}),
+    exposeSubscriptionUserInfo:
+      typeof state.exposeSubscriptionUserInfo === "boolean" ? state.exposeSubscriptionUserInfo : true,
     ...(typeof state.proxyGroupAdvancedModeEnabled === "boolean"
       ? { proxyGroupAdvancedModeEnabled: state.proxyGroupAdvancedModeEnabled }
       : {}),
@@ -196,6 +198,7 @@ export function partializeConfigState(state: ConfigState): Partial<ConfigState> 
     testUrl: state.testUrl,
     testInterval: state.testInterval,
     ruleProviderBaseUrl: state.ruleProviderBaseUrl,
+    exposeSubscriptionUserInfo: state.exposeSubscriptionUserInfo,
     proxyGroupAdvancedModeEnabled: state.proxyGroupAdvancedModeEnabled,
     nodeNameFilter: normalizeNodeNameFilterConfig(state.nodeNameFilter),
     cnIpNoResolve: state.cnIpNoResolve,

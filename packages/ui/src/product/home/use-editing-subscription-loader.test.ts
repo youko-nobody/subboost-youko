@@ -113,6 +113,7 @@ function resetStoreState(overrides: Record<string, unknown> = {}) {
     proxyGroupNameOverrides: {},
     experimentalCnUseCnRuleSet: false,
     cnIpNoResolve: true,
+    exposeSubscriptionUserInfo: true,
     proxyGroupAdvanced: {},
     proxyGroupOrder: [],
     ruleOrder: [],
@@ -233,6 +234,7 @@ describe("useEditingSubscriptionLoader", () => {
               ruleProviderBaseUrl: "https://rules.example.com",
               testUrl: "https://test.example.com",
               testInterval: 600,
+              exposeSubscriptionUserInfo: false,
               cnIpNoResolve: false,
               experimentalCnUseCnRuleSet: true,
               smartNodeMatchingEnabled: false,
@@ -298,6 +300,7 @@ describe("useEditingSubscriptionLoader", () => {
       ruleProviderBaseUrl: "https://rules.example.com",
       testUrl: "https://test.example.com",
       testInterval: 600,
+      exposeSubscriptionUserInfo: false,
       cnIpNoResolve: false,
       experimentalCnUseCnRuleSet: true,
     });

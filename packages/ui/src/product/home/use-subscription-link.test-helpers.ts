@@ -66,6 +66,8 @@ export function makeOptions(overrides: Record<string, unknown> = {}) {
     listenerPorts: { "Node A": 41000 },
     dnsYaml: "dns: {}",
     ruleProviderBaseUrl: "https://rules.example.com",
+    exposeSubscriptionUserInfo: true,
+    setExposeSubscriptionUserInfo: vi.fn(),
     testUrl: "https://test.example.com",
     testInterval: 600,
     cnIpNoResolve: true,

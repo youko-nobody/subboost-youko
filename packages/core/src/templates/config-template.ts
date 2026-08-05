@@ -104,6 +104,11 @@ export function validateSubBoostTemplateConfig(value: unknown): ValidationResult
   if (!testInterval.ok) return testInterval;
   const ruleProviderBaseUrl = parseHttpUrlString(value.ruleProviderBaseUrl, "ruleProviderBaseUrl");
   if (!ruleProviderBaseUrl.ok) return ruleProviderBaseUrl;
+  const exposeSubscriptionUserInfo = parseOptionalBoolean(
+    value.exposeSubscriptionUserInfo,
+    "exposeSubscriptionUserInfo"
+  );
+  if (!exposeSubscriptionUserInfo.ok) return exposeSubscriptionUserInfo;
   const cnIpNoResolve = parseOptionalBoolean(value.cnIpNoResolve, "cnIpNoResolve");
   if (!cnIpNoResolve.ok) return cnIpNoResolve;
   const experimentalCnUseCnRuleSet = parseOptionalBoolean(
@@ -154,6 +159,9 @@ export function validateSubBoostTemplateConfig(value: unknown): ValidationResult
       testUrl: testUrl.value,
       testInterval: testInterval.value,
       ruleProviderBaseUrl: ruleProviderBaseUrl.value,
+      ...(exposeSubscriptionUserInfo.value !== undefined
+        ? { exposeSubscriptionUserInfo: exposeSubscriptionUserInfo.value }
+        : {}),
     },
   };
 }

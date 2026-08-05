@@ -145,6 +145,7 @@ function hasMeaningfulConfig(state: ConfigState): boolean {
     state.testUrl !== initialState.testUrl ||
     state.testInterval !== initialState.testInterval ||
     state.ruleProviderBaseUrl !== initialState.ruleProviderBaseUrl ||
+    state.exposeSubscriptionUserInfo !== initialState.exposeSubscriptionUserInfo ||
     state.cnIpNoResolve !== initialState.cnIpNoResolve ||
     state.experimentalCnUseCnRuleSet !== initialState.experimentalCnUseCnRuleSet ||
     Object.keys(state.listenerPorts).length > 0 ||
@@ -181,6 +182,7 @@ function buildHandoffState(state: ConfigState): Partial<ConfigState> {
     testUrl: state.testUrl,
     testInterval: state.testInterval,
     ruleProviderBaseUrl: state.ruleProviderBaseUrl,
+    exposeSubscriptionUserInfo: state.exposeSubscriptionUserInfo,
     cnIpNoResolve: state.cnIpNoResolve,
     experimentalCnUseCnRuleSet: state.experimentalCnUseCnRuleSet,
     listenerPorts: state.listenerPorts,
@@ -255,6 +257,9 @@ function normalizeHandoffState(raw: unknown): Partial<ConfigState> | null {
   if (typeof raw.testUrl === "string") out.testUrl = raw.testUrl;
   if (typeof raw.testInterval === "number" && Number.isFinite(raw.testInterval)) out.testInterval = raw.testInterval;
   if (typeof raw.ruleProviderBaseUrl === "string") out.ruleProviderBaseUrl = raw.ruleProviderBaseUrl;
+  if (typeof raw.exposeSubscriptionUserInfo === "boolean") {
+    out.exposeSubscriptionUserInfo = raw.exposeSubscriptionUserInfo;
+  }
   if (typeof raw.cnIpNoResolve === "boolean") out.cnIpNoResolve = raw.cnIpNoResolve;
   if (typeof raw.experimentalCnUseCnRuleSet === "boolean") {
     out.experimentalCnUseCnRuleSet = raw.experimentalCnUseCnRuleSet;

@@ -619,5 +619,13 @@ describe("local subscription service", () => {
     );
     mocks.buildProxyProvidersFromConfig.mockReturnValueOnce({ provider: { url: "https://example.com/provider.yaml" } });
     await expect(generateSubscriptionYaml("provider-only")).resolves.toMatchObject({ yaml: "mixed-port: 7890\n" });
+
+    mocks.prisma.subscription.findUnique.mockResolvedValueOnce(
+      row({ encryptedConfig: JSON.stringify({ exposeSubscriptionUserInfo: false }) })
+    );
+    await expect(generateSubscriptionYaml("hidden-traffic")).resolves.toMatchObject({
+      yaml: "mixed-port: 7890\n",
+      subscriptionInfo: {},
+    });
   });
 });
