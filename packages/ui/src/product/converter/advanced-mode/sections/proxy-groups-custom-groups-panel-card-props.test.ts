@@ -13,7 +13,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("lucide-react", () => ({
   Check: () => null,
+  ExternalLink: () => null,
+  ImageOff: () => null,
   Trash2: () => null,
+  X: () => null,
 }));
 
 vi.mock("@subboost/ui/components/ui/button", () => ({
