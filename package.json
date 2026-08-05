@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "npm --workspace @subboost/local run dev",
     "build": "npm --workspace @subboost/local run build",
+    "pretest:unit": "npm --prefix local run db:generate",
     "test:unit": "vitest run",
     "test:core": "vitest run --config vitest.core.config.ts",
     "lint": "eslint local packages --max-warnings=0 && npm run check:ui-consistency",
