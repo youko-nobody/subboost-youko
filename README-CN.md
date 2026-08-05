@@ -89,6 +89,8 @@ npm run local:typecheck
 
 推荐在 Linux 服务器上使用 Docker Compose 从源码构建。
 
+完整小白教程见：[VPS 安装部署教程](./docs/DEPLOYMENT-CN.md)。部署完成后，站内首页也会显示 `VPS 部署教程` 入口，可以直接访问 `/deploy-guide`。
+
 ### 1. 克隆项目
 
 ```bash
@@ -126,6 +128,14 @@ openssl rand -hex 32
 ```
 
 `POSTGRES_PASSWORD` 和 `DATABASE_URL` 里的数据库密码要保持一致。
+
+`APP_URL` 会影响后台任务、订阅分享链接和账户页响应头。通过 Cloudflare Tunnel 或反向代理使用域名时，请把它改成最终访问域名，例如：
+
+```env
+APP_URL=https://你的域名
+```
+
+如果 `APP_URL` 配错了，现在网页端新建、编辑和复制订阅会优先使用当前访问域名兜底；但仍建议在 `local/.env` 里改正确，然后重启容器。
 
 ### 3. 构建并启动
 

@@ -122,7 +122,7 @@ function buildDefaultHelpLinks(mode: FooterMode): FooterLink[] {
   if (mode === "local") {
     return [
       { href: sourceRepositoryUrl, label: "开源仓库", external: true },
-      { href: "https://ryanvan.com/t/topic/59?u=ryan", label: "配置教程", external: true },
+      { href: "/deploy-guide", label: "VPS 部署教程" },
       { href: "https://subboost.org/faq", label: "常见问题", external: true },
     ];
   }

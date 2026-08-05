@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Eye,
   Loader2,
+  Server,
   Settings2,
   Upload,
   Zap,
@@ -86,6 +87,7 @@ type Props = {
     user: User | null;
   }) => React.ReactNode;
   saveRequirementSlot?: React.ReactNode;
+  deployGuideHref?: string | null;
   templateUploadHref?: string | null;
   onTemplateUploadOpen?: () => void;
 };
@@ -110,6 +112,7 @@ export function HomeLayout({
   noticeSlot,
   renderAnnouncement,
   saveRequirementSlot,
+  deployGuideHref,
   templateUploadHref = "/templates?upload=1",
   onTemplateUploadOpen,
 }: Props) {
@@ -145,6 +148,16 @@ export function HomeLayout({
         <p className="text-white/50 max-w-2xl mx-auto leading-snug text-[clamp(0.75rem,1vw,0.95rem)] [@media(max-height:1000px)]:text-[0.875rem]">
           Clash 订阅转换、生成与管理服务，支持链式代理、智能分流、多协议和多订阅聚合
         </p>
+        {deployGuideHref && (
+          <div className="mt-2 flex justify-center">
+            <Button asChild variant="ghost" size="sm" className="h-8 gap-2 text-white/55 hover:text-white">
+              <Link href={deployGuideHref}>
+                <Server className="h-4 w-4" />
+                VPS 部署教程
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       {noticeSlot}

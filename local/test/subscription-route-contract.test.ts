@@ -119,10 +119,22 @@ describe("local subscription routes", () => {
     expect(await readJson(listResponse)).toEqual({ subscriptions: [subscription] });
     expect(listSubscriptions).toHaveBeenCalledWith("admin-1");
 
-    const createResponse = await pluralCollectionRoute.POST(jsonRequest("http://local.test/api/subscriptions", fullConfigPayload));
+    const createResponse = await pluralCollectionRoute.POST(
+      new Request("http://127.0.0.1:3000/api/subscriptions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-forwarded-host": "sub.example.com",
+          "x-forwarded-proto": "https",
+        },
+        body: JSON.stringify(fullConfigPayload),
+      })
+    );
     expect(createResponse.status).toBe(201);
     expect(await readJson(createResponse)).toEqual({ subscription });
-    expect(createSubscription).toHaveBeenCalledWith("admin-1", fullConfigPayload);
+    expect(createSubscription).toHaveBeenCalledWith("admin-1", fullConfigPayload, {
+      appUrl: "https://sub.example.com",
+    });
   });
 
   it("rejects subscription bodies above 16 MiB", async () => {
@@ -144,14 +156,19 @@ describe("local subscription routes", () => {
 
     const getResponse = await pluralItemRoute.GET(new Request("http://local.test/api/subscriptions/sub-1"), params);
     expect(getResponse.status).toBe(200);
-    expect(getSubscription).toHaveBeenCalledWith("admin-1", "sub-1");
+    expect(getSubscription).toHaveBeenCalledWith("admin-1", "sub-1", { appUrl: "http://local.test" });
 
     const updateResponse = await pluralItemRoute.PUT(
       jsonRequest("http://local.test/api/subscriptions/sub-1", { ...fullConfigPayload, name: "Renamed" }),
       params
     );
     expect(updateResponse.status).toBe(200);
-    expect(updateSubscription).toHaveBeenCalledWith("admin-1", "sub-1", { ...fullConfigPayload, name: "Renamed" });
+    expect(updateSubscription).toHaveBeenCalledWith(
+      "admin-1",
+      "sub-1",
+      { ...fullConfigPayload, name: "Renamed" },
+      { appUrl: "http://local.test" }
+    );
 
     const refreshResponse = await pluralRefreshRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/refresh"), params);
     expect(refreshResponse.status).toBe(200);

@@ -50,7 +50,7 @@ vi.mock("@subboost/server-core/rules", () => ({
 
 import { getCurrentAdmin, isSetupRequired } from "./auth";
 import { decryptJson, decryptJsonObject, decryptText, encryptJson, encryptText } from "./crypto";
-import { getAppUrl, isHttpsAppUrl, requireEnv } from "./env";
+import { getAppUrl, getRequestAppUrl, isHttpsAppUrl, requireEnv } from "./env";
 import { apiError, getStringField, json, readJsonBody } from "./http";
 import {
   getCnRuleCandidateDiscovery,
@@ -110,6 +110,39 @@ describe("local lib helpers", () => {
 
     delete process.env.APP_URL;
     expect(() => requireEnv("APP_URL")).toThrow("APP_URL is required");
+  });
+
+  it("derives public app URLs from incoming requests for reverse proxies", () => {
+    process.env.APP_URL = "https://configured.example";
+
+    expect(
+      getRequestAppUrl(
+        new Request("http://127.0.0.1:3000/api/subscriptions", {
+          headers: {
+            "x-forwarded-proto": "https",
+            "x-forwarded-host": "sub.example.com",
+          },
+        })
+      )
+    ).toBe("https://sub.example.com");
+    expect(
+      getRequestAppUrl(
+        new Request("http://127.0.0.1:3000/api/subscriptions", {
+          headers: {
+            host: "192.0.2.10:3000",
+          },
+        })
+      )
+    ).toBe("http://192.0.2.10:3000");
+    expect(
+      getRequestAppUrl(
+        new Request("http://127.0.0.1:3000/api/subscriptions", {
+          headers: {
+            "x-forwarded-host": "bad host",
+          },
+        })
+      )
+    ).toBe("http://127.0.0.1:3000");
   });
 
   it("uses local-only defaults during direct development startup", () => {

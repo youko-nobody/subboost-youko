@@ -1,19 +1,26 @@
 "use client";
 
 import * as React from "react";
-import { LogOut, Network, ServerCog, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ExternalLink, LogOut, Network, ServerCog, ShieldCheck } from "lucide-react";
 
 import { Button } from "@subboost/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@subboost/ui/components/ui/card";
 import { SwitchField } from "@subboost/ui/components/ui/switch-field";
 import { useUserStore } from "@subboost/ui/store/user-store";
 
+type RuntimeInfo = {
+  configuredAppUrl: string;
+  effectiveAppUrl: string;
+};
+
 export default function SettingsPage() {
   const { user, fetchUser, logout } = useUserStore();
   const [allowUnsafeSubscriptionSources, setAllowUnsafeSubscriptionSources] = React.useState(false);
+  const [runtimeInfo, setRuntimeInfo] = React.useState<RuntimeInfo | null>(null);
   const [sourceImportLoading, setSourceImportLoading] = React.useState(true);
   const [sourceImportSaving, setSourceImportSaving] = React.useState(false);
   const [sourceImportError, setSourceImportError] = React.useState<string | null>(null);
+  const [runtimeError, setRuntimeError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     void fetchUser();
@@ -44,6 +51,43 @@ export default function SettingsPage() {
       })
       .finally(() => {
         if (!cancelled) setSourceImportLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setRuntimeInfo(null);
+      setRuntimeError(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setRuntimeError(null);
+    void fetch("/api/settings/runtime", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to load runtime settings.");
+        const body = (await response.json()) as {
+          configuredAppUrl?: unknown;
+          effectiveAppUrl?: unknown;
+        };
+        if (typeof body.configuredAppUrl !== "string" || typeof body.effectiveAppUrl !== "string") {
+          throw new Error("Invalid runtime settings response.");
+        }
+        if (!cancelled) {
+          setRuntimeInfo({
+            configuredAppUrl: body.configuredAppUrl,
+            effectiveAppUrl: body.effectiveAppUrl,
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setRuntimeError("加载站点地址失败，请刷新重试");
       });
 
     return () => {
@@ -82,11 +126,16 @@ export default function SettingsPage() {
     }
   };
 
+  const configuredAppUrl = runtimeInfo?.configuredAppUrl || "-";
+  const effectiveAppUrl = runtimeInfo?.effectiveAppUrl || "-";
+  const appUrlMismatch =
+    runtimeInfo !== null && runtimeInfo.configuredAppUrl !== runtimeInfo.effectiveAppUrl;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1">账户设置</h1>
+          <h1 className="mb-1 text-2xl font-bold">账户设置</h1>
           <p className="text-white/50">本地管理员、订阅源安全和运行端点</p>
         </div>
       </div>
@@ -106,7 +155,9 @@ export default function SettingsPage() {
             </div>
             <div>
               <p className="text-xs text-white/40">已保存订阅</p>
-              <p className="mt-1 font-medium">{user ? `${user.subscriptionCount} / ${user.quota.maxSubscriptions}` : "-"}</p>
+              <p className="mt-1 font-medium">
+                {user ? `${user.subscriptionCount} / ${user.quota.maxSubscriptions}` : "-"}
+              </p>
             </div>
             <Button variant="destructive" className="gap-2" onClick={() => void handleLogout()} disabled={!user}>
               <LogOut className="h-4 w-4" />
@@ -139,9 +190,34 @@ export default function SettingsPage() {
             <div className="rounded-lg bg-sky-500/20 p-2 text-sky-300">
               <ServerCog className="h-5 w-5" />
             </div>
-            <CardTitle className="text-base">运行端点</CardTitle>
+            <CardTitle className="text-base">运行站点</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-white/60">
+            <div>
+              <p className="text-xs text-white/40">订阅分享主域名</p>
+              <code className="mt-1 block break-all rounded-md bg-white/5 px-3 py-2 text-white/70">
+                {effectiveAppUrl}
+              </code>
+              <p className="mt-1 text-xs text-white/40">
+                新建、编辑和复制订阅时会优先使用当前访问域名，服务器后台任务会使用 APP_URL。
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-white/40">.env 里的 APP_URL</p>
+              <code className="mt-1 block break-all rounded-md bg-white/5 px-3 py-2 text-white/70">
+                {configuredAppUrl}
+              </code>
+            </div>
+            {appUrlMismatch && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-100/80">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                <p>
+                  当前访问域名和 APP_URL 不一致。建议把 VPS 的 local/.env 里 APP_URL 改成正式域名，
+                  例如 https://你的域名，然后重启容器。
+                </p>
+              </div>
+            )}
+            {runtimeError && <p className="text-xs text-red-300">{runtimeError}</p>}
             <div>
               <p className="text-xs text-white/40">存活检查</p>
               <code className="mt-1 block rounded-md bg-white/5 px-3 py-2 text-white/70">/api/health/live</code>
@@ -150,6 +226,12 @@ export default function SettingsPage() {
               <p className="text-xs text-white/40">就绪检查</p>
               <code className="mt-1 block rounded-md bg-white/5 px-3 py-2 text-white/70">/api/health/ready</code>
             </div>
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <a href="/deploy-guide">
+                部署教程
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
           </CardContent>
         </Card>
       </div>

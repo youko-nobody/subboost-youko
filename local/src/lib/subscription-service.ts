@@ -97,6 +97,10 @@ export type GeneratedSubscriptionYaml = {
   isAdmin: boolean;
 };
 
+type FormatSubscriptionOptions = {
+  appUrl?: string;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -109,8 +113,9 @@ function validateLocalSubscriptionNodes(value: unknown): ParsedNode[] {
   return validateSubscriptionNodeList(value);
 }
 
-function buildLocalSubscriptionUrl(token: string): string {
-  return `${getAppUrl()}/api/subscriptions/${token}/config.yaml`;
+function buildLocalSubscriptionUrl(token: string, appUrl?: string): string {
+  const baseUrl = (appUrl?.trim() || getAppUrl()).replace(/\/+$/, "");
+  return `${baseUrl}/api/subscriptions/${token}/config.yaml`;
 }
 
 function buildLocalSubscriptionConfig(
@@ -160,9 +165,12 @@ export function readSubscriptionSecrets(row: SubscriptionRow) {
   };
 }
 
-export function formatSubscription(row: SubscriptionRow): SubscriptionSummary {
+export function formatSubscription(
+  row: SubscriptionRow,
+  options: FormatSubscriptionOptions = {}
+): SubscriptionSummary {
   const secrets = readSubscriptionSecrets(row);
-  const subscriptionUrl = buildLocalSubscriptionUrl(row.token);
+  const subscriptionUrl = buildLocalSubscriptionUrl(row.token, options.appUrl);
   return serializeSubscriptionSummaryData(row, secrets, {
     subscriptionUrl,
     yamlUrl: subscriptionUrl,
@@ -173,9 +181,12 @@ export function formatSubscription(row: SubscriptionRow): SubscriptionSummary {
   }) as SubscriptionSummary;
 }
 
-export function formatSubscriptionDetail(row: SubscriptionRow): SubscriptionDetail {
+export function formatSubscriptionDetail(
+  row: SubscriptionRow,
+  options: FormatSubscriptionOptions = {}
+): SubscriptionDetail {
   const secrets = readSubscriptionSecrets(row);
-  const subscriptionUrl = buildLocalSubscriptionUrl(row.token);
+  const subscriptionUrl = buildLocalSubscriptionUrl(row.token, options.appUrl);
   return serializeSubscriptionDetailData(row, secrets, {
     subscriptionUrl,
     yamlUrl: subscriptionUrl,
@@ -186,16 +197,23 @@ export function formatSubscriptionDetail(row: SubscriptionRow): SubscriptionDeta
   }) as SubscriptionDetail;
 }
 
-export async function listSubscriptions(ownerId: string): Promise<SubscriptionSummary[]> {
+export async function listSubscriptions(
+  ownerId: string,
+  options: FormatSubscriptionOptions = {}
+): Promise<SubscriptionSummary[]> {
   const rows = await prisma.subscription.findMany({
     where: { ownerId },
     include: { autoUpdateState: true },
     orderBy: { updatedAt: "desc" },
   });
-  return rows.map(formatSubscription);
+  return rows.map((row) => formatSubscription(row, options));
 }
 
-export async function createSubscription(ownerId: string, body: unknown): Promise<SubscriptionSummary> {
+export async function createSubscription(
+  ownerId: string,
+  body: unknown,
+  options: FormatSubscriptionOptions = {}
+): Promise<SubscriptionSummary> {
   if (!isRecord(body)) {
     throw new Error("Invalid request body.");
   }
@@ -224,10 +242,15 @@ export async function createSubscription(ownerId: string, body: unknown): Promis
     },
     include: { autoUpdateState: true },
   });
-  return formatSubscription(row);
+  return formatSubscription(row, options);
 }
 
-export async function updateSubscription(ownerId: string, id: string, body: unknown): Promise<SubscriptionSummary | null> {
+export async function updateSubscription(
+  ownerId: string,
+  id: string,
+  body: unknown,
+  options: FormatSubscriptionOptions = {}
+): Promise<SubscriptionSummary | null> {
   if (!isRecord(body)) throw new Error("Invalid request body.");
   const current = await prisma.subscription.findFirst({ where: { id, ownerId }, include: { autoUpdateState: true } });
   if (!current) return null;
@@ -292,15 +315,19 @@ export async function updateSubscription(ownerId: string, id: string, body: unkn
       include: { autoUpdateState: true },
     });
   });
-  return formatSubscription(row);
+  return formatSubscription(row, options);
 }
 
-export async function getSubscription(ownerId: string, id: string): Promise<SubscriptionDetail | null> {
+export async function getSubscription(
+  ownerId: string,
+  id: string,
+  options: FormatSubscriptionOptions = {}
+): Promise<SubscriptionDetail | null> {
   const row = await prisma.subscription.findFirst({
     where: { id, ownerId },
     include: { autoUpdateState: true },
   });
-  return row ? formatSubscriptionDetail(row) : null;
+  return row ? formatSubscriptionDetail(row, options) : null;
 }
 
 export async function deleteSubscription(ownerId: string, id: string): Promise<boolean> {

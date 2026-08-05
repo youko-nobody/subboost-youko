@@ -24,3 +24,41 @@ export function getAppUrl(): string {
 export function isHttpsAppUrl(): boolean {
   return getAppUrl().startsWith("https://");
 }
+
+function firstHeaderValue(value: string | null): string {
+  return (value || "").split(",")[0]?.trim() || "";
+}
+
+function normalizeHeaderHost(value: string): string {
+  const host = value.replace(/^https?:\/\//i, "").split("/")[0]?.trim() || "";
+  if (!host || /[\s@]/.test(host)) return "";
+  try {
+    return new URL(`http://${host}`).host;
+  } catch {
+    return "";
+  }
+}
+
+function normalizeHeaderProtocol(value: string | null): "http" | "https" | "" {
+  const protocol = firstHeaderValue(value).replace(/:$/, "").toLowerCase();
+  return protocol === "http" || protocol === "https" ? protocol : "";
+}
+
+export function getRequestAppUrl(request?: Request | null): string {
+  if (!request) return getAppUrl();
+
+  try {
+    const requestUrl = new URL(request.url);
+    const forwardedHost = normalizeHeaderHost(firstHeaderValue(request.headers.get("x-forwarded-host")));
+    const host = forwardedHost
+      || normalizeHeaderHost(firstHeaderValue(request.headers.get("host")))
+      || requestUrl.host;
+    if (!host) return getAppUrl();
+
+    const forwardedProto = normalizeHeaderProtocol(request.headers.get("x-forwarded-proto"));
+    const protocol = forwardedProto || (requestUrl.protocol === "http:" ? "http" : "https");
+    return `${protocol}://${host}`.replace(/\/+$/, "");
+  } catch {
+    return getAppUrl();
+  }
+}

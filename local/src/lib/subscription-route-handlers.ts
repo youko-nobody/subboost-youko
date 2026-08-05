@@ -8,13 +8,20 @@ import {
   refreshSubscription,
   updateSubscription,
 } from "@local/lib/subscription-service";
+import { getRequestAppUrl } from "./env";
+
+function requestFormatOptionArgs(request?: Request): Array<{ appUrl: string }> {
+  return request ? [{ appUrl: getRequestAppUrl(request) }] : [];
+}
 
 export function getSubscriptionIdFromQuery(request: Request): string {
   return new URL(request.url).searchParams.get("id")?.trim() || "";
 }
 
-export async function listSubscriptionsResponse() {
-  return withCurrentAdmin(async (admin) => json({ subscriptions: await listSubscriptions(admin.id) }));
+export async function listSubscriptionsResponse(request?: Request) {
+  return withCurrentAdmin(async (admin) =>
+    json({ subscriptions: await listSubscriptions(admin.id, ...requestFormatOptionArgs(request)) })
+  );
 }
 
 export async function createSubscriptionResponse(request: Request) {
@@ -23,7 +30,9 @@ export async function createSubscriptionResponse(request: Request) {
     if (!parsedBody.ok) return jsonBodyError(parsedBody);
 
     try {
-      const subscription = await createSubscription(admin.id, parsedBody.value);
+      const subscription = await createSubscription(admin.id, parsedBody.value, {
+        appUrl: getRequestAppUrl(request),
+      });
       return json({ subscription }, 201);
     } catch (error) {
       return apiError(error instanceof Error ? error.message : "Unable to create subscription.", "BAD_REQUEST", 400);
@@ -31,9 +40,9 @@ export async function createSubscriptionResponse(request: Request) {
   });
 }
 
-export async function getSubscriptionResponse(id: string) {
+export async function getSubscriptionResponse(id: string, request?: Request) {
   return withCurrentAdmin(async (admin) => {
-    const subscription = await getSubscription(admin.id, id);
+    const subscription = await getSubscription(admin.id, id, ...requestFormatOptionArgs(request));
     if (!subscription) return apiError("Subscription not found.", "NOT_FOUND", 404);
     return json({ subscription });
   });
@@ -49,7 +58,9 @@ export async function updateSubscriptionResponse(request: Request, id: string) {
     }
 
     try {
-      const subscription = await updateSubscription(admin.id, id, body);
+      const subscription = await updateSubscription(admin.id, id, body, {
+        appUrl: getRequestAppUrl(request),
+      });
       if (!subscription) return apiError("Subscription not found.", "NOT_FOUND", 404);
       return json({ subscription });
     } catch (error) {

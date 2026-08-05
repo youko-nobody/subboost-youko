@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   apiError: vi.fn(),
   createSubscription: vi.fn(),
   deleteSubscription: vi.fn(),
+  getRequestAppUrl: vi.fn(),
   getSubscription: vi.fn(),
   json: vi.fn(),
   jsonBodyError: vi.fn(),
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@local/lib/api-auth", () => ({ withCurrentAdmin: mocks.withCurrentAdmin }));
+vi.mock("./env", () => ({ getRequestAppUrl: mocks.getRequestAppUrl }));
 vi.mock("@local/lib/http", () => ({
   apiError: mocks.apiError,
   json: mocks.json,
@@ -50,6 +52,7 @@ describe("local subscription route handlers", () => {
     );
     mocks.json.mockImplementation((body: unknown, status = 200) => ({ body, status }));
     mocks.apiError.mockImplementation((message: string, code: string, status: number) => ({ message, code, status }));
+    mocks.getRequestAppUrl.mockReturnValue("https://sub.example.com");
     mocks.jsonBodyError.mockImplementation(() => ({ message: "Invalid JSON body.", code: "BAD_REQUEST", status: 400 }));
   });
 
@@ -63,8 +66,13 @@ describe("local subscription route handlers", () => {
     await expect(listSubscriptionsResponse()).resolves.toEqual({ body: { subscriptions: [{ id: "sub-1" }] }, status: 200 });
     expect(mocks.listSubscriptions).toHaveBeenCalledWith("admin-1");
 
+    mocks.listSubscriptions.mockResolvedValueOnce([{ id: "sub-2" }]);
+    await expect(listSubscriptionsResponse(request)).resolves.toEqual({ body: { subscriptions: [{ id: "sub-2" }] }, status: 200 });
+    expect(mocks.listSubscriptions).toHaveBeenCalledWith("admin-1", { appUrl: "https://sub.example.com" });
+
     mocks.getSubscription.mockResolvedValueOnce({ id: "sub-1" });
-    await expect(getSubscriptionResponse("sub-1")).resolves.toEqual({ body: { subscription: { id: "sub-1" } }, status: 200 });
+    await expect(getSubscriptionResponse("sub-1", request)).resolves.toEqual({ body: { subscription: { id: "sub-1" } }, status: 200 });
+    expect(mocks.getSubscription).toHaveBeenCalledWith("admin-1", "sub-1", { appUrl: "https://sub.example.com" });
 
     mocks.getSubscription.mockResolvedValueOnce(null);
     await expect(getSubscriptionResponse("missing")).resolves.toEqual({
@@ -88,7 +96,7 @@ describe("local subscription route handlers", () => {
       body: { subscription: { id: "sub-1" } },
       status: 201,
     });
-    expect(mocks.createSubscription).toHaveBeenCalledWith("admin-1", { name: "A" });
+    expect(mocks.createSubscription).toHaveBeenCalledWith("admin-1", { name: "A" }, { appUrl: "https://sub.example.com" });
 
     mocks.readJsonBody.mockResolvedValueOnce({ ok: true, value: { name: "" } });
     mocks.createSubscription.mockRejectedValueOnce(new Error("Name required"));
@@ -121,6 +129,7 @@ describe("local subscription route handlers", () => {
       body: { subscription: { id: "sub-1", name: "B" } },
       status: 200,
     });
+    expect(mocks.updateSubscription).toHaveBeenCalledWith("admin-1", "sub-1", { name: "B" }, { appUrl: "https://sub.example.com" });
 
     mocks.readJsonBody.mockResolvedValueOnce({ ok: true, value: { name: "B" } });
     mocks.updateSubscription.mockResolvedValueOnce(null);

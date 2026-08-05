@@ -107,7 +107,8 @@ describe("shared layout components", () => {
     let html = renderToStaticMarkup(React.createElement(Footer, { mode: "local", buildVersion: "2.3.17" }));
     expect(html).toContain("开源仓库");
     expect(html).toContain("https://github.com/SubBoost/subboost");
-    expect(html).toContain("配置教程");
+    expect(html).toContain("VPS 部署教程");
+    expect(html).toContain("/deploy-guide");
     expect(html).toContain("https://subboost.org/faq");
     expect(html).not.toContain("本地管理员入口");
     expect(html).not.toContain("我的订阅");

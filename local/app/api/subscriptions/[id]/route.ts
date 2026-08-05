@@ -8,9 +8,9 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(request: Request, { params }: RouteContext) {
   const { id } = await params;
-  return getSubscriptionResponse(id);
+  return getSubscriptionResponse(id, request);
 }
 
 export async function PUT(request: Request, { params }: RouteContext) {

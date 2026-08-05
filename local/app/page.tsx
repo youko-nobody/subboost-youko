@@ -7,6 +7,7 @@ import { LOCAL_AUTO_UPDATE_POLICY } from "@local/lib/auto-update-policy";
 
 const localHomeAdapter: HomeSurfaceAdapter = {
   loginHref: "/login",
+  deployGuideHref: "/deploy-guide",
   templateUploadHref: "/templates?upload=1",
   productApi: {
     sourceImport: {

@@ -35,6 +35,7 @@ export type HomeSurfaceAdapter = {
   subscription?: HomeSubscriptionAdapter;
   loadSubscription?: (id: string) => Promise<Response>;
   loginHref?: string;
+  deployGuideHref?: string | null;
   templateUploadHref?: string | null;
   recordConfigDownload?: (templateId: string | null) => void;
   onAuthenticatedUserReady?: (context: { user: User }) => void;
@@ -223,6 +224,7 @@ function HomeSurfaceInner({ adapter }: Props) {
         onOpenChange: subscription.setSaveRequirementDialog,
         onAccept: subscription.handleAcceptSaveRequirement,
       })}
+      deployGuideHref={adapter?.deployGuideHref}
       templateUploadHref={adapter?.templateUploadHref}
       onTemplateUploadOpen={adapter?.onTemplateUploadOpen}
     />

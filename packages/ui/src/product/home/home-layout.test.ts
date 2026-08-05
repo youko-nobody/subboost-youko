@@ -53,6 +53,7 @@ vi.mock("lucide-react", () => ({
   ExternalLink: () => React.createElement("span", null, "external-icon"),
   Eye: () => React.createElement("span", null, "eye-icon"),
   Loader2: () => React.createElement("span", null, "loader-icon"),
+  Server: () => React.createElement("span", null, "server-icon"),
   Settings2: () => React.createElement("span", null, "settings-icon"),
   Upload: () => React.createElement("span", null, "upload-icon"),
   Zap: () => React.createElement("span", null, "zap-icon"),
@@ -187,6 +188,7 @@ describe("HomeLayout", () => {
         ...baseProps,
         showAiColumn: true,
         subscription,
+        deployGuideHref: "/deploy-guide",
         noticeSlot: "notice-slot",
         renderAnnouncement,
         saveRequirementSlot: "save-requirement-slot",
@@ -202,14 +204,13 @@ describe("HomeLayout", () => {
     expect(html).toContain("quick-mode");
     expect(html).toContain("advanced-mode");
     expect(html).toContain("visual-graph");
+    expect(html).toContain("VPS 部署教程");
     expect(html).toContain("# 请先添加订阅或节点");
     expect(html).toContain("AI 助手施工中");
     expect(html).toContain("notice-slot");
     expect(html).toContain("save-requirement-slot");
     expect(html).toContain("subscription-dialog");
-    expect(mocks.buttons[0]).toMatchObject({ disabled: true });
-    expect(mocks.buttons[1]).toMatchObject({ disabled: true });
-    expect(mocks.buttons[2]).toMatchObject({ disabled: true });
+    expect(mocks.buttons.filter((button: any) => button.disabled)).toHaveLength(3);
     expect(mocks.subscriptionDialog).toMatchObject({
       open: false,
       subscriptionName: "Primary",

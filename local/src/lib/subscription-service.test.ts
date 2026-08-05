@@ -204,6 +204,11 @@ describe("local subscription service", () => {
       },
     });
 
+    expect(formatSubscription(row(), { appUrl: "https://sub.example.com/" })).toMatchObject({
+      subscriptionUrl: "https://sub.example.com/api/subscriptions/token-1/config.yaml",
+      yamlUrl: "https://sub.example.com/api/subscriptions/token-1/config.yaml",
+    });
+
     expect(formatSubscriptionDetail(row())).toMatchObject({
       urls: ["https://example.com/sub"],
       nodes: [expect.objectContaining({ name: "Node" })],

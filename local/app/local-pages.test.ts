@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("lucide-react", () => ({
+  AlertTriangle: () => React.createElement("span", null, "AlertTriangle"),
+  ExternalLink: () => React.createElement("span", null, "ExternalLink"),
   LogOut: () => React.createElement("span", null, "LogOut"),
   Network: () => React.createElement("span", null, "Network"),
   ServerCog: () => React.createElement("span", null, "ServerCog"),
@@ -156,6 +158,7 @@ describe("local app pages and adapters", () => {
       stepHours: 0.1,
       requireIntegerHours: false,
     });
+    expect(adapter.deployGuideHref).toBe("/deploy-guide");
     expect(fetchMock).toHaveBeenCalledWith("/api/source-import", expect.objectContaining({ method: "POST" }));
     expect(fetchMock).toHaveBeenCalledWith("/api/subscriptions/sub%201", { cache: "no-store" });
     expect(fetchMock).toHaveBeenCalledWith("/api/subscriptions/sub%201", expect.objectContaining({ method: "PUT" }));
