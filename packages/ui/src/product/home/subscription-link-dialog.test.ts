@@ -108,6 +108,8 @@ const baseProps = {
   },
   smartNodeMatchingEnabled: true,
   setSmartNodeMatchingEnabled: vi.fn(),
+  updateLockEnabled: true,
+  setUpdateLockEnabled: vi.fn(),
   exposeSubscriptionUserInfo: true,
   setExposeSubscriptionUserInfo: vi.fn(),
   isCreatingSubscription: false,
@@ -147,18 +149,20 @@ describe("SubscriptionLinkDialog", () => {
     expect(captures.inputs[0]).toMatchObject({ value: "我的配置", maxLength: 100 });
     expect(captures.inputs[1]).toMatchObject({ type: "number", min: 12, step: 1, value: 8 });
     expect(html).toContain("输出流量/到期信息");
-    expect(captures.switches).toHaveLength(3);
+    expect(captures.switches).toHaveLength(4);
 
     captures.inputs[0].onChange({ target: { value: "新配置" } });
     captures.inputs[1].onChange({ target: { value: "12" } });
     captures.switches[0].onCheckedChange(false);
     captures.switches[1].onCheckedChange(false);
     captures.switches[2].onCheckedChange(false);
+    captures.switches[3].onCheckedChange(false);
     captures.buttons.at(-1).onClick();
 
     expect(baseProps.setSubscriptionName).toHaveBeenCalledWith("新配置");
     expect(baseProps.setAutoUpdateHours).toHaveBeenCalledWith(12);
     expect(baseProps.setSmartNodeMatchingEnabled).toHaveBeenCalledWith(false);
+    expect(baseProps.setUpdateLockEnabled).toHaveBeenCalledWith(false);
     expect(baseProps.setExposeSubscriptionUserInfo).toHaveBeenCalledWith(false);
     expect(baseProps.setAutoUpdateEnabled).toHaveBeenCalledWith(false);
     expect(baseProps.handleCreateSubscription).toHaveBeenCalled();

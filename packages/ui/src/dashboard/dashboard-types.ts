@@ -17,6 +17,7 @@ export interface Subscription {
   autoUpdateInterval: number | null;
   autoUpdateState: SubscriptionAutoUpdateState;
   smartNodeMatchingEnabled: boolean;
+  updateLockEnabled: boolean;
   lastUpdatedAt: string | null;
   lastAccessedAt: string | null;
   createdAt: string;
@@ -118,4 +119,55 @@ export interface RefreshSubscriptionResponse {
   nodeCount?: number;
   attemptedUrlFetch?: boolean;
   usedUrlFetch?: boolean;
+}
+
+export interface SubscriptionRefreshPreview {
+  subscriptionId: string;
+  status: "ready" | "blocked";
+  message: string;
+  wouldSave: boolean;
+  updateLockEnabled: boolean;
+  smartNodeMatchingEnabled: boolean;
+  nodeChanges: {
+    beforeCount: number;
+    afterCount: number;
+    addedCount: number;
+    removedCount: number;
+    keptCount: number;
+    renamedCount: number;
+    changedCount: number;
+    added: string[];
+    removed: string[];
+    renamed: Array<{ from: string; to: string }>;
+    changed: string[];
+  };
+  sourceChanges: {
+    attemptedUrlFetch: boolean;
+    usedUrlFetch: boolean;
+    refreshableSourceCount: number;
+    refreshedSourceCount: number;
+    refreshedUrlSourceCount: number;
+    refreshedStaticSourceCount: number;
+    failedSourceCount: number;
+    failedSources: Array<{
+      id: string;
+      type: string;
+      content: string;
+      errorMessage: string;
+      errorCategory?: string;
+      httpStatus?: number;
+      publicReason?: string | null;
+    }>;
+  };
+  subscriptionInfoChanges: Array<{
+    key: string;
+    before: number | string | null;
+    after: number | string | null;
+  }>;
+  configProtection: {
+    protectedSections: string[];
+    sourcesWillUpdate: boolean;
+  };
+  generatedYamlBytes?: number;
+  failureReason?: string;
 }

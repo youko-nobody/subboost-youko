@@ -13,6 +13,7 @@ describe("useUIStore", () => {
       name: "Primary",
       autoUpdateInterval: 86400,
       smartNodeMatchingEnabled: true,
+      updateLockEnabled: true,
     };
 
     useUIStore.getState().setEditingSubscription(subscription);

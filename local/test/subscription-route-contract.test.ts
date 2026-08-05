@@ -7,6 +7,7 @@ import {
   generateSubscriptionYaml,
   getSubscription,
   listSubscriptions,
+  previewSubscriptionRefresh,
   refreshSubscription,
   updateSubscription,
 } from "@local/lib/subscription-service";
@@ -15,6 +16,7 @@ import * as pluralYamlRoute from "../app/api/subscriptions/[id]/config.yaml/rout
 import * as pluralItemRoute from "../app/api/subscriptions/[id]/route";
 import * as pluralCollectionRoute from "../app/api/subscriptions/route";
 import * as pluralRefreshRoute from "../app/api/subscriptions/[id]/refresh/route";
+import * as pluralRefreshPreviewRoute from "../app/api/subscriptions/[id]/refresh/preview/route";
 
 vi.mock("@local/lib/auth", () => ({
   getCurrentAdmin: vi.fn(),
@@ -26,6 +28,7 @@ vi.mock("@local/lib/subscription-service", () => ({
   generateSubscriptionYaml: vi.fn(),
   getSubscription: vi.fn(),
   listSubscriptions: vi.fn(),
+  previewSubscriptionRefresh: vi.fn(),
   refreshSubscription: vi.fn(),
   updateSubscription: vi.fn(),
 }));
@@ -109,6 +112,12 @@ beforeEach(() => {
     ok: true,
     body: { subscriptionId: "sub-1", nodeCount: 1 },
   } as never);
+  vi.mocked(previewSubscriptionRefresh).mockResolvedValue({
+    subscriptionId: "sub-1",
+    status: "ready",
+    message: "ok",
+    wouldSave: true,
+  } as never);
   vi.mocked(updateSubscription).mockResolvedValue({ ...subscription, name: "Renamed" } as never);
 });
 
@@ -173,6 +182,13 @@ describe("local subscription routes", () => {
     const refreshResponse = await pluralRefreshRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/refresh"), params);
     expect(refreshResponse.status).toBe(200);
     expect(refreshSubscription).toHaveBeenCalledWith("admin-1", "sub-1");
+
+    const previewResponse = await pluralRefreshPreviewRoute.POST(
+      new Request("http://local.test/api/subscriptions/sub-1/refresh/preview"),
+      params
+    );
+    expect(previewResponse.status).toBe(200);
+    expect(previewSubscriptionRefresh).toHaveBeenCalledWith("admin-1", "sub-1");
   });
 
   it("serves YAML through the plural token route only", async () => {
@@ -203,8 +219,9 @@ describe("local subscription routes", () => {
     );
     const deleteResponse = await pluralItemRoute.DELETE(new Request("http://local.test/api/subscriptions/sub-1"), params);
     const refreshResponse = await pluralRefreshRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/refresh"), params);
+    const previewResponse = await pluralRefreshPreviewRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/refresh/preview"), params);
 
-    for (const response of [listResponse, createResponse, getResponse, updateResponse, deleteResponse, refreshResponse]) {
+    for (const response of [listResponse, createResponse, getResponse, updateResponse, deleteResponse, refreshResponse, previewResponse]) {
       expect(response.status).toBe(401);
       await expect(readJson(response)).resolves.toEqual({
         error: "Authentication required.",
@@ -217,6 +234,7 @@ describe("local subscription routes", () => {
     expect(getSubscription).not.toHaveBeenCalled();
     expect(updateSubscription).not.toHaveBeenCalled();
     expect(deleteSubscription).not.toHaveBeenCalled();
+    expect(previewSubscriptionRefresh).not.toHaveBeenCalled();
     expect(refreshSubscription).not.toHaveBeenCalled();
   });
 });

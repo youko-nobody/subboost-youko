@@ -6,6 +6,7 @@ export type EditingSubscription = {
   name: string;
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
+  updateLockEnabled: boolean;
 };
 
 export type EditingSubscriptionLoaderOptions = {

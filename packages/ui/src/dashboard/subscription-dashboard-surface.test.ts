@@ -49,6 +49,7 @@ vi.mock("lucide-react", () => ({
   Clock: () => null,
   Copy: () => null,
   Download: () => null,
+  Eye: () => null,
   ExternalLink: () => null,
   FileCode: () => null,
   MoreVertical: () => null,
@@ -123,6 +124,7 @@ const subscription = {
   lastUpdatedAt: "2026-01-02T00:00:00.000Z",
   autoUpdateInterval: 86400,
   smartNodeMatchingEnabled: true,
+  updateLockEnabled: true,
   autoUpdateState: {
     externalFailureCount: 0,
     failureSourceState: null,
@@ -324,14 +326,15 @@ describe("SubscriptionDashboardSurface", () => {
     expect(setters[7]).toHaveBeenCalledWith("Primary");
     expect(setters[8]).toHaveBeenCalledWith(true);
     expect(setters[9]).toHaveBeenCalledWith(true);
-    expect(setters[10]).toHaveBeenCalledWith(24);
+    expect(setters[10]).toHaveBeenCalledWith(true);
+    expect(setters[11]).toHaveBeenCalledWith(24);
     expect(setters[5]).toHaveBeenCalledWith(true);
 
     const settingsButtons = mocks.captures.buttons.filter((props: any) => props.title === "订阅设置（改名 / 自动更新）");
     settingsButtons[1].onClick();
     expect(setters[6]).toHaveBeenCalledWith(disabledSubscription);
-    expect(setters[9]).toHaveBeenCalledWith(false);
-    expect(setters[10]).toHaveBeenCalledWith(24);
+    expect(setters[10]).toHaveBeenCalledWith(false);
+    expect(setters[11]).toHaveBeenCalledWith(24);
   });
 
   it("falls back to legacy copy for non-secure self-host origins", async () => {
@@ -512,52 +515,106 @@ describe("SubscriptionDashboardSurface", () => {
     }));
   });
 
+  it("previews subscription refresh without running the real refresh", async () => {
+    const adapter = createAdapter({
+      previewSubscriptionRefresh: vi.fn(async () => ({
+        subscriptionId: "sub-1",
+        status: "ready",
+        message: "刷新预览正常，确认刷新后会写入这些变化。",
+        wouldSave: true,
+        updateLockEnabled: true,
+        smartNodeMatchingEnabled: true,
+        nodeChanges: {
+          beforeCount: 1,
+          afterCount: 2,
+          addedCount: 1,
+          removedCount: 0,
+          keptCount: 1,
+          renamedCount: 0,
+          changedCount: 0,
+          added: ["Fresh"],
+          removed: [],
+          renamed: [],
+          changed: [],
+        },
+        sourceChanges: {
+          attemptedUrlFetch: true,
+          usedUrlFetch: true,
+          refreshableSourceCount: 1,
+          refreshedSourceCount: 1,
+          refreshedUrlSourceCount: 1,
+          refreshedStaticSourceCount: 0,
+          failedSourceCount: 0,
+          failedSources: [],
+        },
+        subscriptionInfoChanges: [],
+        configProtection: {
+          protectedSections: ["模板", "策略组"],
+          sourcesWillUpdate: true,
+        },
+      })),
+    });
+    renderSurface(adapter, { 0: [subscription], 1: false });
+
+    await mocks.captures.buttons.find((props: any) => props.title === "先拉取订阅源并预览节点变化，不写入数据库").onClick();
+    await flushPromises();
+
+    expect(adapter.previewSubscriptionRefresh).toHaveBeenCalledWith("sub-1");
+    expect(adapter.refreshSubscription).not.toHaveBeenCalled();
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: "刷新预览已生成",
+      variant: "success",
+    }));
+  });
+
   it("validates and saves subscription settings", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const adapter = createAdapter();
-    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "  ", 8: true, 9: true, 10: 24, 11: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "  ", 8: true, 9: true, 10: true, 11: 24, 12: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "订阅名称不能为空且长度不能超过 100 字符", variant: "warning" }));
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: 5, 11: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: true, 11: 5, 12: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "自动更新最小间隔为 6 小时", variant: "warning" }));
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: Number.NaN, 11: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: true, 11: Number.NaN, 12: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "自动更新间隔必须是有效小时数", variant: "warning" }));
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: 6.5, 11: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: true, 11: 6.5, 12: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "自动更新间隔必须是整数小时", variant: "warning" }));
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: 6, 11: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: true, 11: 6, 12: false });
     await mocks.captures.settingsDialog.onSave();
     expect(adapter.updateSubscriptionSettings).toHaveBeenCalledWith("sub-1", {
       name: "Renamed",
       smartNodeMatchingEnabled: false,
+      updateLockEnabled: true,
       autoUpdateInterval: 21600,
     });
     expect(stateMock.setters[0]).toHaveBeenCalledWith(expect.any(Function));
     expect(stateMock.setters[5]).toHaveBeenCalledWith(false);
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Manual", 8: true, 9: false, 10: 24, 11: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Manual", 8: true, 9: false, 10: false, 11: 24, 12: false });
     await mocks.captures.settingsDialog.onSave();
     expect(adapter.updateSubscriptionSettings).toHaveBeenCalledWith("sub-1", {
       name: "Manual",
       smartNodeMatchingEnabled: true,
+      updateLockEnabled: false,
       autoUpdateInterval: null,
     });
 
     const guardedAdapter = createAdapter();
-    renderSurface(guardedAdapter, { 0: [subscription], 1: false, 5: true, 6: null, 7: "No sub", 8: true, 9: false, 10: 24, 11: false });
+    renderSurface(guardedAdapter, { 0: [subscription], 1: false, 5: true, 6: null, 7: "No sub", 8: true, 9: true, 10: false, 11: 24, 12: false });
     await mocks.captures.settingsDialog.onSave();
-    renderSurface(guardedAdapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Saving", 8: true, 9: false, 10: 24, 11: true });
+    renderSurface(guardedAdapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Saving", 8: true, 9: true, 10: false, 11: 24, 12: true });
     await mocks.captures.settingsDialog.onSave();
     expect(guardedAdapter.updateSubscriptionSettings).not.toHaveBeenCalled();
 
     const failingAdapter = createAdapter({ updateSubscriptionSettings: vi.fn(async () => { throw new Error("save failed"); }) });
-    renderSurface(failingAdapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: true, 9: false, 10: 24, 11: false });
+    renderSurface(failingAdapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: true, 9: true, 10: false, 11: 24, 12: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "save failed", variant: "destructive" }));
     expect(errorSpy).toHaveBeenCalledWith(

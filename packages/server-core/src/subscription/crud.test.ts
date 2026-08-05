@@ -98,6 +98,13 @@ describe("subscription CRUD shared helpers", () => {
         { existingConfig: { old: true }, defaultSmartNodeMatchingEnabled: true }
       )
     ).toEqual({ old: true, smartNodeMatchingEnabled: true });
+
+    expect(
+      normalizeSubscriptionConfigForPersistence(
+        { config: {}, updateLockEnabled: false },
+        { existingConfig: { updateLockEnabled: true } }
+      )
+    ).toEqual({ updateLockEnabled: false });
   });
 
   it("strictly normalizes a persisted node name filter after config merge", () => {

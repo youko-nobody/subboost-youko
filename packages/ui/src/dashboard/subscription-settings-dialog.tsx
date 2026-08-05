@@ -29,6 +29,8 @@ type Props = {
   setSettingsName: (value: string) => void;
   smartNodeMatchingEnabled: boolean;
   setSmartNodeMatchingEnabled: (value: boolean) => void;
+  updateLockEnabled: boolean;
+  setUpdateLockEnabled: (value: boolean) => void;
   autoUpdateEnabled: boolean;
   setAutoUpdateEnabled: (value: boolean) => void;
   autoUpdateHours: number;
@@ -47,6 +49,8 @@ export function SubscriptionSettingsDialog({
   setSettingsName,
   smartNodeMatchingEnabled,
   setSmartNodeMatchingEnabled,
+  updateLockEnabled,
+  setUpdateLockEnabled,
   autoUpdateEnabled,
   setAutoUpdateEnabled,
   autoUpdateHours,
@@ -90,6 +94,13 @@ export function SubscriptionSettingsDialog({
               aria-label="更新时智能匹配节点"
             />
           </div>
+
+          <SwitchField
+            label="订阅更新锁"
+            description="开启后编辑保存时只更新节点和订阅源，不覆盖模板、策略组、规则集、DNS 和图标"
+            checked={updateLockEnabled}
+            onCheckedChange={setUpdateLockEnabled}
+          />
 
           <SwitchField
             label="启用自动更新"

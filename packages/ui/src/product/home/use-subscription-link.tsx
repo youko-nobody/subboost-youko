@@ -49,6 +49,7 @@ type EditingSubscription = {
   name: string;
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
+  updateLockEnabled: boolean;
 };
 
 export type HomeSubscriptionSaveInput = {
@@ -151,6 +152,7 @@ export function useSubscriptionLink({
   const [autoUpdateEnabled, setAutoUpdateEnabled] = React.useState(false);
   const [autoUpdateHours, setAutoUpdateHours] = React.useState(autoUpdatePolicy.defaultHours);
   const [smartNodeMatchingEnabled, setSmartNodeMatchingEnabled] = React.useState(true);
+  const [updateLockEnabled, setUpdateLockEnabled] = React.useState(true);
   const [isCreatingSubscription, setIsCreatingSubscription] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [saveRequirementDialog, setSaveRequirementDialog] = React.useState(false);
@@ -206,6 +208,7 @@ export function useSubscriptionLink({
     setAutoUpdateEnabled(nextAutoUpdateEnabled);
     setAutoUpdateHours(nextAutoUpdateHours);
     setSmartNodeMatchingEnabled(editingSubscription?.smartNodeMatchingEnabled !== false);
+    setUpdateLockEnabled(editingSubscription?.updateLockEnabled !== false);
     setSubscriptionUrl("");
     setSubscriptionDialog(true);
   }, [autoUpdatePolicy.defaultHours, autoUpdatePolicy.minHours, editingSubscription, isEditingExistingSubscription]);
@@ -325,6 +328,7 @@ export function useSubscriptionLink({
           name: subscriptionName,
           templateId: appliedTemplateId,
           autoUpdateInterval: nextAutoUpdateInterval,
+          updateLockEnabled,
           urls: storeSources
             .filter((s) => s.type === "url")
             .map((s) => s.content)
@@ -338,6 +342,7 @@ export function useSubscriptionLink({
             template,
             appliedTemplateId,
             smartNodeMatchingEnabled,
+            updateLockEnabled,
             nodeNameFilter,
             // 用于“我的订阅 → 编辑”恢复输入源（保留 YAML/节点链接/多个 URL 的顺序）
             sources: storeSources
@@ -456,6 +461,7 @@ export function useSubscriptionLink({
             token,
             autoUpdateInterval: nextAutoUpdateInterval,
             smartNodeMatchingEnabled,
+            updateLockEnabled,
           });
         }
         trackSubscriptionMutation("success");
@@ -502,6 +508,7 @@ export function useSubscriptionLink({
     ruleProviderBaseUrl,
     setEditingSubscription,
     smartNodeMatchingEnabled,
+    updateLockEnabled,
     storeSources,
     subscriptionName,
     subscriptionAdapter,
@@ -543,6 +550,8 @@ export function useSubscriptionLink({
     autoUpdatePolicy: autoUpdatePolicy as AutoUpdateIntervalPolicy,
     smartNodeMatchingEnabled,
     setSmartNodeMatchingEnabled,
+    updateLockEnabled,
+    setUpdateLockEnabled,
     exposeSubscriptionUserInfo,
     setExposeSubscriptionUserInfo,
     isCreatingSubscription,

@@ -619,6 +619,7 @@ export function useEditingSubscriptionLoader({
             name: sub.name || "未命名订阅",
             autoUpdateInterval,
             smartNodeMatchingEnabled: (cfg as any).smartNodeMatchingEnabled !== false,
+            updateLockEnabled: (cfg as any).updateLockEnabled !== false,
           });
           setSubscriptionName(sub.name || "");
           setSubscriptionUrl("");

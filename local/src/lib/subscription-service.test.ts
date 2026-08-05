@@ -9,6 +9,7 @@ import {
   generateSubscriptionYaml,
   getSubscription,
   listSubscriptions,
+  previewSubscriptionRefresh,
   refreshSubscription,
   updateSubscription,
   type SubscriptionRow,
@@ -211,6 +212,7 @@ describe("local subscription service", () => {
       isPrimary: true,
       autoUpdateInterval: 86400,
       smartNodeMatchingEnabled: false,
+      updateLockEnabled: true,
       cacheExpiresAt: "2026-06-01T01:00:00.000Z",
       autoUpdateState: {
         externalFailureCount: 2,
@@ -249,6 +251,7 @@ describe("local subscription service", () => {
       nodeCount: 0,
       sourceCount: 0,
       smartNodeMatchingEnabled: true,
+      updateLockEnabled: true,
       cacheExpiresAt: null,
       lastAccessedAt: null,
       lastUpdatedAt: null,
@@ -508,6 +511,7 @@ describe("local subscription service", () => {
     );
 
     await updateSubscription("owner-1", "sub-1", {
+      updateLockEnabled: false,
       config: {
         freshSetting: true,
         sources: [{ id: "new", type: "url", content: "https://new.example/sub" }],
@@ -519,6 +523,64 @@ describe("local subscription service", () => {
     expect(typeof encryptedConfig).toBe("string");
     expect(JSON.parse(encryptedConfig)).toMatchObject({ freshSetting: true });
     expect(JSON.parse(encryptedConfig)).not.toHaveProperty("staleSetting");
+  });
+
+  it("protects routing structure when the subscription update lock is enabled", async () => {
+    mocks.prisma.subscription.findFirst.mockResolvedValueOnce(
+      row({
+        encryptedConfig: JSON.stringify({
+          updateLockEnabled: true,
+          template: "my-routing",
+          customProxyGroups: [{ id: "proxy", name: "PROXY", groupType: "select" }],
+          customRuleSets: [{
+            id: "rule-set",
+            name: "Rule Set",
+            behavior: "domain",
+            format: "yaml",
+            path: "https://rules.example.com/rule.yaml",
+            target: { kind: "custom", id: "proxy" },
+          }],
+          dnsYaml: "dns:\n  enable: true",
+          fallbackPolicyTarget: { kind: "custom", id: "proxy" },
+          sources: [{ id: "old", type: "url", content: "https://old.example/sub" }],
+        }),
+      })
+    );
+
+    await updateSubscription("owner-1", "sub-1", {
+      updateLockEnabled: true,
+      smartNodeMatchingEnabled: false,
+      nodes: [node("New Node")],
+      config: {
+        template: "standard",
+        customProxyGroups: [],
+        customRuleSets: [],
+        dnsYaml: "dns: {}",
+        fallbackPolicyTarget: "DIRECT",
+        sources: [{ id: "new", type: "url", content: "https://new.example/sub" }],
+      },
+    });
+
+    const update = mocks.prisma.subscription.update.mock.calls.at(-1)?.[0];
+    const encryptedConfig = update?.data?.encryptedConfig;
+    expect(typeof encryptedConfig).toBe("string");
+    expect(JSON.parse(encryptedConfig as string)).toMatchObject({
+      updateLockEnabled: true,
+      smartNodeMatchingEnabled: false,
+      template: "my-routing",
+      customProxyGroups: [{ id: "proxy", name: "PROXY" }],
+      customRuleSets: [{
+        id: "rule-set",
+        name: "Rule Set",
+        behavior: "domain",
+        format: "yaml",
+        path: "https://rules.example.com/rule.yaml",
+        target: { kind: "custom", id: "proxy" },
+      }],
+      dnsYaml: "dns:\n  enable: true",
+      fallbackPolicyTarget: { kind: "custom", id: "proxy" },
+      sources: [{ id: "new", type: "url", content: "https://new.example/sub" }],
+    });
   });
 
   it("builds fetch callbacks for refresh source imports", async () => {
@@ -605,6 +667,48 @@ describe("local subscription service", () => {
 
     mocks.prisma.subscription.findFirst.mockResolvedValueOnce(null);
     await expect(refreshSubscription("owner-1", "missing")).resolves.toBeNull();
+  });
+
+  it("previews subscription refresh differences without persisting", async () => {
+    mocks.refreshNodeSnapshot.mockResolvedValueOnce({
+      nodes: [node("Node"), node("Fresh")],
+      savedSources: [{ id: "source-1", type: "url", content: "https://example.com/sub" }],
+      subscriptionInfo: { upload: 4096, total: 8192 },
+      attemptedUrlFetch: true,
+      usedUrlFetch: true,
+      refreshableSourceCount: 1,
+      refreshedSourceCount: 1,
+      refreshedUrlSourceCount: 1,
+      refreshedStaticSourceCount: 0,
+      detachedSourceCount: 0,
+      failedSourceCount: 0,
+      failedSources: [],
+    });
+    mocks.prepareRefreshCacheResult.mockReturnValueOnce({
+      ok: true,
+      nodeCount: 2,
+      generatedYaml: "mixed-port: 7890\n",
+      cacheEntry: { nodes: [node("Node"), node("Fresh")], subscriptionInfo: {}, generatedYaml: "mixed-port: 7890\n" },
+    });
+
+    await expect(previewSubscriptionRefresh("owner-1", "sub-1")).resolves.toMatchObject({
+      subscriptionId: "sub-1",
+      status: "ready",
+      wouldSave: true,
+      updateLockEnabled: true,
+      nodeChanges: {
+        beforeCount: 1,
+        afterCount: 2,
+        addedCount: 1,
+        added: ["Fresh"],
+      },
+      sourceChanges: {
+        refreshableSourceCount: 1,
+        failedSourceCount: 0,
+      },
+    });
+    expect(mocks.prisma.subscription.updateMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("generates YAML and updates access time when a subscription has nodes or proxy providers", async () => {

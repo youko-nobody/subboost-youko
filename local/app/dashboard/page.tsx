@@ -11,6 +11,7 @@ import type {
   Subscription,
   SubscriptionConfigValidationResult,
   SubscriptionHealthResult,
+  SubscriptionRefreshPreview,
   SubscriptionVersionSummary,
 } from "@subboost/ui/dashboard/dashboard-types";
 import { LOCAL_AUTO_UPDATE_POLICY } from "@local/lib/auto-update-policy";
@@ -48,6 +49,15 @@ const localDashboardAdapter: DashboardSurfaceAdapter = {
     });
     const data = await readJsonResponse<RefreshSubscriptionResponse>(response, "刷新失败");
     return data;
+  },
+  previewSubscriptionRefresh: async (id) => {
+    const response = await fetch(`/api/subscriptions/${encodeURIComponent(id)}/refresh/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await readJsonResponse<{ preview?: SubscriptionRefreshPreview; error?: string }>(response, "刷新预览失败");
+    if (!data.preview) throw new Error("刷新预览失败");
+    return data.preview;
   },
   updateSubscriptionSettings: async (id, payload) => {
     const response = await fetch(`/api/subscriptions/${encodeURIComponent(id)}`, {

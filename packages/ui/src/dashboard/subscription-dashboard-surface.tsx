@@ -8,6 +8,7 @@ import {
   Clock,
   Copy,
   Download,
+  Eye,
   ExternalLink,
   FileCode,
   MoreVertical,
@@ -51,12 +52,14 @@ import type {
   Subscription,
   SubscriptionConfigValidationResult,
   SubscriptionHealthResult,
+  SubscriptionRefreshPreview,
   SubscriptionVersionSummary,
 } from "@subboost/ui/dashboard/dashboard-types";
 
 type UpdateSettingsPayload = {
   name: string;
   smartNodeMatchingEnabled: boolean;
+  updateLockEnabled: boolean;
   autoUpdateInterval: number | null;
 };
 
@@ -72,6 +75,7 @@ export type DashboardSurfaceAdapter = {
   fetchSubscriptions: () => Promise<Subscription[]>;
   deleteSubscription: (id: string) => Promise<void>;
   refreshSubscription: (id: string) => Promise<RefreshSubscriptionResponse>;
+  previewSubscriptionRefresh?: (id: string) => Promise<SubscriptionRefreshPreview>;
   updateSubscriptionSettings: (id: string, payload: UpdateSettingsPayload) => Promise<void>;
   exportBackup?: () => Promise<BackupExportPayload>;
   importBackup?: (file: File) => Promise<BackupImportResult>;
@@ -233,6 +237,7 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
   const [settingsSub, setSettingsSub] = React.useState<Subscription | null>(null);
   const [settingsName, setSettingsName] = React.useState("");
   const [smartNodeMatchingEnabled, setSmartNodeMatchingEnabled] = React.useState(true);
+  const [updateLockEnabled, setUpdateLockEnabled] = React.useState(true);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = React.useState(false);
   const autoUpdatePolicy = React.useMemo(
     () => resolveAutoUpdateIntervalPolicy(user?.isAdmin === true, adapter.autoUpdateIntervalPolicy),
@@ -251,6 +256,9 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
   const [ruleSetOpen, setRuleSetOpen] = React.useState(false);
   const [ruleSetSub, setRuleSetSub] = React.useState<Subscription | null>(null);
   const [ruleSetConnectivity, setRuleSetConnectivity] = React.useState<RuleSetConnectivityResult | null>(null);
+  const [refreshPreviewOpen, setRefreshPreviewOpen] = React.useState(false);
+  const [refreshPreviewSub, setRefreshPreviewSub] = React.useState<Subscription | null>(null);
+  const [refreshPreview, setRefreshPreview] = React.useState<SubscriptionRefreshPreview | null>(null);
 
   React.useEffect(() => {
     void fetchUser();
@@ -412,6 +420,28 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
     }
   };
 
+  const previewSubscriptionRefresh = async (sub: Subscription) => {
+    if (!adapter.previewSubscriptionRefresh || maintenanceBusy) return;
+    const key = `refresh-preview:${sub.id}`;
+    setMaintenanceBusy(key);
+    try {
+      const preview = await adapter.previewSubscriptionRefresh(sub.id);
+      setRefreshPreviewSub(sub);
+      setRefreshPreview(preview);
+      setRefreshPreviewOpen(true);
+      toast({
+        title: preview.status === "ready" ? "刷新预览已生成" : "刷新预览发现阻塞",
+        description: preview.message,
+        variant: preview.status === "ready" ? "success" : "warning",
+      });
+    } catch (error) {
+      console.error("Failed to preview subscription refresh:", error);
+      toast({ title: error instanceof Error ? error.message : "刷新预览失败", variant: "destructive" });
+    } finally {
+      setMaintenanceBusy(null);
+    }
+  };
+
   const checkSubscriptionHealth = async (sub: Subscription) => {
     if (!adapter.checkSubscriptionHealth || maintenanceBusy) return;
     const key = `health:${sub.id}`;
@@ -508,6 +538,7 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
     setSettingsSub(sub);
     setSettingsName(sub.name);
     setSmartNodeMatchingEnabled(sub.smartNodeMatchingEnabled !== false);
+    setUpdateLockEnabled(sub.updateLockEnabled !== false);
     const hours = sub.autoUpdateInterval ? autoUpdateIntervalSecondsToHours(sub.autoUpdateInterval) : autoUpdatePolicy.defaultHours;
     setAutoUpdateHours(Math.max(autoUpdatePolicy.minHours, Number.isFinite(hours) ? hours : autoUpdatePolicy.defaultHours));
     setAutoUpdateEnabled(Boolean(sub.autoUpdateInterval));
@@ -548,6 +579,7 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
       await adapter.updateSubscriptionSettings(settingsSub.id, {
         name,
         smartNodeMatchingEnabled,
+        updateLockEnabled,
         autoUpdateInterval: nextAutoUpdateInterval,
       });
 
@@ -558,6 +590,7 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
                 ...s,
                 name,
                 smartNodeMatchingEnabled,
+                updateLockEnabled,
                 autoUpdateInterval: nextAutoUpdateInterval,
                 ...(autoUpdateEnabled
                   ? {
@@ -684,6 +717,7 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
                   onDelete={deleteSubscription}
                   onDownload={downloadSubscription}
                   onRefresh={refreshSubscription}
+                  onPreviewRefresh={adapter.previewSubscriptionRefresh ? previewSubscriptionRefresh : undefined}
                   onSettings={openSubscriptionSettings}
                   busyAction={maintenanceBusy}
                   onCheckHealth={adapter.checkSubscriptionHealth ? checkSubscriptionHealth : undefined}
@@ -705,6 +739,8 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
         setSettingsName={setSettingsName}
         smartNodeMatchingEnabled={smartNodeMatchingEnabled}
         setSmartNodeMatchingEnabled={setSmartNodeMatchingEnabled}
+        updateLockEnabled={updateLockEnabled}
+        setUpdateLockEnabled={setUpdateLockEnabled}
         autoUpdateEnabled={autoUpdateEnabled}
         setAutoUpdateEnabled={setAutoUpdateEnabled}
         autoUpdateHours={autoUpdateHours}
@@ -727,6 +763,15 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
         onOpenChange={setRuleSetOpen}
         subscription={ruleSetSub}
         result={ruleSetConnectivity}
+      />
+
+      <RefreshPreviewDialog
+        open={refreshPreviewOpen}
+        onOpenChange={setRefreshPreviewOpen}
+        subscription={refreshPreviewSub}
+        preview={refreshPreview}
+        refreshing={refreshingId === refreshPreviewSub?.id}
+        onConfirm={(id) => void refreshSubscription(id)}
       />
 
       <VersionHistoryDialog
@@ -805,6 +850,7 @@ function SubscriptionRow({
   onDelete,
   onDownload,
   onRefresh,
+  onPreviewRefresh,
   onSettings,
   busyAction,
   onCheckHealth,
@@ -820,6 +866,7 @@ function SubscriptionRow({
   onDelete: (id: string) => Promise<void>;
   onDownload: (sub: Subscription) => Promise<void>;
   onRefresh: (id: string) => Promise<void>;
+  onPreviewRefresh?: (sub: Subscription) => Promise<void>;
   onSettings: (sub: Subscription) => void;
   busyAction: string | null;
   onCheckHealth?: (sub: Subscription) => Promise<void>;
@@ -830,6 +877,7 @@ function SubscriptionRow({
   const healthBusy = busyAction === `health:${sub.id}`;
   const validateBusy = busyAction === `validate:${sub.id}`;
   const ruleSetsBusy = busyAction === `rule-sets:${sub.id}`;
+  const previewBusy = busyAction === `refresh-preview:${sub.id}`;
   return (
     <div className="flex flex-col gap-3 p-4 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="flex min-w-0 flex-1 items-start gap-4 sm:items-center">
@@ -893,6 +941,19 @@ function SubscriptionRow({
           <RefreshCw className={`h-4 w-4 ${refreshingId === sub.id ? "animate-spin" : ""}`} />
           <span className="hidden sm:inline">刷新</span>
         </Button>
+        {onPreviewRefresh && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void onPreviewRefresh(sub)}
+            disabled={previewBusy}
+            className="gap-0 sm:gap-2"
+            title="先拉取订阅源并预览节点变化，不写入数据库"
+          >
+            <Eye className={`h-4 w-4 ${previewBusy ? "animate-pulse" : ""}`} />
+            <span className="hidden sm:inline">预览</span>
+          </Button>
+        )}
         {onCheckHealth && (
           <Button
             variant="ghost"
@@ -1086,6 +1147,157 @@ function HealthMetric({ label, value }: { label: string; value: React.ReactNode 
       <div className="text-xs text-white/45">{label}</div>
       <div className="mt-1 text-lg font-semibold text-white">{value}</div>
     </div>
+  );
+}
+
+function formatPreviewValue(key: string, value: number | string | null): string {
+  if (value === null) return "无";
+  if (key === "expire" && typeof value === "number" && Number.isFinite(value)) {
+    return new Date(value * 1000).toLocaleDateString();
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (value > 1024 * 1024) return `${Math.round(value / 1024 / 1024)} MB`;
+    return String(value);
+  }
+  return String(value);
+}
+
+function PreviewNameList({ label, items }: { label: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+      <div className="text-xs text-white/45">{label}</div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {items.map((item) => (
+          <span key={`${label}-${item}`} className="max-w-full truncate rounded-md border border-white/10 px-2 py-1 text-xs text-white/70">
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RefreshPreviewDialog({
+  open,
+  onOpenChange,
+  subscription,
+  preview,
+  refreshing,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  subscription: Subscription | null;
+  preview: SubscriptionRefreshPreview | null;
+  refreshing: boolean;
+  onConfirm: (id: string) => void;
+}) {
+  const changes = preview?.nodeChanges;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            更新前差异预览
+            {preview && <StatusBadge status={preview.status === "ready" ? "healthy" : "degraded"} />}
+          </DialogTitle>
+          <DialogDescription>{subscription?.name || "当前订阅"}</DialogDescription>
+        </DialogHeader>
+
+        {preview && changes ? (
+          <div className="space-y-5">
+            <p className="text-sm text-white/70">{preview.message}</p>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <HealthMetric label="当前节点" value={changes.beforeCount} />
+              <HealthMetric label="刷新后节点" value={changes.afterCount} />
+              <HealthMetric label="新增" value={changes.addedCount} />
+              <HealthMetric label="删除" value={changes.removedCount} />
+              <HealthMetric label="保留" value={changes.keptCount} />
+              <HealthMetric label="改名" value={changes.renamedCount} />
+              <HealthMetric label="参数变化" value={changes.changedCount} />
+              <HealthMetric label="失败源" value={preview.sourceChanges.failedSourceCount} />
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
+              <div className="font-medium text-white/80">配置保护</div>
+              <div className="mt-1 text-white/55">
+                {preview.updateLockEnabled
+                  ? `更新锁开启，将保护：${preview.configProtection.protectedSections.join("、")}`
+                  : "更新锁关闭，编辑保存时可能覆盖分流结构。"}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <PreviewNameList label="新增节点" items={changes.added} />
+              <PreviewNameList label="删除节点" items={changes.removed} />
+              <PreviewNameList label="参数变化节点" items={changes.changed} />
+              {changes.renamed.length > 0 && (
+                <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                  <div className="text-xs text-white/45">改名节点</div>
+                  <div className="mt-2 space-y-1 text-xs text-white/70">
+                    {changes.renamed.map((item) => (
+                      <div key={`${item.from}->${item.to}`} className="truncate">
+                        {item.from} {"->"} {item.to}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {preview.subscriptionInfoChanges.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-white/80">流量/套餐信息变化</div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {preview.subscriptionInfoChanges.map((item) => (
+                    <div key={item.key} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
+                      <div className="text-xs text-white/45">{item.key}</div>
+                      <div className="mt-1 text-white/70">
+                        {formatPreviewValue(item.key, item.before)} {"->"} {formatPreviewValue(item.key, item.after)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {preview.sourceChanges.failedSources.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-red-300">失败订阅源</div>
+                {preview.sourceChanges.failedSources.slice(0, 6).map((source) => (
+                  <div key={source.id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
+                    <div className="truncate text-white/70">{source.content}</div>
+                    <div className="mt-1 text-red-300">{source.publicReason || source.errorMessage}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="h-24 animate-pulse rounded-lg bg-white/10" />
+        )}
+
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+            关闭
+          </Button>
+          {preview?.wouldSave && subscription && (
+            <Button
+              type="button"
+              disabled={refreshing}
+              onClick={() => {
+                onConfirm(subscription.id);
+                onOpenChange(false);
+              }}
+            >
+              {refreshing ? "刷新中..." : "确认刷新"}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

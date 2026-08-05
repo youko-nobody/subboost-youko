@@ -6,6 +6,7 @@ type EditingSubscription = {
   name: string;
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
+  updateLockEnabled: boolean;
 };
 
 interface UIState {

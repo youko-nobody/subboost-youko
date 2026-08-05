@@ -246,6 +246,7 @@ describe("HomeLayout", () => {
           name: "Existing subscription",
           autoUpdateInterval: 86400,
           smartNodeMatchingEnabled: true,
+          updateLockEnabled: true,
         },
         isLoadingEditingSubscription: true,
         editSubscriptionId: "sub-1",

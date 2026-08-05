@@ -88,6 +88,8 @@ const baseProps = {
   setSettingsName: vi.fn(),
   smartNodeMatchingEnabled: true,
   setSmartNodeMatchingEnabled: vi.fn(),
+  updateLockEnabled: true,
+  setUpdateLockEnabled: vi.fn(),
   autoUpdateEnabled: false,
   setAutoUpdateEnabled: vi.fn(),
   autoUpdateHours: 24,
@@ -114,16 +116,18 @@ describe("SubscriptionSettingsDialog", () => {
     expect(html).toContain("最小 6 小时");
     expect(html).toContain("自动更新已关闭：fetch_failed");
     expect(captures.inputs[0]).toMatchObject({ value: "Primary", maxLength: 100 });
-    expect(captures.switches).toHaveLength(2);
+    expect(captures.switches).toHaveLength(3);
 
     captures.inputs[0].onChange({ target: { value: "Renamed" } });
     captures.switches[0].onCheckedChange(false);
-    captures.switches[1].onCheckedChange(true);
+    captures.switches[1].onCheckedChange(false);
+    captures.switches[2].onCheckedChange(true);
     captures.buttons[0].onClick();
     captures.buttons[1].onClick();
 
     expect(baseProps.setSettingsName).toHaveBeenCalledWith("Renamed");
     expect(baseProps.setSmartNodeMatchingEnabled).toHaveBeenCalledWith(false);
+    expect(baseProps.setUpdateLockEnabled).toHaveBeenCalledWith(false);
     expect(baseProps.setAutoUpdateEnabled).toHaveBeenCalledWith(true);
     expect(baseProps.onOpenChange).toHaveBeenCalledWith(false);
     expect(baseProps.onSave).toHaveBeenCalled();

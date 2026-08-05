@@ -34,6 +34,7 @@ type EditingSubscription = {
   name: string;
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
+  updateLockEnabled: boolean;
 };
 
 type SubscriptionLinkState = {
@@ -49,6 +50,8 @@ type SubscriptionLinkState = {
   autoUpdatePolicy: AutoUpdateIntervalPolicy;
   smartNodeMatchingEnabled: boolean;
   setSmartNodeMatchingEnabled: (value: boolean) => void;
+  updateLockEnabled: boolean;
+  setUpdateLockEnabled: (value: boolean) => void;
   exposeSubscriptionUserInfo: boolean;
   setExposeSubscriptionUserInfo: (value: boolean) => void;
   isCreatingSubscription: boolean;
@@ -396,6 +399,8 @@ export function HomeLayout({
         autoUpdatePolicy={subscription.autoUpdatePolicy}
         smartNodeMatchingEnabled={subscription.smartNodeMatchingEnabled}
         setSmartNodeMatchingEnabled={subscription.setSmartNodeMatchingEnabled}
+        updateLockEnabled={subscription.updateLockEnabled}
+        setUpdateLockEnabled={subscription.setUpdateLockEnabled}
         exposeSubscriptionUserInfo={subscription.exposeSubscriptionUserInfo}
         setExposeSubscriptionUserInfo={subscription.setExposeSubscriptionUserInfo}
         isCreatingSubscription={subscription.isCreatingSubscription}

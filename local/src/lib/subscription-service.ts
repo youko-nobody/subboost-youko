@@ -1,18 +1,22 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { generateClashYaml } from "@subboost/core/generator";
+import { buildNodeContentKey } from "@subboost/core/node-identity";
 import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboost/core/subscription/config-utils";
+import { getNodeOriginName } from "@subboost/core/subscription/node-source-state";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
 import type { SubscriptionResponseInfo } from "@subboost/core/subscription/subscription-response-info";
 import type { ParsedNode } from "@subboost/core/types/node";
 import {
   buildManualRefreshFailureResponse,
   buildManualRefreshSuccessResponseBody,
+  mergeConfigWithUpdateLock,
   normalizeSubscriptionConfigForPersistence,
   normalizeSubscriptionInfoForPersistence,
   normalizeSubscriptionName,
   normalizeSubscriptionUrlList,
   prepareRefreshCacheResult,
   refreshNodeSnapshot,
+  resolveUpdateLockEnabled,
   serializeSubscriptionDetailData,
   serializeSubscriptionSummaryData,
   validateSubscriptionNodeList,
@@ -68,6 +72,7 @@ export type SubscriptionSummary = {
   isPrimary: boolean;
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
+  updateLockEnabled: boolean;
   cacheExpiresAt: string | null;
   lastAccessedAt: string | null;
   lastUpdatedAt: string | null;
@@ -99,6 +104,49 @@ export type GeneratedSubscriptionYaml = {
   isAdmin: boolean;
 };
 
+export type SubscriptionRefreshPreview = {
+  subscriptionId: string;
+  status: "ready" | "blocked";
+  message: string;
+  wouldSave: boolean;
+  updateLockEnabled: boolean;
+  smartNodeMatchingEnabled: boolean;
+  nodeChanges: {
+    beforeCount: number;
+    afterCount: number;
+    addedCount: number;
+    removedCount: number;
+    keptCount: number;
+    renamedCount: number;
+    changedCount: number;
+    added: string[];
+    removed: string[];
+    renamed: Array<{ from: string; to: string }>;
+    changed: string[];
+  };
+  sourceChanges: {
+    attemptedUrlFetch: boolean;
+    usedUrlFetch: boolean;
+    refreshableSourceCount: number;
+    refreshedSourceCount: number;
+    refreshedUrlSourceCount: number;
+    refreshedStaticSourceCount: number;
+    failedSourceCount: number;
+    failedSources: RefreshNodeSnapshotResult["failedSources"];
+  };
+  subscriptionInfoChanges: Array<{
+    key: string;
+    before: number | string | null;
+    after: number | string | null;
+  }>;
+  configProtection: {
+    protectedSections: string[];
+    sourcesWillUpdate: boolean;
+  };
+  generatedYamlBytes?: number;
+  failureReason?: string;
+};
+
 type FormatSubscriptionOptions = {
   appUrl?: string;
 };
@@ -124,10 +172,24 @@ function buildLocalSubscriptionConfig(
   body: Record<string, unknown>,
   existingConfig: Record<string, unknown> = {}
 ): Record<string, unknown> {
+  const submittedConfig =
+    body.config && typeof body.config === "object" && !Array.isArray(body.config)
+      ? (body.config as Record<string, unknown>)
+      : undefined;
+  const protectLockedConfig =
+    submittedConfig !== undefined &&
+    Object.keys(existingConfig).length > 0 &&
+    resolveUpdateLockEnabled(existingConfig) &&
+    body.updateLockEnabled !== false;
+  const config = protectLockedConfig
+    ? mergeConfigWithUpdateLock(existingConfig, submittedConfig)
+    : body.config;
+
   return normalizeSubscriptionConfigForPersistence(
     {
-      config: body.config,
+      config,
       smartNodeMatchingEnabled: body.smartNodeMatchingEnabled,
+      updateLockEnabled: body.updateLockEnabled,
     },
     {
       existingConfig,
@@ -135,6 +197,7 @@ function buildLocalSubscriptionConfig(
       splitUrlLines: true,
       mergeExistingConfig: false,
       defaultSmartNodeMatchingEnabled: true,
+      defaultUpdateLockEnabled: true,
     }
   );
 }
@@ -151,6 +214,161 @@ function assertNodeNameFilterKeepsOutput(
   if (options.nodes.length === 0 && !hasProxyProviders) {
     throw new Error("过滤后没有可用节点");
   }
+}
+
+function displayNodeName(node: ParsedNode): string {
+  return typeof node.name === "string" && node.name.trim() ? node.name.trim() : "未命名节点";
+}
+
+function nodeOrigin(node: ParsedNode): string {
+  const origin = getNodeOriginName(node).trim();
+  return origin || displayNodeName(node);
+}
+
+function firstValues(values: string[], limit = 8): string[] {
+  return values.slice(0, limit);
+}
+
+function summarizeNodeChanges(before: ParsedNode[], after: ParsedNode[]): SubscriptionRefreshPreview["nodeChanges"] {
+  const beforeNames = new Map<string, ParsedNode>();
+  const afterNames = new Map<string, ParsedNode>();
+  const beforeOrigins = new Map<string, ParsedNode>();
+  const afterOrigins = new Map<string, ParsedNode>();
+
+  for (const node of before) {
+    const name = displayNodeName(node);
+    if (!beforeNames.has(name)) beforeNames.set(name, node);
+    const origin = nodeOrigin(node);
+    if (!beforeOrigins.has(origin)) beforeOrigins.set(origin, node);
+  }
+  for (const node of after) {
+    const name = displayNodeName(node);
+    if (!afterNames.has(name)) afterNames.set(name, node);
+    const origin = nodeOrigin(node);
+    if (!afterOrigins.has(origin)) afterOrigins.set(origin, node);
+  }
+
+  const added = [...afterNames.keys()].filter((name) => !beforeNames.has(name)).sort();
+  const removed = [...beforeNames.keys()].filter((name) => !afterNames.has(name)).sort();
+  const kept = [...afterNames.keys()].filter((name) => beforeNames.has(name));
+  const changed = kept
+    .filter((name) => {
+      const beforeNode = beforeNames.get(name);
+      const afterNode = afterNames.get(name);
+      return Boolean(beforeNode && afterNode && buildNodeContentKey(beforeNode) !== buildNodeContentKey(afterNode));
+    })
+    .sort();
+
+  const renamed: Array<{ from: string; to: string }> = [];
+  for (const [origin, beforeNode] of beforeOrigins) {
+    const afterNode = afterOrigins.get(origin);
+    if (!afterNode) continue;
+    const from = displayNodeName(beforeNode);
+    const to = displayNodeName(afterNode);
+    if (from !== to) renamed.push({ from, to });
+  }
+  renamed.sort((a, b) => `${a.from}\u0000${a.to}`.localeCompare(`${b.from}\u0000${b.to}`));
+
+  return {
+    beforeCount: before.length,
+    afterCount: after.length,
+    addedCount: added.length,
+    removedCount: removed.length,
+    keptCount: kept.length,
+    renamedCount: renamed.length,
+    changedCount: changed.length,
+    added: firstValues(added),
+    removed: firstValues(removed),
+    renamed: renamed.slice(0, 8),
+    changed: firstValues(changed),
+  };
+}
+
+function summarizeSubscriptionInfoChanges(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): SubscriptionRefreshPreview["subscriptionInfoChanges"] {
+  const keys = ["upload", "download", "total", "expire", "planName", "profileWebPageUrl"];
+  const normalize = (value: unknown): number | string | null =>
+    typeof value === "number" || typeof value === "string" ? value : null;
+  return keys
+    .map((key) => ({ key, before: normalize(before[key]), after: normalize(after[key]) }))
+    .filter((item) => item.before !== item.after);
+}
+
+function buildRefreshPreview(params: {
+  subscriptionId: string;
+  config: Record<string, unknown>;
+  beforeNodes: ParsedNode[];
+  beforeSubscriptionInfo: Record<string, unknown>;
+  snapshot: RefreshNodeSnapshotResult;
+  refreshResult: ReturnType<typeof prepareRefreshCacheResult>;
+}): SubscriptionRefreshPreview {
+  const updateLockEnabled = resolveUpdateLockEnabled(params.config);
+  const sourceChanges = {
+    attemptedUrlFetch: params.snapshot.attemptedUrlFetch,
+    usedUrlFetch: params.snapshot.usedUrlFetch,
+    refreshableSourceCount: params.snapshot.refreshableSourceCount,
+    refreshedSourceCount: params.snapshot.refreshedSourceCount,
+    refreshedUrlSourceCount: params.snapshot.refreshedUrlSourceCount,
+    refreshedStaticSourceCount: params.snapshot.refreshedStaticSourceCount,
+    failedSourceCount: params.snapshot.failedSourceCount,
+    failedSources: params.snapshot.failedSources,
+  };
+
+  if (!params.refreshResult.ok) {
+    const reason =
+      params.refreshResult.reason === "all_sources_failed"
+        ? "所有订阅源刷新失败"
+        : params.refreshResult.reason === "empty_result"
+          ? "刷新后没有可用节点"
+          : "刷新后超过节点数量上限";
+    return {
+      subscriptionId: params.subscriptionId,
+      status: "blocked",
+      message: `${reason}，不会写入当前订阅。`,
+      wouldSave: false,
+      updateLockEnabled,
+      smartNodeMatchingEnabled: params.config.smartNodeMatchingEnabled !== false,
+      nodeChanges: summarizeNodeChanges(params.beforeNodes, params.snapshot.nodes),
+      sourceChanges,
+      subscriptionInfoChanges: summarizeSubscriptionInfoChanges(params.beforeSubscriptionInfo, params.snapshot.subscriptionInfo),
+      configProtection: {
+        protectedSections: updateLockEnabled
+          ? ["模板", "策略组", "规则集", "规则顺序", "DNS/基础配置", "FINAL 兜底", "图标 URL"]
+          : [],
+        sourcesWillUpdate: false,
+      },
+      failureReason: params.refreshResult.reason,
+    };
+  }
+
+  const nodeChanges = summarizeNodeChanges(params.beforeNodes, params.snapshot.nodes);
+  const message =
+    params.snapshot.failedSourceCount > 0
+      ? "部分订阅源失败；可用订阅源的节点预览如下，确认刷新后会保存成功部分。"
+      : "刷新预览正常，确认刷新后会写入这些变化。";
+
+  return {
+    subscriptionId: params.subscriptionId,
+    status: "ready",
+    message,
+    wouldSave: true,
+    updateLockEnabled,
+    smartNodeMatchingEnabled: params.config.smartNodeMatchingEnabled !== false,
+    nodeChanges,
+    sourceChanges,
+    subscriptionInfoChanges: summarizeSubscriptionInfoChanges(params.beforeSubscriptionInfo, params.snapshot.subscriptionInfo),
+    configProtection: {
+      protectedSections: updateLockEnabled
+        ? ["模板", "策略组", "规则集", "规则顺序", "DNS/基础配置", "FINAL 兜底", "图标 URL"]
+        : [],
+      sourcesWillUpdate: true,
+    },
+    ...(typeof params.refreshResult.generatedYaml === "string"
+      ? { generatedYamlBytes: Buffer.byteLength(params.refreshResult.generatedYaml, "utf8") }
+      : {}),
+  };
 }
 
 export function generateLocalSubscriptionToken(): string {
@@ -267,7 +485,7 @@ export async function updateSubscription(
   const data: Record<string, unknown> = { name };
   const hasUrls = "urls" in body;
   const hasNodes = "nodes" in body;
-  const hasConfig = "config" in body || "smartNodeMatchingEnabled" in body;
+  const hasConfig = "config" in body || "smartNodeMatchingEnabled" in body || "updateLockEnabled" in body;
   const nextNodes = hasNodes ? validateLocalSubscriptionNodes(body.nodes) : currentSecrets.nodes;
   let nextConfig = currentSecrets.config;
 
@@ -479,6 +697,33 @@ export async function refreshSubscription(ownerId: string, id: string) {
       cachedAt,
     }),
   };
+}
+
+export async function previewSubscriptionRefresh(ownerId: string, id: string): Promise<SubscriptionRefreshPreview | null> {
+  const row = await prisma.subscription.findFirst({ where: { id, ownerId }, include: { autoUpdateState: true } });
+  if (!row) return null;
+
+  const secrets = readSubscriptionSecrets(row);
+  const snapshot = await refreshNodeSnapshot({
+    config: secrets.config,
+    urls: secrets.urls,
+    storedNodes: secrets.nodes,
+    ...buildSubscriptionFetchCallbacks(),
+  });
+  const refreshResult = prepareRefreshCacheResult({
+    config: secrets.config,
+    snapshot,
+    maxNodesPerSubscription: MAX_NODES_PER_SUBSCRIPTION,
+  });
+
+  return buildRefreshPreview({
+    subscriptionId: row.id,
+    config: secrets.config,
+    beforeNodes: secrets.nodes,
+    beforeSubscriptionInfo: secrets.subscriptionInfo,
+    snapshot,
+    refreshResult,
+  });
 }
 
 export async function generateSubscriptionYaml(token: string): Promise<GeneratedSubscriptionYaml | null> {

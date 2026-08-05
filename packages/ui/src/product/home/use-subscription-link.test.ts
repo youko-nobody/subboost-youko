@@ -166,6 +166,7 @@ describe("useSubscriptionLink", () => {
       name: "",
       autoUpdateInterval: 7200,
       smartNodeMatchingEnabled: false,
+      updateLockEnabled: false,
     };
     let hook = useRenderedHook({ editingSubscription });
 
@@ -177,6 +178,7 @@ describe("useSubscriptionLink", () => {
     expect(hook.autoUpdateEnabled).toBe(true);
     expect(hook.autoUpdateHours).toBe(12);
     expect(hook.smartNodeMatchingEnabled).toBe(false);
+    expect(hook.updateLockEnabled).toBe(false);
     expect(mocks.bag.interactions.subscriptionLinkIntent).toHaveBeenCalledWith({
       mode: "advanced",
       result: "opened",
@@ -558,6 +560,7 @@ describe("useSubscriptionLink", () => {
       name: "Old",
       autoUpdateInterval: null,
       smartNodeMatchingEnabled: true,
+      updateLockEnabled: true,
     };
     const setEditingSubscription = vi.fn();
     const adapter = makeAdapter({
@@ -627,6 +630,7 @@ describe("useSubscriptionLink", () => {
       name: "Existing",
       autoUpdateInterval: null,
       smartNodeMatchingEnabled: true,
+      updateLockEnabled: true,
     };
     let hook = useRenderedHook({ editingSubscription });
     hook.setSubscriptionUrl("https://subboost.test/s/token-1");

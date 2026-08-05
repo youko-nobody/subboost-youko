@@ -10,12 +10,14 @@ import { resolveSmartNodeMatchingEnabled } from "./refresh-node-snapshot";
 export type SubscriptionConfigInput = {
   config?: unknown;
   smartNodeMatchingEnabled?: unknown;
+  updateLockEnabled?: unknown;
 };
 
 export type NormalizeSubscriptionConfigOptions = NormalizeSavedSourcesForPersistenceOptions & {
   existingConfig?: Record<string, unknown>;
   mergeExistingConfig?: boolean;
   defaultSmartNodeMatchingEnabled?: boolean;
+  defaultUpdateLockEnabled?: boolean;
 };
 
 export type SubscriptionSummaryDataSource = {
@@ -55,6 +57,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function maybeIso(value: Date | string | null | undefined, mode: "preserve" | "iso") {
   if (value === null || value === undefined) return value ?? null;
   return mode === "iso" && value instanceof Date ? value.toISOString() : value;
+}
+
+const UPDATE_LOCK_PASSTHROUGH_KEYS = new Set([
+  "sources",
+  "deletedNodeNames",
+  "deletedNodes",
+  "nodeNameFilter",
+  "smartNodeMatchingEnabled",
+  "updateLockEnabled",
+  "exposeSubscriptionUserInfo",
+]);
+
+export function resolveUpdateLockEnabled(config: Record<string, unknown>): boolean {
+  return config.updateLockEnabled !== false;
+}
+
+export function mergeConfigWithUpdateLock(
+  existingConfig: Record<string, unknown>,
+  submittedConfig: Record<string, unknown>
+): Record<string, unknown> {
+  const next = { ...existingConfig };
+  for (const key of UPDATE_LOCK_PASSTHROUGH_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(submittedConfig, key)) {
+      next[key] = submittedConfig[key];
+    }
+  }
+  return next;
 }
 
 export function normalizeSubscriptionName(value: unknown): string {
@@ -151,6 +180,12 @@ export function normalizeSubscriptionConfigForPersistence(
     baseConfig.smartNodeMatchingEnabled = options.defaultSmartNodeMatchingEnabled;
   }
 
+  if (typeof input.updateLockEnabled === "boolean") {
+    baseConfig.updateLockEnabled = input.updateLockEnabled;
+  } else if (typeof baseConfig.updateLockEnabled !== "boolean" && options.defaultUpdateLockEnabled !== undefined) {
+    baseConfig.updateLockEnabled = options.defaultUpdateLockEnabled;
+  }
+
   return baseConfig;
 }
 
@@ -188,6 +223,7 @@ export function serializeSubscriptionSummaryData(
     isPrimary: subscription.isPrimary,
     autoUpdateInterval: subscription.autoUpdateInterval ?? null,
     smartNodeMatchingEnabled: resolveSmartNodeMatchingEnabled(secrets.config),
+    updateLockEnabled: resolveUpdateLockEnabled(secrets.config),
     ...("cacheExpiresAt" in subscription ? { cacheExpiresAt: maybeIso(subscription.cacheExpiresAt, dateMode) } : {}),
     ...("lastAccessedAt" in subscription ? { lastAccessedAt: maybeIso(subscription.lastAccessedAt, dateMode) } : {}),
     ...("lastUpdatedAt" in subscription ? { lastUpdatedAt: maybeIso(subscription.lastUpdatedAt, dateMode) } : {}),

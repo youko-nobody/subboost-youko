@@ -5,6 +5,7 @@ import {
   deleteSubscription,
   getSubscription,
   listSubscriptions,
+  previewSubscriptionRefresh,
   refreshSubscription,
   updateSubscription,
 } from "@local/lib/subscription-service";
@@ -83,5 +84,13 @@ export async function refreshSubscriptionResponse(id: string) {
     if (!result) return apiError("Subscription not found.", "NOT_FOUND", 404);
     if (!result.ok) return json(result.response.body, result.response.status);
     return json(result.body);
+  });
+}
+
+export async function previewSubscriptionRefreshResponse(id: string) {
+  return withCurrentAdmin(async (admin) => {
+    const preview = await previewSubscriptionRefresh(admin.id, id);
+    if (!preview) return apiError("Subscription not found.", "NOT_FOUND", 404);
+    return json({ preview });
   });
 }

@@ -310,6 +310,7 @@ describe("useEditingSubscriptionLoader", () => {
       name: "Saved",
       autoUpdateInterval: 7200,
       smartNodeMatchingEnabled: false,
+      updateLockEnabled: true,
     });
     expect(options.setSubscriptionName).toHaveBeenCalledWith("Saved");
     expect(options.setSubscriptionUrl).toHaveBeenCalledWith("");
