@@ -36,6 +36,11 @@ const mocks = vi.hoisted(() => ({
       updateMany: vi.fn(),
       delete: vi.fn(),
     },
+    subscriptionVersion: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
     subscriptionAutoUpdateState: { upsert: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -167,12 +172,22 @@ describe("local subscription service", () => {
     mocks.prisma.subscription.findUnique.mockResolvedValue(row());
     mocks.prisma.subscription.update.mockResolvedValue(row({ name: "Updated" }));
     mocks.prisma.subscription.updateMany.mockResolvedValue({ count: 1 });
+    mocks.prisma.subscriptionVersion.create.mockResolvedValue({});
+    mocks.prisma.subscriptionVersion.findMany.mockResolvedValue([]);
+    mocks.prisma.subscriptionVersion.deleteMany.mockResolvedValue({ count: 0 });
     mocks.prisma.subscriptionAutoUpdateState.upsert.mockResolvedValue({});
     mocks.prisma.subscription.delete.mockResolvedValue(row());
     mocks.prisma.$transaction.mockImplementation(async (callback) => callback({
       subscription: {
+        create: mocks.prisma.subscription.create,
         update: mocks.prisma.subscription.update,
         updateMany: mocks.prisma.subscription.updateMany,
+        findUnique: mocks.prisma.subscription.findUnique,
+      },
+      subscriptionVersion: {
+        create: mocks.prisma.subscriptionVersion.create,
+        findMany: mocks.prisma.subscriptionVersion.findMany,
+        deleteMany: mocks.prisma.subscriptionVersion.deleteMany,
       },
       subscriptionAutoUpdateState: { upsert: mocks.prisma.subscriptionAutoUpdateState.upsert },
     }));

@@ -29,6 +29,7 @@ import {
 } from "./subscription-service";
 import { LOCAL_AUTO_UPDATE_MIN_SECONDS } from "./auto-update-policy";
 import { JobLeaseLostError } from "./job-lease";
+import { createSubscriptionVersion } from "./subscription-version-service";
 
 type AutoUpdateSubscriptionRow = SubscriptionRow & {
   owner: {
@@ -60,7 +61,8 @@ async function writeAutoUpdateState(
   expectedUpdatedAt: Date,
   state: SubscriptionAutoUpdateStateFields,
   extraSubscriptionData: Record<string, unknown> = {},
-  assertLease?: () => Promise<void>
+  assertLease?: () => Promise<void>,
+  versionReason?: string
 ): Promise<boolean> {
   await assertLease?.();
   return prisma.$transaction(async (tx) => {
@@ -69,6 +71,10 @@ async function writeAutoUpdateState(
       data: { ...extraSubscriptionData, updatedAt: new Date() },
     });
     if (updated.count !== 1) return false;
+    if (versionReason) {
+      const row = await tx.subscription.findUnique({ where: { id: subscriptionId } });
+      if (row) await createSubscriptionVersion(tx, row, versionReason);
+    }
     await tx.subscriptionAutoUpdateState.upsert({
       where: { subscriptionId },
       create: { subscriptionId, ...state },
@@ -175,7 +181,8 @@ async function completeSuccess(params: {
       cacheExpiresAt: buildSubscriptionCacheExpiry(cachedAt),
       ...(decision.nextAutoUpdateState.shouldDisableAutoUpdate ? { autoUpdateInterval: null } : {}),
     },
-    params.assertLease
+    params.assertLease,
+    "auto_refresh"
   );
   if (!persisted) return staleOutcome(params.prepared.requestedHosts);
 

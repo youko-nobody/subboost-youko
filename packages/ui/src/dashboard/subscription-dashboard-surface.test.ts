@@ -58,6 +58,8 @@ vi.mock("lucide-react", () => ({
   Shield: () => null,
   Star: () => null,
   Trash2: () => null,
+  Upload: () => null,
+  X: () => null,
 }));
 vi.mock("@subboost/ui/components/ui/button", () => ({
   Button: (props: any) => {
@@ -318,18 +320,18 @@ describe("SubscriptionDashboardSurface", () => {
     expect(mocks.toast).toHaveBeenCalledWith({ title: "刷新成功", variant: "success" });
 
     mocks.captures.buttons.find((props: any) => props.title === "订阅设置（改名 / 自动更新）").onClick();
-    expect(setters[5]).toHaveBeenCalledWith(subscription);
-    expect(setters[6]).toHaveBeenCalledWith("Primary");
-    expect(setters[7]).toHaveBeenCalledWith(true);
+    expect(setters[6]).toHaveBeenCalledWith(subscription);
+    expect(setters[7]).toHaveBeenCalledWith("Primary");
     expect(setters[8]).toHaveBeenCalledWith(true);
-    expect(setters[9]).toHaveBeenCalledWith(24);
-    expect(setters[4]).toHaveBeenCalledWith(true);
+    expect(setters[9]).toHaveBeenCalledWith(true);
+    expect(setters[10]).toHaveBeenCalledWith(24);
+    expect(setters[5]).toHaveBeenCalledWith(true);
 
     const settingsButtons = mocks.captures.buttons.filter((props: any) => props.title === "订阅设置（改名 / 自动更新）");
     settingsButtons[1].onClick();
-    expect(setters[5]).toHaveBeenCalledWith(disabledSubscription);
-    expect(setters[8]).toHaveBeenCalledWith(false);
-    expect(setters[9]).toHaveBeenCalledWith(24);
+    expect(setters[6]).toHaveBeenCalledWith(disabledSubscription);
+    expect(setters[9]).toHaveBeenCalledWith(false);
+    expect(setters[10]).toHaveBeenCalledWith(24);
   });
 
   it("falls back to legacy copy for non-secure self-host origins", async () => {
@@ -470,23 +472,23 @@ describe("SubscriptionDashboardSurface", () => {
   it("validates and saves subscription settings", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const adapter = createAdapter();
-    renderSurface(adapter, { 0: [subscription], 1: false, 4: true, 5: subscription, 6: "  ", 7: true, 8: true, 9: 24, 10: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "  ", 8: true, 9: true, 10: 24, 11: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "订阅名称不能为空且长度不能超过 100 字符", variant: "warning" }));
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 4: true, 5: subscription, 6: "Renamed", 7: false, 8: true, 9: 5, 10: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: 5, 11: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "自动更新最小间隔为 6 小时", variant: "warning" }));
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 4: true, 5: subscription, 6: "Renamed", 7: false, 8: true, 9: Number.NaN, 10: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: Number.NaN, 11: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "自动更新间隔必须是有效小时数", variant: "warning" }));
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 4: true, 5: subscription, 6: "Renamed", 7: false, 8: true, 9: 6.5, 10: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: 6.5, 11: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "自动更新间隔必须是整数小时", variant: "warning" }));
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 4: true, 5: subscription, 6: "Renamed", 7: false, 8: true, 9: 6, 10: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: false, 9: true, 10: 6, 11: false });
     await mocks.captures.settingsDialog.onSave();
     expect(adapter.updateSubscriptionSettings).toHaveBeenCalledWith("sub-1", {
       name: "Renamed",
@@ -494,9 +496,9 @@ describe("SubscriptionDashboardSurface", () => {
       autoUpdateInterval: 21600,
     });
     expect(stateMock.setters[0]).toHaveBeenCalledWith(expect.any(Function));
-    expect(stateMock.setters[4]).toHaveBeenCalledWith(false);
+    expect(stateMock.setters[5]).toHaveBeenCalledWith(false);
 
-    renderSurface(adapter, { 0: [subscription], 1: false, 4: true, 5: subscription, 6: "Manual", 7: true, 8: false, 9: 24, 10: false });
+    renderSurface(adapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Manual", 8: true, 9: false, 10: 24, 11: false });
     await mocks.captures.settingsDialog.onSave();
     expect(adapter.updateSubscriptionSettings).toHaveBeenCalledWith("sub-1", {
       name: "Manual",
@@ -505,14 +507,14 @@ describe("SubscriptionDashboardSurface", () => {
     });
 
     const guardedAdapter = createAdapter();
-    renderSurface(guardedAdapter, { 0: [subscription], 1: false, 4: true, 5: null, 6: "No sub", 7: true, 8: false, 9: 24, 10: false });
+    renderSurface(guardedAdapter, { 0: [subscription], 1: false, 5: true, 6: null, 7: "No sub", 8: true, 9: false, 10: 24, 11: false });
     await mocks.captures.settingsDialog.onSave();
-    renderSurface(guardedAdapter, { 0: [subscription], 1: false, 4: true, 5: subscription, 6: "Saving", 7: true, 8: false, 9: 24, 10: true });
+    renderSurface(guardedAdapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Saving", 8: true, 9: false, 10: 24, 11: true });
     await mocks.captures.settingsDialog.onSave();
     expect(guardedAdapter.updateSubscriptionSettings).not.toHaveBeenCalled();
 
     const failingAdapter = createAdapter({ updateSubscriptionSettings: vi.fn(async () => { throw new Error("save failed"); }) });
-    renderSurface(failingAdapter, { 0: [subscription], 1: false, 4: true, 5: subscription, 6: "Renamed", 7: true, 8: false, 9: 24, 10: false });
+    renderSurface(failingAdapter, { 0: [subscription], 1: false, 5: true, 6: subscription, 7: "Renamed", 8: true, 9: false, 10: 24, 11: false });
     await mocks.captures.settingsDialog.onSave();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "save failed", variant: "destructive" }));
     expect(errorSpy).toHaveBeenCalledWith(

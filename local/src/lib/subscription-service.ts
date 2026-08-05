@@ -24,6 +24,8 @@ import { getAppUrl } from "./env";
 import { prisma } from "./prisma";
 import { fetchSourceUserInfoHeadersDirect, importSourceUrlDirect } from "./source-import";
 import { normalizeLocalAutoUpdateIntervalSeconds } from "./auto-update-policy";
+import { assertValidLocalSubscriptionConfig } from "./subscription-config-validation";
+import { createSubscriptionVersion } from "./subscription-version-service";
 
 export const MAX_NODES_PER_SUBSCRIPTION = 10000;
 export const CACHE_TTL_SECONDS = 3600;
@@ -226,21 +228,26 @@ export async function createSubscription(
 
   const config = buildLocalSubscriptionConfig(body);
   assertNodeNameFilterKeepsOutput(nodes, config);
+  assertValidLocalSubscriptionConfig({ urls, nodes, config });
   const autoUpdateInterval = normalizeLocalAutoUpdateIntervalSeconds(body.autoUpdateInterval);
   const subscriptionInfo = normalizeSubscriptionInfoForPersistence(body.subscriptionInfo) ?? {};
 
-  const row = await prisma.subscription.create({
-    data: {
-      ownerId,
-      name,
-      token: generateLocalSubscriptionToken(),
-      encryptedUrls: encryptJson(urls),
-      encryptedNodes: encryptJson(nodes),
-      encryptedConfig: encryptJson(config),
-      encryptedSubscriptionInfo: encryptJson(subscriptionInfo),
-      autoUpdateInterval,
-    },
-    include: { autoUpdateState: true },
+  const row = await prisma.$transaction(async (tx) => {
+    const created = await tx.subscription.create({
+      data: {
+        ownerId,
+        name,
+        token: generateLocalSubscriptionToken(),
+        encryptedUrls: encryptJson(urls),
+        encryptedNodes: encryptJson(nodes),
+        encryptedConfig: encryptJson(config),
+        encryptedSubscriptionInfo: encryptJson(subscriptionInfo),
+        autoUpdateInterval,
+      },
+      include: { autoUpdateState: true },
+    });
+    await createSubscriptionVersion(tx, created, "create");
+    return created;
   });
   return formatSubscription(row, options);
 }
@@ -284,6 +291,7 @@ export async function updateSubscription(
       throw new Error("At least one URL or node is required.");
     }
     assertNodeNameFilterKeepsOutput(nextNodes, nextConfig);
+    assertValidLocalSubscriptionConfig({ urls: nextUrls, nodes: nextNodes, config: nextConfig });
   }
 
   let resetAutoUpdateState = false;
@@ -294,6 +302,7 @@ export async function updateSubscription(
   }
 
   const row = await prisma.$transaction(async (tx) => {
+    await createSubscriptionVersion(tx, current, "before_update");
     if (resetAutoUpdateState) {
       await tx.subscriptionAutoUpdateState.upsert({
         where: { subscriptionId: current.id },
@@ -309,11 +318,13 @@ export async function updateSubscription(
         },
       });
     }
-    return tx.subscription.update({
+    const updated = await tx.subscription.update({
       where: { id: current.id },
       data,
       include: { autoUpdateState: true },
     });
+    await createSubscriptionVersion(tx, updated, "manual_update");
+    return updated;
   });
   return formatSubscription(row, options);
 }
@@ -378,6 +389,7 @@ async function persistRefreshSuccess(params: {
   snapshot: RefreshNodeSnapshotResult;
   config: Record<string, unknown>;
   cachedAt: Date;
+  reason?: string;
 }): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
     const updated = await tx.subscription.updateMany({
@@ -392,6 +404,10 @@ async function persistRefreshSuccess(params: {
       },
     });
     if (updated.count !== 1) return false;
+    const row = await tx.subscription.findUnique({ where: { id: params.subscriptionId } });
+    if (row) {
+      await createSubscriptionVersion(tx, row, params.reason ?? "manual_refresh");
+    }
     await tx.subscriptionAutoUpdateState.upsert({
       where: { subscriptionId: params.subscriptionId },
       create: { subscriptionId: params.subscriptionId },
@@ -443,6 +459,7 @@ export async function refreshSubscription(ownerId: string, id: string) {
     snapshot,
     config: secrets.config,
     cachedAt,
+    reason: "manual_refresh",
   });
   if (!persisted) {
     return {

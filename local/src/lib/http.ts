@@ -17,6 +17,7 @@ export const LOCAL_JSON_BODY_LIMITS = {
   small: 64 * 1024,
   subscription: 16 * 1024 * 1024,
   template: 4 * 1024 * 1024,
+  backup: 64 * 1024 * 1024,
 } as const;
 
 export type ReadJsonBodyResult =

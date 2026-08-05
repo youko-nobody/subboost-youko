@@ -22,6 +22,63 @@ export interface Subscription {
   createdAt: string;
 }
 
+export interface BackupExportPayload {
+  blob: Blob;
+  filename?: string;
+}
+
+export interface BackupImportResult {
+  importedSubscriptions: number;
+  importedTemplates: number;
+  skippedSubscriptions: number;
+  skippedTemplates: number;
+  errors: string[];
+}
+
+export interface SubscriptionVersionSummary {
+  id: string;
+  subscriptionId: string;
+  name: string;
+  reason: string;
+  nodeCount: number;
+  sourceCount: number;
+  autoUpdateInterval: number | null;
+  createdAt: string;
+}
+
+export interface SubscriptionConfigValidationResult {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  generatedYamlBytes?: number;
+  proxyGroupCount?: number;
+  ruleCount?: number;
+}
+
+export interface SubscriptionHealthResult {
+  status: "healthy" | "degraded" | "failed";
+  checkedAt: string;
+  message: string;
+  validation: SubscriptionConfigValidationResult;
+  nodeCount: number;
+  attemptedUrlFetch: boolean;
+  usedUrlFetch: boolean;
+  refreshableSourceCount: number;
+  refreshedSourceCount: number;
+  refreshedUrlSourceCount: number;
+  refreshedStaticSourceCount: number;
+  failedSourceCount: number;
+  failedSources: Array<{
+    id: string;
+    type: string;
+    content: string;
+    errorMessage: string;
+    errorCategory?: string;
+    httpStatus?: number;
+    publicReason?: string | null;
+  }>;
+}
+
 export interface RefreshSubscriptionResponse {
   error?: string;
   refreshableSourceCount?: number;

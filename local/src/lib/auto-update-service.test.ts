@@ -15,6 +15,12 @@ const mocks = vi.hoisted(() => ({
     subscription: {
       findMany: vi.fn(),
       updateMany: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    subscriptionVersion: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
     subscriptionAutoUpdateState: {
       upsert: vi.fn(),
@@ -44,7 +50,26 @@ vi.mock("@subboost/server-core/subscription", () => ({
   resolveAutoUpdateScheduleState: mocks.resolveAutoUpdateScheduleState,
   resolveSubscriptionAutoUpdateState: mocks.resolveSubscriptionAutoUpdateState,
 }));
-vi.mock("./crypto", () => ({ encryptJson: mocks.encryptJson }));
+vi.mock("./crypto", () => ({
+  encryptJson: mocks.encryptJson,
+  decryptJson: (value: string | null | undefined, fallback: unknown) => {
+    if (!value || typeof value !== "string") return fallback;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  },
+  decryptJsonObject: (value: string | null | undefined) => {
+    if (!value || typeof value !== "string") return {};
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  },
+}));
 vi.mock("./prisma", () => ({ prisma: mocks.prisma }));
 vi.mock("./subscription-service", () => ({
   buildSubscriptionCacheExpiry: mocks.buildSubscriptionCacheExpiry,
@@ -87,9 +112,27 @@ describe("local subscription auto update service", () => {
     mocks.finalizeCronUpdateSummary.mockImplementation((acc, options) => ({ ...acc, options }));
     mocks.prisma.subscription.findMany.mockResolvedValue([subscription]);
     mocks.prisma.subscription.updateMany.mockResolvedValue({ count: 1 });
+    mocks.prisma.subscription.findUnique.mockResolvedValue({
+      ...subscription,
+      encryptedUrls: JSON.stringify(["https://airport.example/sub"]),
+      encryptedNodes: JSON.stringify([{ name: "A" }]),
+      encryptedConfig: JSON.stringify({ sources: [{ url: "https://airport.example/sub" }] }),
+      encryptedSubscriptionInfo: JSON.stringify({ upload: 1 }),
+    });
+    mocks.prisma.subscriptionVersion.create.mockResolvedValue({});
+    mocks.prisma.subscriptionVersion.findMany.mockResolvedValue([]);
+    mocks.prisma.subscriptionVersion.deleteMany.mockResolvedValue({ count: 0 });
     mocks.prisma.subscriptionAutoUpdateState.upsert.mockResolvedValue({ upsert: true });
     mocks.prisma.$transaction.mockImplementation(async (callback) => callback({
-      subscription: { updateMany: mocks.prisma.subscription.updateMany },
+      subscription: {
+        updateMany: mocks.prisma.subscription.updateMany,
+        findUnique: mocks.prisma.subscription.findUnique,
+      },
+      subscriptionVersion: {
+        create: mocks.prisma.subscriptionVersion.create,
+        findMany: mocks.prisma.subscriptionVersion.findMany,
+        deleteMany: mocks.prisma.subscriptionVersion.deleteMany,
+      },
       subscriptionAutoUpdateState: { upsert: mocks.prisma.subscriptionAutoUpdateState.upsert },
     }));
     mocks.resolveSubscriptionAutoUpdateState.mockReturnValue({ lastAttemptedAt: null, externalFailureCount: 0 });

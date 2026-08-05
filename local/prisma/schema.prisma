@@ -18,6 +18,7 @@ model LocalAdmin {
 
   subscriptions Subscription[]
   templates      LocalTemplate[]
+  subscriptionVersions SubscriptionVersion[]
 }
 
 model LocalTemplate {
@@ -54,9 +55,32 @@ model Subscription {
 
   owner           LocalAdmin                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   autoUpdateState SubscriptionAutoUpdateState?
+  versions        SubscriptionVersion[]
 
   @@index([ownerId])
   @@index([lastUpdatedAt])
+}
+
+model SubscriptionVersion {
+  id                        String   @id @default(cuid())
+  subscriptionId            String
+  ownerId                   String
+  name                      String
+  reason                    String
+  encryptedUrls             String   @db.Text
+  encryptedNodes            String   @db.Text
+  encryptedConfig           String   @db.Text
+  encryptedSubscriptionInfo String?  @db.Text
+  autoUpdateInterval        Int?
+  nodeCount                 Int      @default(0)
+  sourceCount               Int      @default(0)
+  createdAt                 DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  owner        LocalAdmin    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@index([ownerId, createdAt])
 }
 
 model SubscriptionAutoUpdateState {
