@@ -15,11 +15,11 @@ describe("quick mode constants", () => {
 
   it("keeps the quick template picker ordered from blank to user routing", () => {
     expect(templates.map((item) => item.id)).toEqual(["blank", "minimal", "standard", "full", "my-routing"]);
-    expect(templates.map((item) => item.name)).toEqual(["空白配置", "精简版", "标准版", "完整版", "我的分流"]);
+    expect(templates.map((item) => item.name)).toEqual(["空白配置", "精简版", "标准版", "完整版", "Youko分流模板"]);
     expect(templates[0]).toMatchObject({ groups: 0, rules: 0 });
     expect(templates[1].groups).toBeLessThan(templates[3].groups);
     expect(templates[1].rules).toBeLessThan(templates[3].rules);
-    expect(templates[4]).toMatchObject({ groups: 13, rules: 132 });
+    expect(templates[4]).toMatchObject({ groups: 10, rules: 69 });
     const currentCounts = new Map(
       getTemplateList().map((template) => [template.id, [template.groupCount, template.ruleCount]])
     );

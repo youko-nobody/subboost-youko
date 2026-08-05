@@ -37,7 +37,7 @@ export const templates = [
   },
   {
     id: "my-routing" as TemplateType,
-    name: "我的分流",
+    name: "Youko分流模板",
     description: "使用你提供的策略组和远程规则集",
     ...countsFor("my-routing"),
   },

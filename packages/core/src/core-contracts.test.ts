@@ -152,8 +152,8 @@ describe("builtin template contracts", () => {
     });
     expect(list[1].ruleCount).toBeGreaterThan(0);
     expect(list.find((item) => item.id === "my-routing")).toMatchObject({
-      groupCount: 13,
-      ruleCount: 132,
+      groupCount: 10,
+      ruleCount: 69,
     });
     expect(getTemplate("minimal")).toBe(TEMPLATES.minimal);
     expect(getTemplate("missing" as never)).toBe(TEMPLATES.standard);

@@ -143,7 +143,7 @@ vi.mock("./constants", () => ({
     { id: "minimal", name: "Minimal", description: "Light", groups: 1, rules: 2 },
     { id: "standard", name: "Standard", description: "Balanced", groups: 3, rules: 4 },
     { id: "full", name: "Full", description: "Everything", groups: 5, rules: 6 },
-    { id: "my-routing", name: "My Routing", description: "Custom", groups: 13, rules: 132 },
+    { id: "my-routing", name: "Youko分流模板", description: "Custom", groups: 10, rules: 69 },
   ],
 }));
 

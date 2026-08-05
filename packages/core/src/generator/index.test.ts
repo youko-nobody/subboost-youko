@@ -101,12 +101,12 @@ describe("generateClashConfig", () => {
       type: "select",
       proxies: ["REJECT", "DIRECT"],
     });
-    expect(config["rule-providers"]?.PRE_REPAIR_EASY_PRIVACY_DIRECT).toMatchObject({
+    expect(config["rule-providers"]?.BM_ADVERTISING_LITE).toMatchObject({
       type: "http",
       behavior: "classical",
       format: "yaml",
-      url: "https://raw.githubusercontent.com/Accademia/Additional_Rule_For_Clash/main/PreRepairEasyPrivacy/PreRepairEasyPrivacy_DIRECT.yaml",
-      path: "./ruleset/PRE_REPAIR_EASY_PRIVACY_DIRECT.yaml",
+      url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AdvertisingLite/AdvertisingLite.yaml",
+      path: "./ruleset/BM_ADVERTISING_LITE.yaml",
     });
     expect(config.rules?.slice(0, 3)).toEqual([
       "DOMAIN-SUFFIX,emby.fan,Emby代理",

@@ -120,21 +120,24 @@ describe("default config builders", () => {
       experimentalCnUseCnRuleSet: false,
       testUrl: "http://www.google.com/blank.html",
     });
-    expect(config.customProxyGroups).toHaveLength(13);
+    expect(config.customProxyGroups).toHaveLength(10);
     expect(config.customProxyGroups.find((group) => group.id === "my-block")).toMatchObject({
       name: "BLOCK",
       groupType: "reject-first",
       includeProxyProviders: false,
     });
-    expect(config.customRuleSets).toHaveLength(107);
+    expect(config.customRuleSets).toHaveLength(44);
     expect(config.customRuleSets[0]).toMatchObject({
-      id: "PRE_REPAIR_EASY_PRIVACY_DIRECT",
+      id: "BM_ADVERTISING_LITE",
       behavior: "classical",
       format: "yaml",
-      target: "DIRECT",
+      target: {
+        kind: "custom",
+        id: "my-block",
+      },
     });
     expect(config.customRules).toHaveLength(25);
-    expect(config.ruleOrder).toHaveLength(132);
+    expect(config.ruleOrder).toHaveLength(69);
   });
 
   it("keeps the default YAML example aligned with important base defaults", () => {
