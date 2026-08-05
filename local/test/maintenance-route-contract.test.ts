@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getCurrentAdmin } from "@local/lib/auth";
 import { exportLocalBackup, importLocalBackup } from "@local/lib/backup-service";
+import { checkSubscriptionRuleSetConnectivity } from "@local/lib/rule-set-connectivity-service";
 import { checkSubscriptionHealth, validateExistingSubscriptionConfig } from "@local/lib/subscription-health-service";
 import { formatSubscription } from "@local/lib/subscription-service";
 import { listSubscriptionVersions, restoreSubscriptionVersion } from "@local/lib/subscription-version-service";
 
 import * as backupRoute from "../app/api/backup/route";
 import * as healthRoute from "../app/api/subscriptions/[id]/health/route";
+import * as ruleSetsRoute from "../app/api/subscriptions/[id]/rule-sets/check/route";
 import * as validateRoute from "../app/api/subscriptions/[id]/validate/route";
 import * as versionsRoute from "../app/api/subscriptions/[id]/versions/route";
 import * as restoreRoute from "../app/api/subscriptions/[id]/versions/[versionId]/restore/route";
@@ -16,6 +18,9 @@ vi.mock("@local/lib/auth", () => ({ getCurrentAdmin: vi.fn() }));
 vi.mock("@local/lib/backup-service", () => ({
   exportLocalBackup: vi.fn(),
   importLocalBackup: vi.fn(),
+}));
+vi.mock("@local/lib/rule-set-connectivity-service", () => ({
+  checkSubscriptionRuleSetConnectivity: vi.fn(),
 }));
 vi.mock("@local/lib/subscription-health-service", () => ({
   checkSubscriptionHealth: vi.fn(),
@@ -68,6 +73,17 @@ describe("maintenance routes", () => {
       failedSources: [],
     });
     vi.mocked(validateExistingSubscriptionConfig).mockResolvedValue({ ok: true, errors: [], warnings: [] });
+    vi.mocked(checkSubscriptionRuleSetConnectivity).mockResolvedValue({
+      status: "healthy",
+      checkedAt: "2026-01-01T00:00:00.000Z",
+      message: "ok",
+      total: 1,
+      checkedCount: 1,
+      okCount: 1,
+      failedCount: 0,
+      skippedCount: 0,
+      results: [{ id: "ads", name: "Ads", source: "custom", result: "ok", url: "https://rules.example/ads.yaml" }],
+    });
     vi.mocked(listSubscriptionVersions).mockResolvedValue([
       {
         id: "ver-1",
@@ -115,6 +131,11 @@ describe("maintenance routes", () => {
     expect(validateResponse.status).toBe(200);
     expect(validateExistingSubscriptionConfig).toHaveBeenCalledWith("admin-1", "sub-1");
 
+    const ruleSetsResponse = await ruleSetsRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/rule-sets/check"), params);
+    expect(ruleSetsResponse.status).toBe(200);
+    expect(checkSubscriptionRuleSetConnectivity).toHaveBeenCalledWith("admin-1", "sub-1");
+    expect(await readJson(ruleSetsResponse)).toMatchObject({ ruleSetConnectivity: { okCount: 1 } });
+
     const versionsResponse = await versionsRoute.GET(new Request("http://local.test/api/subscriptions/sub-1/versions"), params);
     expect(versionsResponse.status).toBe(200);
     expect(await readJson(versionsResponse)).toMatchObject({ versions: [{ id: "ver-1" }] });
@@ -137,6 +158,7 @@ describe("maintenance routes", () => {
       await backupRoute.POST(new Request("http://local.test/api/backup", { method: "POST", body: "{}" })),
       await healthRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/health"), params),
       await validateRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/validate"), params),
+      await ruleSetsRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/rule-sets/check"), params),
       await versionsRoute.GET(new Request("http://local.test/api/subscriptions/sub-1/versions"), params),
       await restoreRoute.POST(new Request("http://local.test/api/subscriptions/sub-1/versions/ver-1/restore"), {
         params: Promise.resolve({ id: "sub-1", versionId: "ver-1" }),

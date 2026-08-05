@@ -16,6 +16,11 @@ export type DirectHttpResponse = {
   content: string;
 };
 
+export type DirectHttpMetadataResponse = {
+  status: number;
+  headers: Record<string, string>;
+};
+
 function normalizeHeaders(headers: IncomingHttpHeaders): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers)) {
@@ -120,4 +125,30 @@ export async function requestPinnedText(params: {
   const content = params.method === "HEAD" ? "" : await readLimitedBody(response, params.maxBytes);
   if (params.method === "HEAD") response.resume();
   return { status: response.statusCode || 0, headers, content };
+}
+
+export async function requestPinnedMetadata(params: {
+  url: string;
+  addresses: readonly string[];
+  method: "GET" | "HEAD";
+  userAgent: string;
+  signal: AbortSignal;
+}): Promise<DirectHttpMetadataResponse> {
+  const parsed = new URL(params.url);
+  let lastError: unknown = new Error("No validated address is available");
+  let response: IncomingMessage | null = null;
+  for (const address of params.addresses) {
+    try {
+      response = await openPinnedRequest({ ...params, parsed, address });
+      break;
+    } catch (error) {
+      lastError = error;
+      if (params.signal.aborted) throw error;
+    }
+  }
+  if (!response) throw lastError;
+
+  const headers = normalizeHeaders(response.headers);
+  response.destroy();
+  return { status: response.statusCode || 0, headers };
 }

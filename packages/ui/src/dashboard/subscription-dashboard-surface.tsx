@@ -47,6 +47,7 @@ import type {
   BackupExportPayload,
   BackupImportResult,
   RefreshSubscriptionResponse,
+  RuleSetConnectivityResult,
   Subscription,
   SubscriptionConfigValidationResult,
   SubscriptionHealthResult,
@@ -76,6 +77,7 @@ export type DashboardSurfaceAdapter = {
   importBackup?: (file: File) => Promise<BackupImportResult>;
   checkSubscriptionHealth?: (id: string) => Promise<SubscriptionHealthResult>;
   validateSubscriptionConfig?: (id: string) => Promise<SubscriptionConfigValidationResult>;
+  checkRuleSetConnectivity?: (id: string) => Promise<RuleSetConnectivityResult>;
   fetchSubscriptionVersions?: (id: string) => Promise<SubscriptionVersionSummary[]>;
   restoreSubscriptionVersion?: (id: string, versionId: string) => Promise<Subscription>;
   resolveDownloadUrl?: (subscription: Subscription) => string;
@@ -182,6 +184,16 @@ function healthToastPayload(health: SubscriptionHealthResult) {
   return { title: "订阅检查失败", description: health.message, variant: "destructive" as const };
 }
 
+function ruleSetConnectivityToastPayload(result: RuleSetConnectivityResult) {
+  if (result.status === "healthy") {
+    return { title: "规则集连通性正常", description: result.message, variant: "success" as const };
+  }
+  if (result.status === "degraded") {
+    return { title: "部分规则集需要检查", description: result.message, variant: "warning" as const };
+  }
+  return { title: "规则集连通性失败", description: result.message, variant: "destructive" as const };
+}
+
 async function copyText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -236,6 +248,9 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
   const [historyVersions, setHistoryVersions] = React.useState<SubscriptionVersionSummary[]>([]);
   const [historyLoading, setHistoryLoading] = React.useState(false);
   const [restoringVersionId, setRestoringVersionId] = React.useState<string | null>(null);
+  const [ruleSetOpen, setRuleSetOpen] = React.useState(false);
+  const [ruleSetSub, setRuleSetSub] = React.useState<Subscription | null>(null);
+  const [ruleSetConnectivity, setRuleSetConnectivity] = React.useState<RuleSetConnectivityResult | null>(null);
 
   React.useEffect(() => {
     void fetchUser();
@@ -425,6 +440,24 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
     } catch (error) {
       console.error("Failed to validate subscription config:", error);
       toast({ title: error instanceof Error ? error.message : "配置校验失败", variant: "destructive" });
+    } finally {
+      setMaintenanceBusy(null);
+    }
+  };
+
+  const checkRuleSetConnectivity = async (sub: Subscription) => {
+    if (!adapter.checkRuleSetConnectivity || maintenanceBusy) return;
+    const key = `rule-sets:${sub.id}`;
+    setMaintenanceBusy(key);
+    try {
+      const result = await adapter.checkRuleSetConnectivity(sub.id);
+      setRuleSetSub(sub);
+      setRuleSetConnectivity(result);
+      setRuleSetOpen(true);
+      toast(ruleSetConnectivityToastPayload(result));
+    } catch (error) {
+      console.error("Failed to check rule set connectivity:", error);
+      toast({ title: error instanceof Error ? error.message : "规则集连通性检查失败", variant: "destructive" });
     } finally {
       setMaintenanceBusy(null);
     }
@@ -655,6 +688,7 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
                   busyAction={maintenanceBusy}
                   onCheckHealth={adapter.checkSubscriptionHealth ? checkSubscriptionHealth : undefined}
                   onValidateConfig={adapter.validateSubscriptionConfig ? validateSubscriptionConfig : undefined}
+                  onCheckRuleSets={adapter.checkRuleSetConnectivity ? checkRuleSetConnectivity : undefined}
                   onHistory={adapter.fetchSubscriptionVersions ? openSubscriptionHistory : undefined}
                 />
               ))}
@@ -686,6 +720,13 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
         onOpenChange={setHealthOpen}
         subscription={healthSub}
         health={healthResult}
+      />
+
+      <RuleSetConnectivityDialog
+        open={ruleSetOpen}
+        onOpenChange={setRuleSetOpen}
+        subscription={ruleSetSub}
+        result={ruleSetConnectivity}
       />
 
       <VersionHistoryDialog
@@ -768,6 +809,7 @@ function SubscriptionRow({
   busyAction,
   onCheckHealth,
   onValidateConfig,
+  onCheckRuleSets,
   onHistory,
 }: {
   sub: Subscription;
@@ -782,10 +824,12 @@ function SubscriptionRow({
   busyAction: string | null;
   onCheckHealth?: (sub: Subscription) => Promise<void>;
   onValidateConfig?: (sub: Subscription) => Promise<void>;
+  onCheckRuleSets?: (sub: Subscription) => Promise<void>;
   onHistory?: (sub: Subscription) => Promise<void>;
 }) {
   const healthBusy = busyAction === `health:${sub.id}`;
   const validateBusy = busyAction === `validate:${sub.id}`;
+  const ruleSetsBusy = busyAction === `rule-sets:${sub.id}`;
   return (
     <div className="flex flex-col gap-3 p-4 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="flex min-w-0 flex-1 items-start gap-4 sm:items-center">
@@ -875,6 +919,19 @@ function SubscriptionRow({
             <span className="hidden sm:inline">校验</span>
           </Button>
         )}
+        {onCheckRuleSets && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void onCheckRuleSets(sub)}
+            disabled={ruleSetsBusy}
+            className="gap-0 sm:gap-2"
+            title="检查当前订阅生成的远程规则集 URL 是否可访问"
+          >
+            <FileCode className={`h-4 w-4 ${ruleSetsBusy ? "animate-pulse" : ""}`} />
+            <span className="hidden sm:inline">规则集</span>
+          </Button>
+        )}
         {onHistory && (
           <Button
             variant="ghost"
@@ -931,7 +988,7 @@ function SubscriptionRow({
   );
 }
 
-function StatusBadge({ status }: { status: SubscriptionHealthResult["status"] }) {
+function StatusBadge({ status }: { status: SubscriptionHealthResult["status"] | RuleSetConnectivityResult["status"] }) {
   const label = status === "healthy" ? "健康" : status === "degraded" ? "需留意" : "失败";
   const className =
     status === "healthy"
@@ -1029,6 +1086,123 @@ function HealthMetric({ label, value }: { label: string; value: React.ReactNode 
       <div className="text-xs text-white/45">{label}</div>
       <div className="mt-1 text-lg font-semibold text-white">{value}</div>
     </div>
+  );
+}
+
+function ruleSetSourceLabel(source: RuleSetConnectivityResult["results"][number]["source"]): string {
+  switch (source) {
+    case "builtin":
+      return "内置";
+    case "custom":
+      return "自定义";
+    case "template":
+      return "模板";
+    default:
+      return "生成";
+  }
+}
+
+function ruleSetResultLabel(result: RuleSetConnectivityResult["results"][number]["result"]): string {
+  if (result === "ok") return "可访问";
+  if (result === "skipped") return "跳过";
+  return "失败";
+}
+
+function RuleSetConnectivityDialog({
+  open,
+  onOpenChange,
+  subscription,
+  result,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  subscription: Subscription | null;
+  result: RuleSetConnectivityResult | null;
+}) {
+  const failed = result?.results.filter((item) => item.result === "failed") ?? [];
+  const ok = result?.results.filter((item) => item.result === "ok") ?? [];
+  const visibleResults = failed.length > 0 ? failed : ok.slice(0, 10);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            规则集连通性检查
+            {result && <StatusBadge status={result.status} />}
+          </DialogTitle>
+          <DialogDescription>{subscription?.name || "当前订阅"}</DialogDescription>
+        </DialogHeader>
+
+        {result ? (
+          <div className="space-y-5">
+            <p className="text-sm text-white/70">{result.message}</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <HealthMetric label="规则集" value={result.total} />
+              <HealthMetric label="已检查" value={result.checkedCount} />
+              <HealthMetric label="成功" value={result.okCount} />
+              <HealthMetric label="失败" value={result.failedCount} />
+              <HealthMetric label="跳过" value={result.skippedCount} />
+            </div>
+
+            {result.results.length === 0 ? (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-6 text-center text-sm text-white/50">
+                当前配置没有生成 rule-providers。
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-white/80">
+                  {failed.length > 0 ? "失败规则集" : "可访问规则集"}
+                </div>
+                <div className="space-y-2">
+                  {visibleResults.map((item) => (
+                    <div key={item.id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-white/80">{item.name}</span>
+                        <span className="rounded-md border border-white/10 px-2 py-0.5 text-xs text-white/50">
+                          {ruleSetSourceLabel(item.source)}
+                        </span>
+                        <span className={item.result === "ok" ? "text-green-300" : item.result === "skipped" ? "text-amber-300" : "text-red-300"}>
+                          {ruleSetResultLabel(item.result)}
+                        </span>
+                        {item.statusCode && <span className="text-white/45">HTTP {item.statusCode}</span>}
+                        {item.method && <span className="text-white/45">{item.method}</span>}
+                      </div>
+                      {item.url && <div className="mt-2 truncate text-white/55">{item.url}</div>}
+                      {item.finalUrl && item.finalUrl !== item.url && (
+                        <div className="mt-1 truncate text-white/40">最终地址：{item.finalUrl}</div>
+                      )}
+                      {(item.publicReason || item.error) && (
+                        <div className="mt-1 text-red-300">{item.publicReason || item.error}</div>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/40">
+                        {item.behavior && <span>behavior: {item.behavior}</span>}
+                        {item.format && <span>format: {item.format}</span>}
+                        {item.contentType && <span>{item.contentType}</span>}
+                        {item.contentLengthBytes !== undefined && <span>{Math.round(item.contentLengthBytes / 1024)} KB</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {failed.length === 0 && result.okCount > visibleResults.length && (
+                  <div className="text-xs text-white/40">
+                    仅展示前 {visibleResults.length} 个成功规则集。
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="h-24 animate-pulse rounded-lg bg-white/10" />
+        )}
+
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+            关闭
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -21,7 +21,13 @@ import {
   shouldRecheckFakeIpDnsAnswers,
 } from "@subboost/server-core/subscription/ssrf-ip";
 import { getAllowUnsafeSubscriptionSources } from "./source-import-settings";
-import { requestPinnedText, ResponseTooLargeError, type DirectHttpResponse } from "./pinned-http";
+import {
+  requestPinnedMetadata,
+  requestPinnedText,
+  ResponseTooLargeError,
+  type DirectHttpMetadataResponse,
+  type DirectHttpResponse,
+} from "./pinned-http";
 
 const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
@@ -29,6 +35,23 @@ const USERINFO_TIMEOUT_MS = 8000;
 const USERINFO_MAX_BYTES = 256 * 1024;
 const MAX_REDIRECTS = 3;
 const DOH_TIMEOUT_MS = 4000;
+
+export type PublicUrlProbeResult =
+  | {
+      ok: true;
+      method: "GET" | "HEAD";
+      status: number;
+      headers: Record<string, string>;
+      finalUrl: string;
+    }
+  | {
+      ok: false;
+      method: "GET" | "HEAD";
+      error: string;
+      responseStatus?: number;
+      publicReason?: string | null;
+      errorCategory?: string;
+    };
 
 function headersToRecord(headers: Headers): Record<string, string> {
   const out: Record<string, string> = {};
@@ -182,6 +205,27 @@ async function requestUnpinnedText(params: {
   return { status: response.status, headers, content };
 }
 
+async function requestUnpinnedMetadata(params: {
+  url: string;
+  method: "GET" | "HEAD";
+  userAgent: string;
+  signal: AbortSignal;
+}): Promise<DirectHttpMetadataResponse> {
+  const response = await fetch(params.url, {
+    method: params.method,
+    headers: {
+      "User-Agent": params.userAgent,
+      Accept: "text/plain, application/yaml, application/x-yaml, */*;q=0.8",
+      "Cache-Control": "no-cache",
+    },
+    redirect: "manual",
+    signal: params.signal,
+  });
+  const headers = headersToRecord(response.headers);
+  await response.body?.cancel("metadata probe complete").catch(() => undefined);
+  return { status: response.status, headers };
+}
+
 async function fetchTextDirect(
   request: SourceImportTransportRequest,
   allowUnsafeSubscriptionSources: boolean
@@ -240,6 +284,96 @@ async function fetchTextDirect(
   } finally {
     clearTimeout(timer);
   }
+}
+
+function transportFailureToProbeResult(
+  failure: SourceImportTransportResult,
+  method: "GET" | "HEAD"
+): PublicUrlProbeResult {
+  return {
+    ok: false,
+    method,
+    error: failure.error || failure.publicReason || "获取 URL 失败",
+    ...(failure.responseStatus ? { responseStatus: failure.responseStatus } : {}),
+    ...(failure.publicReason !== undefined ? { publicReason: failure.publicReason } : {}),
+    ...(failure.errorInfo?.category ? { errorCategory: failure.errorInfo.category } : {}),
+  };
+}
+
+async function probeUrlMetadataDirect(
+  request: {
+    url: string;
+    method: "GET" | "HEAD";
+    userAgent: string;
+    timeoutMs: number;
+  },
+  allowUnsafeSubscriptionSources: boolean
+): Promise<PublicUrlProbeResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), request.timeoutMs);
+
+  try {
+    let currentUrl = request.url;
+    let response: DirectHttpMetadataResponse | null = null;
+    for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+      const validation = await validatePublicFetchTarget(currentUrl, allowUnsafeSubscriptionSources);
+      if (!validation.ok) return transportFailureToProbeResult(validation.failure, request.method);
+
+      response = validation.addresses
+        ? await requestPinnedMetadata({
+            url: currentUrl,
+            addresses: validation.addresses,
+            method: request.method,
+            userAgent: request.userAgent,
+            signal: controller.signal,
+          })
+        : await requestUnpinnedMetadata({
+            url: currentUrl,
+            method: request.method,
+            userAgent: request.userAgent,
+            signal: controller.signal,
+          });
+
+      if (response.status < 300 || response.status >= 400) {
+        return {
+          ok: true,
+          method: request.method,
+          status: response.status,
+          headers: response.headers,
+          finalUrl: currentUrl,
+        };
+      }
+      const location = response.headers.location;
+      if (!location) {
+        return {
+          ok: true,
+          method: request.method,
+          status: response.status,
+          headers: response.headers,
+          finalUrl: currentUrl,
+        };
+      }
+      currentUrl = new URL(location, currentUrl).toString();
+      response = null;
+    }
+
+    return transportFailureToProbeResult(toFailure("订阅重定向次数过多", 310), request.method);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return transportFailureToProbeResult(toFailure(message), request.method);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function probePublicUrlDirect(request: {
+  url: string;
+  method: "GET" | "HEAD";
+  userAgent: string;
+  timeoutMs: number;
+}): Promise<PublicUrlProbeResult> {
+  const allowUnsafeSubscriptionSources = await getAllowUnsafeSubscriptionSources();
+  return probeUrlMetadataDirect(request, allowUnsafeSubscriptionSources);
 }
 
 export async function importSourceUrlDirect(request: SourceImportRequest): Promise<SourceImportResult> {

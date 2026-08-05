@@ -469,6 +469,49 @@ describe("SubscriptionDashboardSurface", () => {
     );
   });
 
+  it("checks rule set connectivity from subscription rows", async () => {
+    const adapter = createAdapter({
+      checkRuleSetConnectivity: vi.fn(async () => ({
+        status: "degraded",
+        checkedAt: "2026-01-01T00:00:00.000Z",
+        message: "部分规则集无法访问：成功 1 个，失败 1 个。",
+        total: 2,
+        checkedCount: 2,
+        okCount: 1,
+        failedCount: 1,
+        skippedCount: 0,
+        results: [
+          {
+            id: "one",
+            name: "One",
+            source: "custom",
+            result: "ok",
+            url: "https://rules.example/one.yaml",
+          },
+          {
+            id: "two",
+            name: "Two",
+            source: "custom",
+            result: "failed",
+            url: "https://rules.example/two.yaml",
+            statusCode: 404,
+            publicReason: "HTTP 404",
+          },
+        ],
+      })),
+    });
+    renderSurface(adapter, { 0: [subscription], 1: false, 4: null });
+
+    await mocks.captures.buttons.find((props: any) => props.title === "检查当前订阅生成的远程规则集 URL 是否可访问").onClick();
+    await flushPromises();
+
+    expect(adapter.checkRuleSetConnectivity).toHaveBeenCalledWith("sub-1");
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: "部分规则集需要检查",
+      variant: "warning",
+    }));
+  });
+
   it("validates and saves subscription settings", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const adapter = createAdapter();

@@ -79,6 +79,35 @@ export interface SubscriptionHealthResult {
   }>;
 }
 
+export interface RuleSetConnectivityResult {
+  status: "healthy" | "degraded" | "failed";
+  checkedAt: string;
+  message: string;
+  total: number;
+  checkedCount: number;
+  okCount: number;
+  failedCount: number;
+  skippedCount: number;
+  results: Array<{
+    id: string;
+    name: string;
+    source: "builtin" | "custom" | "template" | "generated";
+    url?: string;
+    finalUrl?: string;
+    behavior?: string;
+    format?: string;
+    path?: string;
+    result: "ok" | "failed" | "skipped";
+    method?: "GET" | "HEAD";
+    statusCode?: number;
+    contentType?: string;
+    contentLengthBytes?: number;
+    error?: string;
+    publicReason?: string | null;
+    errorCategory?: string;
+  }>;
+}
+
 export interface RefreshSubscriptionResponse {
   error?: string;
   refreshableSourceCount?: number;

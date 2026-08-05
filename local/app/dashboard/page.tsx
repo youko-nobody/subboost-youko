@@ -7,6 +7,7 @@ import { readJsonResponse } from "@subboost/ui/product/client-response";
 import type {
   BackupImportResult,
   RefreshSubscriptionResponse,
+  RuleSetConnectivityResult,
   Subscription,
   SubscriptionConfigValidationResult,
   SubscriptionHealthResult,
@@ -91,6 +92,18 @@ const localDashboardAdapter: DashboardSurfaceAdapter = {
     const data = await readJsonResponse<{ validation?: SubscriptionConfigValidationResult; error?: string }>(response, "配置校验失败");
     if (!data.validation) throw new Error("配置校验失败");
     return data.validation;
+  },
+  checkRuleSetConnectivity: async (id) => {
+    const response = await fetch(`/api/subscriptions/${encodeURIComponent(id)}/rule-sets/check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await readJsonResponse<{ ruleSetConnectivity?: RuleSetConnectivityResult; error?: string }>(
+      response,
+      "规则集连通性检查失败"
+    );
+    if (!data.ruleSetConnectivity) throw new Error("规则集连通性检查失败");
+    return data.ruleSetConnectivity;
   },
   fetchSubscriptionVersions: async (id) => {
     const response = await fetch(`/api/subscriptions/${encodeURIComponent(id)}/versions`);
