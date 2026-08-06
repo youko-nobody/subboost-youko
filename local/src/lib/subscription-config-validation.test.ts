@@ -93,4 +93,18 @@ describe("local subscription config validation", () => {
     expect(validation.errors.join("\n")).toContain("指向不存在或已停用的自定义策略组");
     expect(validation.errors.join("\n")).toContain("Missing Group");
   });
+
+  it("accepts templates that leave fallback policy target empty", () => {
+    const validation = validateLocalSubscriptionConfig({
+      urls: [],
+      nodes: [node()],
+      config: {
+        template: "standard",
+        fallbackPolicyTarget: "",
+      },
+    });
+
+    expect(validation.ok).toBe(true);
+    expect(validation.errors).toEqual([]);
+  });
 });

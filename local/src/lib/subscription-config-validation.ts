@@ -29,6 +29,10 @@ function toTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function hasMeaningfulTarget(value: unknown): boolean {
+  return !(typeof value === "string" && value.trim() === "");
+}
+
 function stringList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.map(toTrimmedString).filter(Boolean);
@@ -370,7 +374,7 @@ export function validateLocalSubscriptionConfig(params: {
   validateCustomRules(config, validateTarget, errors);
   validateCustomRuleSets(config, validateTarget, errors);
   validateBuiltinRuleEdits(config, validateTarget, errors);
-  if (config.fallbackPolicyTarget !== undefined) {
+  if (config.fallbackPolicyTarget !== undefined && hasMeaningfulTarget(config.fallbackPolicyTarget)) {
     validateTarget(config.fallbackPolicyTarget, "兜底策略", errors);
   }
   validateDialerReferences(config, params.nodes, [...customFacts.activeNames, ...dialerFacts.activeNames], warnings);
