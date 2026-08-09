@@ -11,6 +11,7 @@ const PROTOCOL_BADGE_COLORS: Record<string, string> = {
   hysteria2: "bg-orange-500/20 text-orange-200 border-orange-500/20",
   hy2: "bg-orange-500/20 text-orange-200 border-orange-500/20",
   tuic: "bg-cyan-500/20 text-cyan-200 border-cyan-500/20",
+  mieru: "bg-lime-500/20 text-lime-200 border-lime-500/20",
   socks5: "bg-slate-500/20 text-slate-200 border-slate-500/20",
   socks4: "bg-slate-500/20 text-slate-200 border-slate-500/20",
   http: "bg-amber-500/20 text-amber-200 border-amber-500/20",

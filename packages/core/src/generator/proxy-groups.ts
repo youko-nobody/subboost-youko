@@ -489,7 +489,12 @@ export function generateProxyGroups(options: ProxyGroupGenerateOptions): ProxyGr
     }
   }
 
-  return groups;
+  return groups.map((group) => {
+    if (Array.isArray(group.proxies) && group.proxies.length === 0 && !Array.isArray(group.use)) {
+      return { ...group, proxies: ["DIRECT", "REJECT"] };
+    }
+    return group;
+  });
 }
 
 /**

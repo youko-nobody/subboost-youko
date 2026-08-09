@@ -1,6 +1,7 @@
 import { parseAnyTLS } from "./protocols/anytls";
 import { parseHysteria } from "./protocols/hysteria";
 import { parseHysteria2 } from "./protocols/hysteria2";
+import { parseMieru } from "./protocols/mieru";
 import { parseSimpleProxy, parseSocks, parseTelegramProxyLink } from "./protocols/simple-proxy";
 import { parseSS } from "./protocols/ss";
 import { parseSSR } from "./protocols/ssr";
@@ -92,6 +93,11 @@ const LINK_PARSERS: LinkParserDefinition[] = [
     name: "wireguard",
     test: (link) => link.startsWith("wireguard://") || link.startsWith("wg://"),
     parse: (link) => parseWireGuard(link),
+  },
+  {
+    name: "mieru",
+    test: (link) => link.startsWith("mierus://"),
+    parse: (link) => parseMieru(link),
   },
   {
     name: "snell",

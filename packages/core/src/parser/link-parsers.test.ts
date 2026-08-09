@@ -70,4 +70,23 @@ describe("node link parser registry", () => {
     expect(() => parseNodeLink("proxy.example.com:1080")).toThrow("无法识别的代理格式");
     expect(() => parseNodeLink("ftp://proxy.example.com:21")).toThrow("不支持的协议: ftp");
   });
+
+  it("routes Mieru simple links through the Mieru parser", () => {
+    expect(
+      mustParseByRegistry(
+        "mierus://demo-user:demo-pass@mieru.example.com?handshake-mode=HANDSHAKE_NO_WAIT&mtu=1400&multiplexing=MULTIPLEXING_OFF&port=11301&profile=default&protocol=TCP"
+      )
+    ).toMatchObject({
+      name: "Mieru-mieru.example.com:11301",
+      type: "mieru",
+      server: "mieru.example.com",
+      port: 11301,
+      username: "demo-user",
+      password: "demo-pass",
+      transport: "tcp",
+      mtu: 1400,
+      multiplexing: "MULTIPLEXING_OFF",
+      "handshake-mode": "HANDSHAKE_NO_WAIT",
+    });
+  });
 });

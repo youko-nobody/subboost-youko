@@ -94,6 +94,7 @@ const baseProps = {
   open: true,
   onOpenChange: vi.fn(),
   subscriptionUrl: "",
+  stashSubscriptionUrl: "",
   subscriptionName: "我的配置",
   setSubscriptionName: vi.fn(),
   autoUpdateEnabled: false,
@@ -114,9 +115,11 @@ const baseProps = {
   setExposeSubscriptionUserInfo: vi.fn(),
   isCreatingSubscription: false,
   copied: false,
+  stashCopied: false,
   isEditingExistingSubscription: false,
   user: baseUser,
   handleCopyUrl: vi.fn(),
+  handleCopyStashUrl: vi.fn(),
   handleCreateSubscription: vi.fn(),
 };
 
@@ -173,24 +176,33 @@ describe("SubscriptionLinkDialog", () => {
       React.createElement(SubscriptionLinkDialog, {
         ...baseProps,
         subscriptionUrl: "https://sub.example.com/sub/token",
+        stashSubscriptionUrl: "https://sub.example.com/sub/token?client=stash",
         copied: true,
         isEditingExistingSubscription: true,
       })
     );
 
     expect(html).toContain("订阅链接已更新");
-    expect(html).toContain("复制下方链接到 Clash 客户端导入使用");
+    expect(html).toContain("按客户端复制对应链接导入使用");
+    expect(html).toContain("通用链接");
+    expect(html).toContain("Stash 链接");
     expect(html).toContain("更新成功");
     expect(html).toContain("check-icon");
     expect(captures.inputs[0]).toMatchObject({
       value: "https://sub.example.com/sub/token",
       readOnly: true,
     });
+    expect(captures.inputs[1]).toMatchObject({
+      value: "https://sub.example.com/sub/token?client=stash",
+      readOnly: true,
+    });
 
     captures.buttons[0].onClick();
     captures.buttons[1].onClick();
+    captures.buttons[2].onClick();
 
     expect(baseProps.handleCopyUrl).toHaveBeenCalled();
+    expect(baseProps.handleCopyStashUrl).toHaveBeenCalled();
     expect(baseProps.onOpenChange).toHaveBeenCalledWith(false);
   });
 

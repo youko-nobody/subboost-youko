@@ -752,4 +752,46 @@ describe("local subscription service", () => {
       subscriptionInfo: {},
     });
   });
+
+  it("filters Mieru nodes and disables proxy providers for Stash-compatible YAML", async () => {
+    const mieruNode = {
+      name: "Mieru",
+      type: "mieru",
+      server: "mieru.example.com",
+      port: 2999,
+      username: "user",
+      password: "pass",
+    };
+    mocks.prisma.subscription.findUnique.mockResolvedValueOnce(
+      row({
+        encryptedNodes: JSON.stringify([node("SS"), mieruNode]),
+        encryptedConfig: JSON.stringify({
+          sources: [
+            {
+              id: "src-1",
+              type: "url",
+              content: "https://example.com/sub.yaml",
+              useProxyProviders: true,
+            },
+          ],
+        }),
+      })
+    );
+    mocks.buildProxyProvidersFromConfig.mockReturnValueOnce({ remote: { url: "https://example.com/provider.yaml" } });
+
+    await expect(generateSubscriptionYaml("token-1", { client: "stash" })).resolves.toMatchObject({
+      yaml: "mixed-port: 7890\n",
+    });
+
+    expect(mocks.buildProxyProvidersFromConfig).not.toHaveBeenCalled();
+    expect(mocks.buildGenerateOptionsFromConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sources: [expect.objectContaining({ useProxyProviders: false })],
+      }),
+      expect.objectContaining({
+        nodes: [expect.objectContaining({ name: "SS" })],
+        proxyProviders: undefined,
+      })
+    );
+  });
 });

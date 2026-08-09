@@ -43,6 +43,7 @@ type SubscriptionLinkState = {
   subscriptionName: string;
   setSubscriptionName: (value: string) => void;
   subscriptionUrl: string;
+  stashSubscriptionUrl: string;
   autoUpdateEnabled: boolean;
   setAutoUpdateEnabled: (value: boolean) => void;
   autoUpdateHours: number;
@@ -56,6 +57,7 @@ type SubscriptionLinkState = {
   setExposeSubscriptionUserInfo: (value: boolean) => void;
   isCreatingSubscription: boolean;
   copied: boolean;
+  stashCopied: boolean;
   saveRequirementDialog: boolean;
   setSaveRequirementDialog: (open: boolean) => void;
   isEditingExistingSubscription: boolean;
@@ -63,6 +65,7 @@ type SubscriptionLinkState = {
   handleAcceptSaveRequirement: () => void;
   handleCreateSubscription: () => void;
   handleCopyUrl: () => void;
+  handleCopyStashUrl: () => void;
 };
 
 type Props = {
@@ -390,6 +393,7 @@ export function HomeLayout({
         open={subscription.subscriptionDialog}
         onOpenChange={subscription.setSubscriptionDialog}
         subscriptionUrl={subscription.subscriptionUrl}
+        stashSubscriptionUrl={subscription.stashSubscriptionUrl}
         subscriptionName={subscription.subscriptionName}
         setSubscriptionName={subscription.setSubscriptionName}
         autoUpdateEnabled={subscription.autoUpdateEnabled}
@@ -405,8 +409,10 @@ export function HomeLayout({
         setExposeSubscriptionUserInfo={subscription.setExposeSubscriptionUserInfo}
         isCreatingSubscription={subscription.isCreatingSubscription}
         copied={subscription.copied}
+        stashCopied={subscription.stashCopied}
         isEditingExistingSubscription={subscription.isEditingExistingSubscription}
         handleCopyUrl={subscription.handleCopyUrl}
+        handleCopyStashUrl={subscription.handleCopyStashUrl}
         handleCreateSubscription={subscription.handleCreateSubscription}
       />
     </div>

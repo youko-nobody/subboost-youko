@@ -40,6 +40,7 @@ import {
   resolveAutoUpdateIntervalPolicy,
   type AutoUpdateIntervalPolicyOverride,
 } from "@subboost/core/subscription/auto-update-interval";
+import { buildSubscriptionClientUrl } from "@subboost/core/subscription/client-compatibility";
 import { DashboardStatsCards } from "@subboost/ui/dashboard/dashboard-stats-cards";
 import { formatDashboardDate, formatIntervalLabel } from "@subboost/ui/dashboard/dashboard-format";
 import { buildRefreshSubscriptionSuccessToast } from "@subboost/ui/dashboard/dashboard-refresh-toast";
@@ -1021,6 +1022,25 @@ function SubscriptionRow({
             <>
               <Copy className="h-4 w-4" />
               <span className="hidden sm:inline">链接</span>
+            </>
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void onCopy(buildSubscriptionClientUrl(sub.subscriptionUrl, "stash"), `${sub.id}:stash`)}
+          className="gap-0 sm:gap-2"
+          title="复制 Stash 兼容订阅链接"
+        >
+          {copiedId === `${sub.id}:stash` ? (
+            <>
+              <Check className="h-4 w-4 text-green-500" />
+              <span className="hidden sm:inline text-green-500">已复制</span>
+            </>
+          ) : (
+            <>
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Stash</span>
             </>
           )}
         </Button>

@@ -35,6 +35,7 @@ import {
 } from "@subboost/core/subscription/auto-update-interval";
 import type { NodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
 import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/url-input";
+import { buildSubscriptionClientUrl } from "@subboost/core/subscription/client-compatibility";
 import { DEFAULT_NODE_NAME_TEMPLATE } from "@subboost/core/node-name-template";
 import { formatDateInBeijing } from "@subboost/core/time/beijing";
 import {
@@ -155,6 +156,7 @@ export function useSubscriptionLink({
   const [updateLockEnabled, setUpdateLockEnabled] = React.useState(true);
   const [isCreatingSubscription, setIsCreatingSubscription] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [stashCopied, setStashCopied] = React.useState(false);
   const [saveRequirementDialog, setSaveRequirementDialog] = React.useState(false);
   const [subscriptionFlowMode, setSubscriptionFlowMode] = React.useState<ProductMode>("quick");
   const interactions = useProductInteractionAdapter();
@@ -535,6 +537,27 @@ export function useSubscriptionLink({
     }
   }, [interactions, isEditingExistingSubscription, subscriptionFlowMode, subscriptionUrl]);
 
+  const stashSubscriptionUrl = React.useMemo(
+    () => (subscriptionUrl ? buildSubscriptionClientUrl(subscriptionUrl, "stash") : ""),
+    [subscriptionUrl]
+  );
+
+  const handleCopyStashUrl = React.useCallback(async () => {
+    if (!stashSubscriptionUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(stashSubscriptionUrl);
+      setStashCopied(true);
+      interactions.subscriptionLinkCopied?.({
+        mode: subscriptionFlowMode,
+        flow: isEditingExistingSubscription ? "update" : "create",
+      });
+      setTimeout(() => setStashCopied(false), 2000);
+    } catch (error) {
+      console.error("Copy error:", error);
+    }
+  }, [interactions, isEditingExistingSubscription, stashSubscriptionUrl, subscriptionFlowMode]);
+
   return {
     // state
     subscriptionDialog,
@@ -542,6 +565,7 @@ export function useSubscriptionLink({
     subscriptionName,
     setSubscriptionName,
     subscriptionUrl,
+    stashSubscriptionUrl,
     setSubscriptionUrl,
     autoUpdateEnabled,
     setAutoUpdateEnabled,
@@ -556,6 +580,7 @@ export function useSubscriptionLink({
     setExposeSubscriptionUserInfo,
     isCreatingSubscription,
     copied,
+    stashCopied,
     setCopied,
     saveRequirementDialog,
     setSaveRequirementDialog,
@@ -566,5 +591,6 @@ export function useSubscriptionLink({
     handleAcceptSaveRequirement,
     handleCreateSubscription,
     handleCopyUrl,
+    handleCopyStashUrl,
   };
 }

@@ -550,6 +550,10 @@ describe("useSubscriptionLink", () => {
       flow: "create",
       mode: "quick",
     });
+
+    await hook.handleCopyStashUrl();
+    expect(hook.stashSubscriptionUrl).toBe("https://subboost.test/s/token-1?client=stash");
+    expect(globalThis.navigator.clipboard.writeText).toHaveBeenCalledWith("https://subboost.test/s/token-1?client=stash");
   });
 
   it("updates editing subscriptions with fallback tokens and handles save failures", async () => {

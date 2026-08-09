@@ -308,6 +308,11 @@ describe("SubscriptionDashboardSurface", () => {
     expect(setters[2]).toHaveBeenCalledWith("sub-1");
     expect(setters[2]).toHaveBeenCalledWith(null);
 
+    await mocks.captures.buttons.find((props: any) => props.title === "复制 Stash 兼容订阅链接").onClick();
+    await flushPromises();
+    expect(mocks.clipboardWriteText).toHaveBeenCalledWith("https://example.com/sub?client=stash");
+    expect(setters[2]).toHaveBeenCalledWith("sub-1:stash");
+
     mocks.captures.buttons.find((props: any) => props.className?.includes("text-red-400")).onClick();
     await flushPromises();
     expect(mocks.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ confirmText: "删除" }));

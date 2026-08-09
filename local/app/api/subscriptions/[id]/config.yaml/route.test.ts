@@ -59,6 +59,15 @@ describe("local subscription YAML route", () => {
     expect(mocks.generateSubscriptionYaml).toHaveBeenCalledWith("secret-token");
   });
 
+  it("passes the Stash client profile from the query string", async () => {
+    const response = await GET(new Request("https://local.test/config.yaml?client=stash"), {
+      params: Promise.resolve({ id: "secret-token" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.generateSubscriptionYaml).toHaveBeenCalledWith("secret-token", { client: "stash" });
+  });
+
   it("returns 429 before touching subscription data", async () => {
     mocks.consumeLocalRateLimit.mockReturnValueOnce({ allowed: false, retryAfterSeconds: 17 });
 

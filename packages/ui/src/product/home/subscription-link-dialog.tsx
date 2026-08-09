@@ -26,6 +26,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   subscriptionUrl: string;
+  stashSubscriptionUrl: string;
   subscriptionName: string;
   setSubscriptionName: (value: string) => void;
   autoUpdateEnabled: boolean;
@@ -41,8 +42,10 @@ type Props = {
   setExposeSubscriptionUserInfo: (value: boolean) => void;
   isCreatingSubscription: boolean;
   copied: boolean;
+  stashCopied: boolean;
   isEditingExistingSubscription: boolean;
   handleCopyUrl: () => void;
+  handleCopyStashUrl: () => void;
   handleCreateSubscription: () => void;
 };
 
@@ -50,6 +53,7 @@ export function SubscriptionLinkDialog({
   open,
   onOpenChange,
   subscriptionUrl,
+  stashSubscriptionUrl,
   subscriptionName,
   setSubscriptionName,
   autoUpdateEnabled,
@@ -65,8 +69,10 @@ export function SubscriptionLinkDialog({
   setExposeSubscriptionUserInfo,
   isCreatingSubscription,
   copied,
+  stashCopied,
   isEditingExistingSubscription,
   handleCopyUrl,
+  handleCopyStashUrl,
   handleCreateSubscription,
 }: Props) {
   const close = () => onOpenChange(false);
@@ -84,7 +90,7 @@ export function SubscriptionLinkDialog({
           </DialogTitle>
           <DialogDescription>
             {subscriptionUrl
-              ? "复制下方链接到 Clash 客户端导入使用"
+              ? "按客户端复制对应链接导入使用"
               : isEditingExistingSubscription
                 ? "将覆盖该订阅的配置与订阅源，链接保持不变"
                 : "生成持久化的订阅链接，支持在 Clash 客户端中自动更新"}
@@ -181,16 +187,37 @@ export function SubscriptionLinkDialog({
         ) : (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <p className="text-sm font-medium">订阅链接</p>
+              <p className="text-sm font-medium">通用链接</p>
+              <p className="text-xs text-white/50">适用于 Clash Verge / FLClash / Clash Meta，保留所有支持 Mihomo 的节点</p>
               <div className="flex gap-2">
                 <Input value={subscriptionUrl} readOnly className="font-mono text-xs" />
                 <IconButton
-                  label={copied ? "已复制订阅链接" : "复制订阅链接"}
+                  label={copied ? "已复制通用订阅链接" : "复制通用订阅链接"}
                   variant="outline"
                   onClick={handleCopyUrl}
                   className="flex-shrink-0"
                 >
                   {copied ? (
+                    <Check className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </IconButton>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Stash 链接</p>
+              <p className="text-xs text-white/50">适用于 Stash，会自动移除 Mieru 等不兼容节点</p>
+              <div className="flex gap-2">
+                <Input value={stashSubscriptionUrl} readOnly className="font-mono text-xs" />
+                <IconButton
+                  label={stashCopied ? "已复制 Stash 订阅链接" : "复制 Stash 订阅链接"}
+                  variant="outline"
+                  onClick={handleCopyStashUrl}
+                  className="flex-shrink-0"
+                >
+                  {stashCopied ? (
                     <Check className="h-4 w-4 text-green-400" />
                   ) : (
                     <Copy className="h-4 w-4" />

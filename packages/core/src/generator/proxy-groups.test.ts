@@ -622,4 +622,22 @@ describe("proxy group generator", () => {
     expect(filteredReject?.proxies).toEqual(["REJECT", "DIRECT", "Korea Node"]);
     expect(groups.find((group) => group.name === "🐟 漏网之鱼")?.proxies).toContain("Direct Local");
   });
+
+  it("falls back empty proxy groups to DIRECT and REJECT when no providers are available", () => {
+    const groups = generateProxyGroups({
+      nodes: [],
+      enabledModules: ["auto", "ai"],
+      ruleProviderBaseUrl: "https://rules.example.com",
+      testUrl: "https://probe.example.com/204",
+      testInterval: 60,
+    });
+
+    expect(groups.find((group) => group.name === "⚡ 自动选择")).toMatchObject({
+      type: "url-test",
+      proxies: ["DIRECT", "REJECT"],
+    });
+    expect(groups.find((group) => group.name.includes("AI"))).toMatchObject({
+      proxies: ["⚡ 自动选择", "DIRECT", "REJECT"],
+    });
+  });
 });

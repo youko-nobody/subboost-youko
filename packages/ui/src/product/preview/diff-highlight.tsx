@@ -206,7 +206,7 @@ function highlightYamlValue(value: string): string {
   }
 
   // 协议类型关键词
-  if (/^(ss|ssr|vmess|vless|trojan|anytls|hysteria2|hy2|socks5|socks4|http|https|relay)$/.test(value)) {
+  if (/^(ss|ssr|vmess|vless|trojan|anytls|hysteria2|hy2|tuic|mieru|socks5|socks4|http|https|relay)$/.test(value)) {
     return `<span class="text-pink-400 font-medium">${escapeHtml(value)}</span>`;
   }
 

@@ -330,6 +330,10 @@ export interface MieruNode extends BaseNode {
   password?: string;
   transport?: string;
   "port-range"?: string;
+  multiplexing?: string;
+  "handshake-mode"?: string;
+  mtu?: number;
+  udp?: boolean;
 }
 
 export interface MasqueNode extends BaseNode {

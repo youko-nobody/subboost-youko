@@ -4,6 +4,11 @@ import { buildNodeContentKey } from "@subboost/core/node-identity";
 import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboost/core/subscription/config-utils";
 import { getNodeOriginName } from "@subboost/core/subscription/node-source-state";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
+import {
+  filterNodesForSubscriptionClient,
+  normalizeSubscriptionClientProfile,
+  type SubscriptionClientProfile,
+} from "@subboost/core/subscription/client-compatibility";
 import type { SubscriptionResponseInfo } from "@subboost/core/subscription/subscription-response-info";
 import type { ParsedNode } from "@subboost/core/types/node";
 import {
@@ -103,6 +108,20 @@ export type GeneratedSubscriptionYaml = {
   autoUpdateIntervalSeconds: number | null;
   isAdmin: boolean;
 };
+
+function buildClientCompatibleConfig(
+  config: Record<string, unknown>,
+  client: SubscriptionClientProfile
+): Record<string, unknown> {
+  if (client !== "stash" || !Array.isArray(config.sources)) return config;
+  return {
+    ...config,
+    sources: config.sources.map((source) => {
+      if (!isRecord(source) || source.useProxyProviders !== true) return source;
+      return { ...source, useProxyProviders: false };
+    }),
+  };
+}
 
 export type SubscriptionRefreshPreview = {
   subscriptionId: string;
@@ -726,17 +745,24 @@ export async function previewSubscriptionRefresh(ownerId: string, id: string): P
   });
 }
 
-export async function generateSubscriptionYaml(token: string): Promise<GeneratedSubscriptionYaml | null> {
+export async function generateSubscriptionYaml(
+  token: string,
+  options: { client?: SubscriptionClientProfile } = {}
+): Promise<GeneratedSubscriptionYaml | null> {
   const row = await prisma.subscription.findUnique({ where: { token }, include: { autoUpdateState: true } });
   if (!row) return null;
   const secrets = readSubscriptionSecrets(row);
+  const client = normalizeSubscriptionClientProfile(options.client);
+  const config = buildClientCompatibleConfig(secrets.config, client);
   const exposeSubscriptionUserInfo = secrets.config.exposeSubscriptionUserInfo !== false;
-  const { testUrl, testInterval } = getEffectiveTestOptions(secrets.config);
-  const proxyProviders = buildProxyProvidersFromConfig(secrets.config, { testUrl, testInterval });
-  if (secrets.nodes.length === 0 && !proxyProviders) return null;
+  const { testUrl, testInterval } = getEffectiveTestOptions(config);
+  const proxyProviders = client === "stash" ? undefined : buildProxyProvidersFromConfig(config, { testUrl, testInterval });
+  const outputNodes = filterNodesForSubscriptionClient(secrets.nodes, client);
+  const hasFilteredClientNodes = client !== "default" && secrets.nodes.length > 0;
+  if (outputNodes.length === 0 && !proxyProviders && !hasFilteredClientNodes) return null;
   const yaml = generateClashYaml(
-    buildGenerateOptionsFromConfig(secrets.config, {
-      nodes: secrets.nodes,
+    buildGenerateOptionsFromConfig(config, {
+      nodes: outputNodes,
       proxyProviders,
     })
   );

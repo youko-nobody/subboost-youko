@@ -204,6 +204,13 @@ describe("local subscription routes", () => {
     expect(pluralResponse.headers.get("profile-update-interval")).toBe("24");
     expect(await pluralResponse.text()).toBe("mixed-port: 7890\n");
     expect(generateSubscriptionYaml).toHaveBeenCalledWith("token-1");
+
+    const stashResponse = await pluralYamlRoute.GET(
+      new Request("http://local.test/api/subscriptions/token-1/config.yaml?client=stash"),
+      { params: Promise.resolve({ id: "token-1" }) }
+    );
+    expect(stashResponse.status).toBe(200);
+    expect(generateSubscriptionYaml).toHaveBeenCalledWith("token-1", { client: "stash" });
   });
 
   it("rejects unauthenticated protected subscription routes before service calls", async () => {
