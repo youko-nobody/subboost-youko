@@ -83,7 +83,7 @@ describe("node link parser registry", () => {
       port: 11301,
       username: "demo-user",
       password: "demo-pass",
-      transport: "tcp",
+      transport: "TCP",
       mtu: 1400,
       multiplexing: "MULTIPLEXING_OFF",
       "handshake-mode": "HANDSHAKE_NO_WAIT",

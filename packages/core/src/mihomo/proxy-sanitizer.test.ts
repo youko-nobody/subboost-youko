@@ -340,6 +340,32 @@ describe("Mihomo proxy sanitizer", () => {
     expect(node).not.toHaveProperty("fingerprint");
   });
 
+  it("normalizes Mieru transport to Mihomo's required enum values", () => {
+    const node = sanitizeMihomoProxyNode({
+      name: "Mieru",
+      type: "mieru",
+      server: "mieru.example.com",
+      port: 11301,
+      username: "user",
+      password: "pass",
+      transport: "tcp",
+    });
+
+    expect(node).toMatchObject({ type: "mieru", transport: "TCP" });
+    expect(isMihomoSupportedProxyNode(node)).toBe(true);
+    expect(
+      isMihomoSupportedProxyNode({
+        name: "Bad Mieru",
+        type: "mieru",
+        server: "mieru.example.com",
+        port: 11301,
+        username: "user",
+        password: "pass",
+        transport: "quic",
+      })
+    ).toBe(false);
+  });
+
   it("removes empty optional containers and keeps explicit HTTPS TLS opt-out", () => {
     const https = sanitizeMihomoProxyNode({
       name: "HTTPS",

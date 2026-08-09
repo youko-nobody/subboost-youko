@@ -30,8 +30,8 @@ function parseBooleanParam(params: URLSearchParams, keys: string[]): boolean | u
 function normalizeTransport(value: string | undefined): string | undefined {
   const normalized = (value ?? "").trim().toLowerCase();
   if (!normalized) return undefined;
-  if (normalized === "tcp") return "tcp";
-  if (normalized === "udp") return "udp";
+  if (normalized === "tcp") return "TCP";
+  if (normalized === "udp") return "UDP";
   return normalized;
 }
 

@@ -35,6 +35,7 @@ const REQUIRED_STRING_FIELDS_BY_TYPE: Record<string, string[]> = {
   anytls: ["password"],
   hysteria2: ["password"],
   snell: ["psk"],
+  mieru: ["username", "password", "transport"],
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -158,6 +159,12 @@ function normalizeSshServerFingerprint(value: unknown): string | null {
   return normalized;
 }
 
+function normalizeMieruTransport(value: unknown): string | null {
+  const normalized = normalizeString(value)?.toUpperCase();
+  if (normalized === "TCP" || normalized === "UDP") return normalized;
+  return null;
+}
+
 export { isStandardBase64String } from "./ech";
 
 export function normalizeMihomoRealityPublicKey(input: unknown): string | null {
@@ -184,6 +191,10 @@ export function isMihomoSupportedProxyNode(node: unknown): boolean {
         return false;
       }
     }
+  }
+
+  if (type === "mieru" && !normalizeMieruTransport(node.transport)) {
+    return false;
   }
 
   if (type === "ssh" && !normalizeString(node.password) && !normalizePemPrivateKey(node["private-key"])) {
@@ -506,6 +517,12 @@ export function sanitizeMihomoProxyNode(node: ParsedNode | Record<string, unknow
       if (reserved) copy.reserved = reserved;
       else delete copy.reserved;
     }
+  }
+
+  if (type === "mieru" && Object.prototype.hasOwnProperty.call(copy, "transport")) {
+    const transport = normalizeMieruTransport(copy.transport);
+    if (transport) copy.transport = transport;
+    else delete copy.transport;
   }
 
   if (type === "ssh" && Object.prototype.hasOwnProperty.call(copy, "private-key")) {

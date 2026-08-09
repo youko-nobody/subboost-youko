@@ -231,7 +231,7 @@ describe("configToYaml", () => {
     expect(yaml).toContain('values: ["yes", plain, null, 1.5, -2, "+3", "a?b"]');
     expect(yaml).toContain('object:\n  name: "Named Child"');
     expect(yaml).toContain(
-      '  - {name: "MIERU", type: mieru, server: mieru.example.com, port: 2999, username: user, password: pass, transport: tcp, port-range: 2999-3001, multiplexing: MULTIPLEXING_LOW, handshake-mode: HANDSHAKE_STANDARD}'
+      '  - {name: "MIERU", type: mieru, server: mieru.example.com, port: 2999, username: user, password: pass, transport: TCP, port-range: 2999-3001, multiplexing: MULTIPLEXING_LOW, handshake-mode: HANDSHAKE_STANDARD}'
     );
     expect(yaml).toContain('  - {name: "Relay", type: relay, proxies: [MIERU, DIRECT]}');
   });
