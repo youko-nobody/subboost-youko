@@ -361,7 +361,8 @@ export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
     "target": {
       "kind": "custom",
       "id": "my-block"
-    }
+    },
+    "noResolve": true
   },
   {
     "id": "HIJACKING_PLUS",
@@ -526,7 +527,8 @@ export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
     "target": {
       "kind": "custom",
       "id": "my-proxy"
-    }
+    },
+    "noResolve": true
   },
   {
     "id": "PARSEC_DOMAIN",
@@ -581,7 +583,8 @@ export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
     "target": {
       "kind": "custom",
       "id": "my-proxy"
-    }
+    },
+    "noResolve": true
   },
   {
     "id": "APPLE_DOMAIN",
@@ -603,7 +606,8 @@ export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
     "target": {
       "kind": "custom",
       "id": "my-apple"
-    }
+    },
+    "noResolve": true
   },
   {
     "id": "MICROSOFT_APPS_DOMAIN",
@@ -643,7 +647,8 @@ export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
     "behavior": "ipcidr",
     "format": "yaml",
     "path": "https://raw.githubusercontent.com/Accademia/Additional_Rule_For_Clash/main/WeiYun/WeiYun_IP.yaml",
-    "target": "DIRECT"
+    "target": "DIRECT",
+    "noResolve": true
   },
   {
     "id": "AQARA_CN_DOMAIN",
@@ -673,7 +678,8 @@ export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
     "target": {
       "kind": "custom",
       "id": "my-proxy"
-    }
+    },
+    "noResolve": true
   },
   {
     "id": "UNSUPPORT_VPN_DOMAIN",
@@ -724,7 +730,8 @@ export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
     "behavior": "classical",
     "format": "yaml",
     "path": "https://raw.githubusercontent.com/Accademia/Additional_Rule_For_Clash/main/GeoRouting_For_IP/GeoRouting_Asia_China_GeoIP.yaml",
-    "target": "DIRECT"
+    "target": "DIRECT",
+    "noResolve": true
   },
   {
     "id": "GEOSITE_CN_DOMAIN",
@@ -964,7 +971,6 @@ export const MY_ROUTING_RULE_ORDER: string[] = [
   "custom-rule-set:BM_EASYPRIVACY",
   "custom-rule-set:BLOCK_HTTP_DNS_PLUS",
   "custom-rule-set:CHINA_DNS_DOMAIN",
-  "custom-rule-set:CHINA_DNS_IP",
   "custom-rule-set:HIJACKING_PLUS",
   "custom-rule-set:GEMINI_DOMAIN",
   "custom-rule-set:GROK_DOMAIN",
@@ -979,31 +985,32 @@ export const MY_ROUTING_RULE_ORDER: string[] = [
   "custom-rule-set:KWAI_DOMAIN",
   "custom-rule-set:PORNHUB_DOMAIN",
   "custom-rule-set:WAYBACK_MACHINE_DOMAIN",
-  "custom-rule-set:WAYBACK_MACHINE_IP",
   "custom-rule-set:PARSEC_DOMAIN",
   "custom-rule-set:RUSTDESK_DOMAIN",
   "custom-rule-set:MAC_APP_UPGRADE_DOMAIN",
   "custom-rule-set:GLOBAL_DNS_DOMAIN",
-  "custom-rule-set:GLOBAL_DNS_IP",
   "custom-rule-set:APPLE_DOMAIN",
-  "custom-rule-set:APPLE_IP",
   "custom-rule-set:MICROSOFT_APPS_DOMAIN",
   "custom-rule-set:ALIPAN_DOMAIN",
   "custom-rule-set:BAIDU_NETDISK_DOMAIN",
   "custom-rule-set:WEIYUN_DOMAIN",
-  "custom-rule-set:WEIYUN_IP",
   "custom-rule-set:AQARA_CN_DOMAIN",
   "custom-rule-set:AQARA_GLOBAL_DOMAIN",
-  "custom-rule-set:AQARA_GLOBAL_IP",
   "custom-rule-set:UNSUPPORT_VPN_DOMAIN",
   "custom-rule-set:BM_BILIBILI",
   "custom-rule-set:BM_XIAOHONGSHU",
   "custom-rule-set:BM_TIKTOK",
   "custom-rule-set:GEO_ROUTING_ASIA_CHINA_CCTLD_DOMAIN",
-  "custom-rule-set:GEO_ROUTING_ASIA_CHINA_GEOIP",
   "custom-rule-set:GEOSITE_CN_DOMAIN",
   "custom-rule-set:CHINA_DOMAIN",
   "custom-rule-set:CHINA_MAX_DOMAIN",
+  "custom-rule-set:CHINA_DNS_IP",
+  "custom-rule-set:WAYBACK_MACHINE_IP",
+  "custom-rule-set:GLOBAL_DNS_IP",
+  "custom-rule-set:APPLE_IP",
+  "custom-rule-set:WEIYUN_IP",
+  "custom-rule-set:AQARA_GLOBAL_IP",
+  "custom-rule-set:GEO_ROUTING_ASIA_CHINA_GEOIP",
   "custom-rule:my-routing-rule-25"
 ];
 

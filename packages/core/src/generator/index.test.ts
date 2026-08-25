@@ -91,11 +91,9 @@ describe("generateClashConfig", () => {
     const config = generateClashConfig({
       nodes: [ssNode()],
       template: "my-routing",
-      userConfig: {
-        dnsYaml: "",
-      },
     });
 
+    expect(config.dns?.["enhanced-mode"]).toBe("fake-ip");
     expect(config["proxy-groups"]?.map((group) => group.name)).toContain("PROXY");
     expect(config["proxy-groups"]?.find((group) => group.name === "BLOCK")).toMatchObject({
       type: "select",
@@ -114,6 +112,29 @@ describe("generateClashConfig", () => {
       "DOMAIN-SUFFIX,xueshan.liminalnet.com,Emby代理",
     ]);
     expect(config.rules).toContain("RULE-SET,BM_OPENAI,AI");
+    expect(config.rules).toEqual(
+      expect.arrayContaining([
+        "RULE-SET,CHINA_DNS_IP,BLOCK,no-resolve",
+        "RULE-SET,WAYBACK_MACHINE_IP,PROXY,no-resolve",
+        "RULE-SET,GLOBAL_DNS_IP,PROXY,no-resolve",
+        "RULE-SET,APPLE_IP,APPLE,no-resolve",
+        "RULE-SET,WEIYUN_IP,DIRECT,no-resolve",
+        "RULE-SET,AQARA_GLOBAL_IP,PROXY,no-resolve",
+        "RULE-SET,GEO_ROUTING_ASIA_CHINA_GEOIP,DIRECT,no-resolve",
+      ])
+    );
+    const remoteRuleSetIds = (config.rules ?? [])
+      .filter((rule) => rule.startsWith("RULE-SET,"))
+      .map((rule) => rule.split(",")[1]);
+    expect(remoteRuleSetIds.slice(-7)).toEqual([
+      "CHINA_DNS_IP",
+      "WAYBACK_MACHINE_IP",
+      "GLOBAL_DNS_IP",
+      "APPLE_IP",
+      "WEIYUN_IP",
+      "AQARA_GLOBAL_IP",
+      "GEO_ROUTING_ASIA_CHINA_GEOIP",
+    ]);
     expect(config.rules?.slice(-2)).toEqual(["GEOIP,CN,DIRECT", "MATCH,FINAL"]);
   });
 

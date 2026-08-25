@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TEMPLATES } from "@subboost/core/templates";
 import { getBuiltinTemplateId } from "@subboost/core/templates/builtin";
+import { DEFAULT_BASE_CONFIG_YAML, DEFAULT_SUBBOOST_CONFIG } from "@subboost/core/config/defaults";
 import { initialState, type ConfigState, type SubBoostTemplateConfig } from "../definitions";
 import { createTemplateActions } from "./template-actions";
 
@@ -76,6 +77,24 @@ describe("createTemplateActions", () => {
     actions.toggleProxyGroup("google");
     expect(getState().enabledProxyGroups).toEqual(["select", "google"]);
     expect(getState().hiddenProxyGroups).toEqual(["ai"]);
+  });
+
+  it("applies the fake-ip base configuration when switching to the Youko routing template", () => {
+    const { actions, getState } = createHarness({
+      dnsYaml: "dns:\n  enhanced-mode: redir-host",
+      mixedPort: 7890,
+      allowLan: false,
+    });
+
+    actions.setTemplate("my-routing");
+
+    expect(getState()).toMatchObject({
+      template: "my-routing",
+      dnsYaml: DEFAULT_BASE_CONFIG_YAML,
+      mixedPort: DEFAULT_SUBBOOST_CONFIG.mixedPort,
+      allowLan: DEFAULT_SUBBOOST_CONFIG.allowLan,
+    });
+    expect(getState().dnsYaml).toContain("enhanced-mode: fake-ip");
   });
 
   it("applies validated template config fields and refreshes rule order", () => {

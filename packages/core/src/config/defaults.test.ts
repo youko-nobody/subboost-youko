@@ -118,6 +118,7 @@ describe("default config builders", () => {
       proxyGroupAdvancedModeEnabled: true,
       fallbackPolicyTarget: { kind: "custom", id: "my-final" },
       experimentalCnUseCnRuleSet: false,
+      dnsYaml: DEFAULT_BASE_CONFIG_YAML,
       testUrl: "http://www.google.com/blank.html",
     });
     expect(config.customProxyGroups).toHaveLength(10);
@@ -138,6 +139,23 @@ describe("default config builders", () => {
     });
     expect(config.customRules).toHaveLength(25);
     expect(config.ruleOrder).toHaveLength(69);
+    expect(config.dnsYaml).toContain("enhanced-mode: fake-ip");
+
+    const ipRuleSetIds = [
+      "CHINA_DNS_IP",
+      "WAYBACK_MACHINE_IP",
+      "GLOBAL_DNS_IP",
+      "APPLE_IP",
+      "WEIYUN_IP",
+      "AQARA_GLOBAL_IP",
+      "GEO_ROUTING_ASIA_CHINA_GEOIP",
+    ];
+    expect(config.customRuleSets.filter((ruleSet) => ipRuleSetIds.includes(ruleSet.id))).toEqual(
+      expect.arrayContaining(ipRuleSetIds.map((id) => expect.objectContaining({ id, noResolve: true })))
+    );
+    expect(Math.min(...ipRuleSetIds.map((id) => config.ruleOrder.indexOf(`custom-rule-set:${id}`)))).toBeGreaterThan(
+      config.ruleOrder.indexOf("custom-rule-set:CHINA_MAX_DOMAIN")
+    );
   });
 
   it("keeps the default YAML example aligned with important base defaults", () => {

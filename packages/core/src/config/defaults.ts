@@ -36,7 +36,7 @@ export function buildDefaultUserConfig(template: TemplateType): UserConfig {
     fallbackPolicyTarget: usesBlankDefaults ? "DIRECT" : DEFAULT_SUBBOOST_CONFIG.fallbackPolicyTarget,
     cnIpNoResolve: DEFAULT_SUBBOOST_CONFIG.cnIpNoResolve,
     experimentalCnUseCnRuleSet: usesBlankDefaults ? false : DEFAULT_SUBBOOST_CONFIG.experimentalCnUseCnRuleSet,
-    dnsYaml: DEFAULT_SUBBOOST_CONFIG.dnsYaml,
+    dnsYaml: template === "my-routing" ? DEFAULT_BASE_CONFIG_YAML : DEFAULT_SUBBOOST_CONFIG.dnsYaml,
     mixedPort: DEFAULT_SUBBOOST_CONFIG.mixedPort,
     allowLan: DEFAULT_SUBBOOST_CONFIG.allowLan,
   };
@@ -106,7 +106,7 @@ export function buildDefaultSubBoostTemplateConfig(type: TemplateType): SubBoost
         : DEFAULT_SUBBOOST_CONFIG.experimentalCnUseCnRuleSet,
     dialerProxyGroups: [],
     proxyGroupNameOverrides: {},
-    dnsYaml: DEFAULT_SUBBOOST_CONFIG.dnsYaml,
+    dnsYaml: type === "my-routing" ? DEFAULT_BASE_CONFIG_YAML : DEFAULT_SUBBOOST_CONFIG.dnsYaml,
     mixedPort: DEFAULT_SUBBOOST_CONFIG.mixedPort,
     allowLan: DEFAULT_SUBBOOST_CONFIG.allowLan,
     testUrl: type === "my-routing" ? "http://www.google.com/blank.html" : DEFAULT_SUBBOOST_CONFIG.testUrl,
