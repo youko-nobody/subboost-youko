@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   consumeLocalRateLimit: vi.fn(),
-  generateSubscriptionYaml: vi.fn(),
+  generateV2RaySubscription: vi.fn(),
   getTrustedClientRateLimitKey: vi.fn(),
   hashLocalRateLimitKey: vi.fn(() => "token-hash"),
   localRateLimitResponse: vi.fn(
@@ -17,61 +17,57 @@ vi.mock("@local/lib/rate-limit", () => ({
   localRateLimitResponse: mocks.localRateLimitResponse,
 }));
 vi.mock("@local/lib/subscription-service", () => ({
-  generateSubscriptionYaml: mocks.generateSubscriptionYaml,
+  generateV2RaySubscription: mocks.generateV2RaySubscription,
 }));
 
 import { GET } from "./route";
 
-describe("local subscription YAML route", () => {
+describe("local V2Ray subscription route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.consumeLocalRateLimit.mockReturnValue({ allowed: true, retryAfterSeconds: 0 });
     mocks.getTrustedClientRateLimitKey.mockReturnValue("client-hash");
-    mocks.generateSubscriptionYaml.mockResolvedValue({
-      yaml: "mixed-port: 7890\n",
+    mocks.generateV2RaySubscription.mockResolvedValue({
+      content: "c3M6Ly9leGFtcGxl",
       name: "Test",
-      subscriptionInfo: {},
+      subscriptionInfo: { total: 1024 },
       cacheExpirySeconds: 3600,
       autoUpdateIntervalSeconds: null,
       isAdmin: true,
+      nodeCount: 1,
+      skippedNodeCount: 0,
     });
   });
 
-  it("applies available client and per-token limits before generating YAML", async () => {
-    const response = await GET(new Request("https://local.test/config.yaml"), {
+  it("applies limits and returns Base64 URI content", async () => {
+    const response = await GET(new Request("https://local.test/v2ray"), {
       params: Promise.resolve({ id: "secret-token" }),
     });
 
     expect(response.status).toBe(200);
+    expect(await response.text()).toBe("c3M6Ly9leGFtcGxl");
+    expect(response.headers.get("content-type")).toBe("text/plain;charset=utf-8");
+    expect(response.headers.get("subscription-userinfo")).toBe("total=1024");
     expect(mocks.hashLocalRateLimitKey).toHaveBeenCalledWith("secret-token");
     expect(mocks.consumeLocalRateLimit).toHaveBeenNthCalledWith(
       1,
-      "subscription-yaml-client",
+      "subscription-v2ray-client",
       "client-hash",
       { limit: 600, windowMs: 60_000 }
     );
     expect(mocks.consumeLocalRateLimit).toHaveBeenNthCalledWith(
       2,
-      "subscription-yaml-token",
+      "subscription-v2ray-token",
       "token-hash",
       { limit: 120, windowMs: 60_000 }
     );
-    expect(mocks.generateSubscriptionYaml).toHaveBeenCalledWith("secret-token");
-  });
-
-  it("ignores legacy client query parameters and serves the complete YAML", async () => {
-    const response = await GET(new Request("https://local.test/config.yaml?client=stash"), {
-      params: Promise.resolve({ id: "secret-token" }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(mocks.generateSubscriptionYaml).toHaveBeenCalledWith("secret-token");
+    expect(mocks.generateV2RaySubscription).toHaveBeenCalledWith("secret-token");
   });
 
   it("returns 429 before touching subscription data", async () => {
     mocks.consumeLocalRateLimit.mockReturnValueOnce({ allowed: false, retryAfterSeconds: 17 });
 
-    const response = await GET(new Request("https://local.test/config.yaml"), {
+    const response = await GET(new Request("https://local.test/v2ray"), {
       params: Promise.resolve({ id: "secret-token" }),
     });
 
@@ -80,22 +76,17 @@ describe("local subscription YAML route", () => {
       "Too many subscription requests. Try again later.",
       17
     );
-    expect(mocks.generateSubscriptionYaml).not.toHaveBeenCalled();
+    expect(mocks.generateV2RaySubscription).not.toHaveBeenCalled();
   });
 
-  it("skips the client bucket when no trustworthy client key is available", async () => {
-    mocks.getTrustedClientRateLimitKey.mockReturnValueOnce(null);
+  it("returns 404 when the subscription has no URI-compatible nodes", async () => {
+    mocks.generateV2RaySubscription.mockResolvedValueOnce(null);
 
-    const response = await GET(new Request("https://local.test/config.yaml"), {
+    const response = await GET(new Request("https://local.test/v2ray"), {
       params: Promise.resolve({ id: "secret-token" }),
     });
 
-    expect(response.status).toBe(200);
-    expect(mocks.consumeLocalRateLimit).toHaveBeenCalledTimes(1);
-    expect(mocks.consumeLocalRateLimit).toHaveBeenCalledWith(
-      "subscription-yaml-token",
-      "token-hash",
-      { limit: 120, windowMs: 60_000 }
-    );
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: "NOT_FOUND" });
   });
 });

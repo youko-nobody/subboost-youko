@@ -35,7 +35,7 @@ import {
 } from "@subboost/core/subscription/auto-update-interval";
 import type { NodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
 import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/url-input";
-import { buildSubscriptionClientUrl } from "@subboost/core/subscription/client-compatibility";
+import { buildV2RaySubscriptionUrl } from "@subboost/core/subscription/v2ray-subscription";
 import { DEFAULT_NODE_NAME_TEMPLATE } from "@subboost/core/node-name-template";
 import { formatDateInBeijing } from "@subboost/core/time/beijing";
 import {
@@ -156,7 +156,7 @@ export function useSubscriptionLink({
   const [updateLockEnabled, setUpdateLockEnabled] = React.useState(true);
   const [isCreatingSubscription, setIsCreatingSubscription] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
-  const [stashCopied, setStashCopied] = React.useState(false);
+  const [v2rayCopied, setV2RayCopied] = React.useState(false);
   const [saveRequirementDialog, setSaveRequirementDialog] = React.useState(false);
   const [subscriptionFlowMode, setSubscriptionFlowMode] = React.useState<ProductMode>("quick");
   const interactions = useProductInteractionAdapter();
@@ -537,26 +537,26 @@ export function useSubscriptionLink({
     }
   }, [interactions, isEditingExistingSubscription, subscriptionFlowMode, subscriptionUrl]);
 
-  const stashSubscriptionUrl = React.useMemo(
-    () => (subscriptionUrl ? buildSubscriptionClientUrl(subscriptionUrl, "stash") : ""),
+  const v2raySubscriptionUrl = React.useMemo(
+    () => (subscriptionUrl ? buildV2RaySubscriptionUrl(subscriptionUrl) : ""),
     [subscriptionUrl]
   );
 
-  const handleCopyStashUrl = React.useCallback(async () => {
-    if (!stashSubscriptionUrl) return;
+  const handleCopyV2RayUrl = React.useCallback(async () => {
+    if (!v2raySubscriptionUrl) return;
 
     try {
-      await navigator.clipboard.writeText(stashSubscriptionUrl);
-      setStashCopied(true);
+      await navigator.clipboard.writeText(v2raySubscriptionUrl);
+      setV2RayCopied(true);
       interactions.subscriptionLinkCopied?.({
         mode: subscriptionFlowMode,
         flow: isEditingExistingSubscription ? "update" : "create",
       });
-      setTimeout(() => setStashCopied(false), 2000);
+      setTimeout(() => setV2RayCopied(false), 2000);
     } catch (error) {
       console.error("Copy error:", error);
     }
-  }, [interactions, isEditingExistingSubscription, stashSubscriptionUrl, subscriptionFlowMode]);
+  }, [interactions, isEditingExistingSubscription, subscriptionFlowMode, v2raySubscriptionUrl]);
 
   return {
     // state
@@ -565,7 +565,7 @@ export function useSubscriptionLink({
     subscriptionName,
     setSubscriptionName,
     subscriptionUrl,
-    stashSubscriptionUrl,
+    v2raySubscriptionUrl,
     setSubscriptionUrl,
     autoUpdateEnabled,
     setAutoUpdateEnabled,
@@ -580,7 +580,7 @@ export function useSubscriptionLink({
     setExposeSubscriptionUserInfo,
     isCreatingSubscription,
     copied,
-    stashCopied,
+    v2rayCopied,
     setCopied,
     saveRequirementDialog,
     setSaveRequirementDialog,
@@ -591,6 +591,6 @@ export function useSubscriptionLink({
     handleAcceptSaveRequirement,
     handleCreateSubscription,
     handleCopyUrl,
-    handleCopyStashUrl,
+    handleCopyV2RayUrl,
   };
 }

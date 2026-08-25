@@ -127,7 +127,7 @@ function createSubscription(overrides: Record<string, unknown> = {}) {
     subscriptionName: "Primary",
     setSubscriptionName: vi.fn(),
     subscriptionUrl: "",
-    stashSubscriptionUrl: "",
+    v2raySubscriptionUrl: "",
     autoUpdateEnabled: false,
     setAutoUpdateEnabled: vi.fn(),
     autoUpdateHours: 24,
@@ -144,7 +144,7 @@ function createSubscription(overrides: Record<string, unknown> = {}) {
     setExposeSubscriptionUserInfo: vi.fn(),
     isCreatingSubscription: false,
     copied: false,
-    stashCopied: false,
+    v2rayCopied: false,
     saveRequirementDialog: false,
     setSaveRequirementDialog: vi.fn(),
     isEditingExistingSubscription: false,
@@ -152,7 +152,7 @@ function createSubscription(overrides: Record<string, unknown> = {}) {
     handleAcceptSaveRequirement: vi.fn(),
     handleCreateSubscription: vi.fn(),
     handleCopyUrl: vi.fn(),
-    handleCopyStashUrl: vi.fn(),
+    handleCopyV2RayUrl: vi.fn(),
     ...overrides,
   };
 }

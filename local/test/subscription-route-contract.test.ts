@@ -4,6 +4,7 @@ import { getCurrentAdmin } from "@local/lib/auth";
 import {
   createSubscription,
   deleteSubscription,
+  generateV2RaySubscription,
   generateSubscriptionYaml,
   getSubscription,
   listSubscriptions,
@@ -13,6 +14,7 @@ import {
 } from "@local/lib/subscription-service";
 
 import * as pluralYamlRoute from "../app/api/subscriptions/[id]/config.yaml/route";
+import * as pluralV2RayRoute from "../app/api/subscriptions/[id]/v2ray/route";
 import * as pluralItemRoute from "../app/api/subscriptions/[id]/route";
 import * as pluralCollectionRoute from "../app/api/subscriptions/route";
 import * as pluralRefreshRoute from "../app/api/subscriptions/[id]/refresh/route";
@@ -25,6 +27,7 @@ vi.mock("@local/lib/auth", () => ({
 vi.mock("@local/lib/subscription-service", () => ({
   createSubscription: vi.fn(),
   deleteSubscription: vi.fn(),
+  generateV2RaySubscription: vi.fn(),
   generateSubscriptionYaml: vi.fn(),
   getSubscription: vi.fn(),
   listSubscriptions: vi.fn(),
@@ -111,6 +114,21 @@ beforeEach(() => {
   vi.mocked(refreshSubscription).mockResolvedValue({
     ok: true,
     body: { subscriptionId: "sub-1", nodeCount: 1 },
+  } as never);
+  vi.mocked(generateV2RaySubscription).mockResolvedValue({
+    content: "c3M6Ly9leGFtcGxl",
+    name: "Main",
+    subscriptionInfo: {
+      upload: 64,
+      download: 128,
+      total: 1024,
+      expire: 1781635200,
+    },
+    cacheExpirySeconds: 3600,
+    autoUpdateIntervalSeconds: 86400,
+    isAdmin: true,
+    nodeCount: 1,
+    skippedNodeCount: 0,
   } as never);
   vi.mocked(previewSubscriptionRefresh).mockResolvedValue({
     subscriptionId: "sub-1",
@@ -205,12 +223,27 @@ describe("local subscription routes", () => {
     expect(await pluralResponse.text()).toBe("mixed-port: 7890\n");
     expect(generateSubscriptionYaml).toHaveBeenCalledWith("token-1");
 
-    const stashResponse = await pluralYamlRoute.GET(
+    const legacyStashResponse = await pluralYamlRoute.GET(
       new Request("http://local.test/api/subscriptions/token-1/config.yaml?client=stash"),
       { params: Promise.resolve({ id: "token-1" }) }
     );
-    expect(stashResponse.status).toBe(200);
-    expect(generateSubscriptionYaml).toHaveBeenCalledWith("token-1", { client: "stash" });
+    expect(legacyStashResponse.status).toBe(200);
+    expect(generateSubscriptionYaml).toHaveBeenLastCalledWith("token-1");
+  });
+
+  it("serves a Base64 V2Ray subscription through the plural token route", async () => {
+    const response = await pluralV2RayRoute.GET(new Request("http://local.test/api/subscriptions/token-1/v2ray"), {
+      params: Promise.resolve({ id: "token-1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/plain;charset=utf-8");
+    expect(response.headers.get("content-disposition")).toContain('filename="Main"');
+    expect(response.headers.get("subscription-userinfo")).toBe(
+      "upload=64; download=128; total=1024; expire=1781635200"
+    );
+    expect(await response.text()).toBe("c3M6Ly9leGFtcGxl");
+    expect(generateV2RaySubscription).toHaveBeenCalledWith("token-1");
   });
 
   it("rejects unauthenticated protected subscription routes before service calls", async () => {

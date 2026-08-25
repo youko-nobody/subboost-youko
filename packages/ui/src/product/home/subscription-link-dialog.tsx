@@ -26,7 +26,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   subscriptionUrl: string;
-  stashSubscriptionUrl: string;
+  v2raySubscriptionUrl: string;
   subscriptionName: string;
   setSubscriptionName: (value: string) => void;
   autoUpdateEnabled: boolean;
@@ -42,10 +42,10 @@ type Props = {
   setExposeSubscriptionUserInfo: (value: boolean) => void;
   isCreatingSubscription: boolean;
   copied: boolean;
-  stashCopied: boolean;
+  v2rayCopied: boolean;
   isEditingExistingSubscription: boolean;
   handleCopyUrl: () => void;
-  handleCopyStashUrl: () => void;
+  handleCopyV2RayUrl: () => void;
   handleCreateSubscription: () => void;
 };
 
@@ -53,7 +53,7 @@ export function SubscriptionLinkDialog({
   open,
   onOpenChange,
   subscriptionUrl,
-  stashSubscriptionUrl,
+  v2raySubscriptionUrl,
   subscriptionName,
   setSubscriptionName,
   autoUpdateEnabled,
@@ -69,10 +69,10 @@ export function SubscriptionLinkDialog({
   setExposeSubscriptionUserInfo,
   isCreatingSubscription,
   copied,
-  stashCopied,
+  v2rayCopied,
   isEditingExistingSubscription,
   handleCopyUrl,
-  handleCopyStashUrl,
+  handleCopyV2RayUrl,
   handleCreateSubscription,
 }: Props) {
   const close = () => onOpenChange(false);
@@ -187,8 +187,8 @@ export function SubscriptionLinkDialog({
         ) : (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <p className="text-sm font-medium">通用链接</p>
-              <p className="text-xs text-white/50">适用于 Clash Verge / FLClash / Clash Meta，保留所有支持 Mihomo 的节点</p>
+              <p className="text-sm font-medium">通用 YAML 链接</p>
+              <p className="text-xs text-white/50">适用于 Clash Verge / FLClash / Clash Meta / Stash，保留所有支持 Mihomo 的节点（包括 Mieru）</p>
               <div className="flex gap-2">
                 <Input value={subscriptionUrl} readOnly className="font-mono text-xs" />
                 <IconButton
@@ -207,17 +207,17 @@ export function SubscriptionLinkDialog({
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium">Stash 链接</p>
-              <p className="text-xs text-white/50">适用于 Stash，会自动移除 Mieru 等不兼容节点</p>
+              <p className="text-sm font-medium">V2Ray / V2RayN 链接</p>
+              <p className="text-xs text-white/50">Base64 节点订阅；会自动略过 Mieru 和仅支持 Mihomo 的协议</p>
               <div className="flex gap-2">
-                <Input value={stashSubscriptionUrl} readOnly className="font-mono text-xs" />
+                <Input value={v2raySubscriptionUrl} readOnly className="font-mono text-xs" />
                 <IconButton
-                  label={stashCopied ? "已复制 Stash 订阅链接" : "复制 Stash 订阅链接"}
+                  label={v2rayCopied ? "已复制 V2Ray 订阅链接" : "复制 V2Ray 订阅链接"}
                   variant="outline"
-                  onClick={handleCopyStashUrl}
+                  onClick={handleCopyV2RayUrl}
                   className="flex-shrink-0"
                 >
-                  {stashCopied ? (
+                  {v2rayCopied ? (
                     <Check className="h-4 w-4 text-green-400" />
                   ) : (
                     <Copy className="h-4 w-4" />

@@ -40,7 +40,7 @@ import {
   resolveAutoUpdateIntervalPolicy,
   type AutoUpdateIntervalPolicyOverride,
 } from "@subboost/core/subscription/auto-update-interval";
-import { buildSubscriptionClientUrl } from "@subboost/core/subscription/client-compatibility";
+import { buildV2RaySubscriptionUrl } from "@subboost/core/subscription/v2ray-subscription";
 import { DashboardStatsCards } from "@subboost/ui/dashboard/dashboard-stats-cards";
 import { formatDashboardDate, formatIntervalLabel } from "@subboost/ui/dashboard/dashboard-format";
 import { buildRefreshSubscriptionSuccessToast } from "@subboost/ui/dashboard/dashboard-refresh-toast";
@@ -1028,11 +1028,11 @@ function SubscriptionRow({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => void onCopy(buildSubscriptionClientUrl(sub.subscriptionUrl, "stash"), `${sub.id}:stash`)}
+          onClick={() => void onCopy(buildV2RaySubscriptionUrl(sub.subscriptionUrl), `${sub.id}:v2ray`)}
           className="gap-0 sm:gap-2"
-          title="复制 Stash 兼容订阅链接"
+          title="复制 V2Ray / V2RayN 订阅链接"
         >
-          {copiedId === `${sub.id}:stash` ? (
+          {copiedId === `${sub.id}:v2ray` ? (
             <>
               <Check className="h-4 w-4 text-green-500" />
               <span className="hidden sm:inline text-green-500">已复制</span>
@@ -1040,7 +1040,7 @@ function SubscriptionRow({
           ) : (
             <>
               <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Stash</span>
+              <span className="hidden sm:inline">V2Ray</span>
             </>
           )}
         </Button>

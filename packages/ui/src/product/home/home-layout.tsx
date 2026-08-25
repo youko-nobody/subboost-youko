@@ -43,7 +43,7 @@ type SubscriptionLinkState = {
   subscriptionName: string;
   setSubscriptionName: (value: string) => void;
   subscriptionUrl: string;
-  stashSubscriptionUrl: string;
+  v2raySubscriptionUrl: string;
   autoUpdateEnabled: boolean;
   setAutoUpdateEnabled: (value: boolean) => void;
   autoUpdateHours: number;
@@ -57,7 +57,7 @@ type SubscriptionLinkState = {
   setExposeSubscriptionUserInfo: (value: boolean) => void;
   isCreatingSubscription: boolean;
   copied: boolean;
-  stashCopied: boolean;
+  v2rayCopied: boolean;
   saveRequirementDialog: boolean;
   setSaveRequirementDialog: (open: boolean) => void;
   isEditingExistingSubscription: boolean;
@@ -65,7 +65,7 @@ type SubscriptionLinkState = {
   handleAcceptSaveRequirement: () => void;
   handleCreateSubscription: () => void;
   handleCopyUrl: () => void;
-  handleCopyStashUrl: () => void;
+  handleCopyV2RayUrl: () => void;
 };
 
 type Props = {
@@ -393,7 +393,7 @@ export function HomeLayout({
         open={subscription.subscriptionDialog}
         onOpenChange={subscription.setSubscriptionDialog}
         subscriptionUrl={subscription.subscriptionUrl}
-        stashSubscriptionUrl={subscription.stashSubscriptionUrl}
+        v2raySubscriptionUrl={subscription.v2raySubscriptionUrl}
         subscriptionName={subscription.subscriptionName}
         setSubscriptionName={subscription.setSubscriptionName}
         autoUpdateEnabled={subscription.autoUpdateEnabled}
@@ -409,10 +409,10 @@ export function HomeLayout({
         setExposeSubscriptionUserInfo={subscription.setExposeSubscriptionUserInfo}
         isCreatingSubscription={subscription.isCreatingSubscription}
         copied={subscription.copied}
-        stashCopied={subscription.stashCopied}
+        v2rayCopied={subscription.v2rayCopied}
         isEditingExistingSubscription={subscription.isEditingExistingSubscription}
         handleCopyUrl={subscription.handleCopyUrl}
-        handleCopyStashUrl={subscription.handleCopyStashUrl}
+        handleCopyV2RayUrl={subscription.handleCopyV2RayUrl}
         handleCreateSubscription={subscription.handleCreateSubscription}
       />
     </div>

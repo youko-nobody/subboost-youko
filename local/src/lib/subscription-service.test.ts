@@ -6,6 +6,7 @@ import {
   deleteSubscription,
   formatSubscription,
   formatSubscriptionDetail,
+  generateV2RaySubscription,
   generateSubscriptionYaml,
   getSubscription,
   listSubscriptions,
@@ -753,7 +754,7 @@ describe("local subscription service", () => {
     });
   });
 
-  it("filters Mieru nodes and disables proxy providers for Stash-compatible YAML", async () => {
+  it("keeps Mieru nodes and proxy providers in the shared YAML output", async () => {
     const mieruNode = {
       name: "Mieru",
       type: "mieru",
@@ -779,19 +780,59 @@ describe("local subscription service", () => {
     );
     mocks.buildProxyProvidersFromConfig.mockReturnValueOnce({ remote: { url: "https://example.com/provider.yaml" } });
 
-    await expect(generateSubscriptionYaml("token-1", { client: "stash" })).resolves.toMatchObject({
+    await expect(generateSubscriptionYaml("token-1")).resolves.toMatchObject({
       yaml: "mixed-port: 7890\n",
     });
 
-    expect(mocks.buildProxyProvidersFromConfig).not.toHaveBeenCalled();
+    expect(mocks.buildProxyProvidersFromConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sources: [expect.objectContaining({ useProxyProviders: true })],
+      }),
+      { testUrl: "https://test.example.com", testInterval: 600 }
+    );
     expect(mocks.buildGenerateOptionsFromConfig).toHaveBeenCalledWith(
       expect.objectContaining({
-        sources: [expect.objectContaining({ useProxyProviders: false })],
+        sources: [expect.objectContaining({ useProxyProviders: true })],
       }),
       expect.objectContaining({
-        nodes: [expect.objectContaining({ name: "SS" })],
-        proxyProviders: undefined,
+        nodes: [expect.objectContaining({ name: "SS" }), expect.objectContaining({ name: "Mieru" })],
+        proxyProviders: { remote: { url: "https://example.com/provider.yaml" } },
       })
     );
+  });
+
+  it("generates Base64 V2Ray links and skips incompatible node types", async () => {
+    const mieruNode = {
+      name: "Mieru",
+      type: "mieru",
+      server: "mieru.example.com",
+      port: 2999,
+      username: "user",
+      password: "pass",
+    };
+    mocks.prisma.subscription.findUnique.mockResolvedValueOnce(
+      row({
+        encryptedNodes: JSON.stringify([node("SS"), mieruNode]),
+      })
+    );
+
+    const result = await generateV2RaySubscription("token-1");
+
+    expect(result).toMatchObject({
+      name: "Saved",
+      subscriptionInfo: { upload: 2048, total: 4096 },
+      cacheExpirySeconds: 3600,
+      autoUpdateIntervalSeconds: 86400,
+      nodeCount: 1,
+      skippedNodeCount: 1,
+    });
+    expect(Buffer.from(result?.content ?? "", "base64").toString("utf8")).toMatch(/^ss:\/\//);
+    expect(mocks.prisma.subscription.update).toHaveBeenCalledWith({
+      where: { id: "sub-1" },
+      data: { lastAccessedAt: expect.any(Date) },
+    });
+
+    mocks.prisma.subscription.findUnique.mockResolvedValueOnce(null);
+    await expect(generateV2RaySubscription("missing")).resolves.toBeNull();
   });
 });

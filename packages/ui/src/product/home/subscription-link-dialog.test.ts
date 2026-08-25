@@ -94,7 +94,7 @@ const baseProps = {
   open: true,
   onOpenChange: vi.fn(),
   subscriptionUrl: "",
-  stashSubscriptionUrl: "",
+  v2raySubscriptionUrl: "",
   subscriptionName: "我的配置",
   setSubscriptionName: vi.fn(),
   autoUpdateEnabled: false,
@@ -115,11 +115,11 @@ const baseProps = {
   setExposeSubscriptionUserInfo: vi.fn(),
   isCreatingSubscription: false,
   copied: false,
-  stashCopied: false,
+  v2rayCopied: false,
   isEditingExistingSubscription: false,
   user: baseUser,
   handleCopyUrl: vi.fn(),
-  handleCopyStashUrl: vi.fn(),
+  handleCopyV2RayUrl: vi.fn(),
   handleCreateSubscription: vi.fn(),
 };
 
@@ -176,7 +176,7 @@ describe("SubscriptionLinkDialog", () => {
       React.createElement(SubscriptionLinkDialog, {
         ...baseProps,
         subscriptionUrl: "https://sub.example.com/sub/token",
-        stashSubscriptionUrl: "https://sub.example.com/sub/token?client=stash",
+        v2raySubscriptionUrl: "https://sub.example.com/sub/token/v2ray",
         copied: true,
         isEditingExistingSubscription: true,
       })
@@ -184,8 +184,8 @@ describe("SubscriptionLinkDialog", () => {
 
     expect(html).toContain("订阅链接已更新");
     expect(html).toContain("按客户端复制对应链接导入使用");
-    expect(html).toContain("通用链接");
-    expect(html).toContain("Stash 链接");
+    expect(html).toContain("通用 YAML 链接");
+    expect(html).toContain("V2Ray / V2RayN 链接");
     expect(html).toContain("更新成功");
     expect(html).toContain("check-icon");
     expect(captures.inputs[0]).toMatchObject({
@@ -193,7 +193,7 @@ describe("SubscriptionLinkDialog", () => {
       readOnly: true,
     });
     expect(captures.inputs[1]).toMatchObject({
-      value: "https://sub.example.com/sub/token?client=stash",
+      value: "https://sub.example.com/sub/token/v2ray",
       readOnly: true,
     });
 
@@ -202,7 +202,7 @@ describe("SubscriptionLinkDialog", () => {
     captures.buttons[2].onClick();
 
     expect(baseProps.handleCopyUrl).toHaveBeenCalled();
-    expect(baseProps.handleCopyStashUrl).toHaveBeenCalled();
+    expect(baseProps.handleCopyV2RayUrl).toHaveBeenCalled();
     expect(baseProps.onOpenChange).toHaveBeenCalledWith(false);
   });
 

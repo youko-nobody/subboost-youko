@@ -4,11 +4,7 @@ import { buildNodeContentKey } from "@subboost/core/node-identity";
 import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboost/core/subscription/config-utils";
 import { getNodeOriginName } from "@subboost/core/subscription/node-source-state";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
-import {
-  filterNodesForSubscriptionClient,
-  normalizeSubscriptionClientProfile,
-  type SubscriptionClientProfile,
-} from "@subboost/core/subscription/client-compatibility";
+import { buildV2RaySubscriptionContent } from "@subboost/core/subscription/v2ray-subscription";
 import type { SubscriptionResponseInfo } from "@subboost/core/subscription/subscription-response-info";
 import type { ParsedNode } from "@subboost/core/types/node";
 import {
@@ -109,19 +105,16 @@ export type GeneratedSubscriptionYaml = {
   isAdmin: boolean;
 };
 
-function buildClientCompatibleConfig(
-  config: Record<string, unknown>,
-  client: SubscriptionClientProfile
-): Record<string, unknown> {
-  if (client !== "stash" || !Array.isArray(config.sources)) return config;
-  return {
-    ...config,
-    sources: config.sources.map((source) => {
-      if (!isRecord(source) || source.useProxyProviders !== true) return source;
-      return { ...source, useProxyProviders: false };
-    }),
-  };
-}
+export type GeneratedV2RaySubscription = {
+  content: string;
+  name: string;
+  subscriptionInfo: SubscriptionResponseInfo;
+  cacheExpirySeconds: number;
+  autoUpdateIntervalSeconds: number | null;
+  isAdmin: boolean;
+  nodeCount: number;
+  skippedNodeCount: number;
+};
 
 export type SubscriptionRefreshPreview = {
   subscriptionId: string;
@@ -745,24 +738,18 @@ export async function previewSubscriptionRefresh(ownerId: string, id: string): P
   });
 }
 
-export async function generateSubscriptionYaml(
-  token: string,
-  options: { client?: SubscriptionClientProfile } = {}
-): Promise<GeneratedSubscriptionYaml | null> {
+export async function generateSubscriptionYaml(token: string): Promise<GeneratedSubscriptionYaml | null> {
   const row = await prisma.subscription.findUnique({ where: { token }, include: { autoUpdateState: true } });
   if (!row) return null;
   const secrets = readSubscriptionSecrets(row);
-  const client = normalizeSubscriptionClientProfile(options.client);
-  const config = buildClientCompatibleConfig(secrets.config, client);
+  const config = secrets.config;
   const exposeSubscriptionUserInfo = secrets.config.exposeSubscriptionUserInfo !== false;
   const { testUrl, testInterval } = getEffectiveTestOptions(config);
-  const proxyProviders = client === "stash" ? undefined : buildProxyProvidersFromConfig(config, { testUrl, testInterval });
-  const outputNodes = filterNodesForSubscriptionClient(secrets.nodes, client);
-  const hasFilteredClientNodes = client !== "default" && secrets.nodes.length > 0;
-  if (outputNodes.length === 0 && !proxyProviders && !hasFilteredClientNodes) return null;
+  const proxyProviders = buildProxyProvidersFromConfig(config, { testUrl, testInterval });
+  if (secrets.nodes.length === 0 && !proxyProviders) return null;
   const yaml = generateClashYaml(
     buildGenerateOptionsFromConfig(config, {
-      nodes: outputNodes,
+      nodes: secrets.nodes,
       proxyProviders,
     })
   );
@@ -774,5 +761,26 @@ export async function generateSubscriptionYaml(
     cacheExpirySeconds: CACHE_TTL_SECONDS,
     autoUpdateIntervalSeconds: row.autoUpdateInterval,
     isAdmin: true,
+  };
+}
+
+export async function generateV2RaySubscription(token: string): Promise<GeneratedV2RaySubscription | null> {
+  const row = await prisma.subscription.findUnique({ where: { token }, include: { autoUpdateState: true } });
+  if (!row) return null;
+
+  const secrets = readSubscriptionSecrets(row);
+  const output = buildV2RaySubscriptionContent(secrets.nodes);
+  if (output.links.length === 0) return null;
+
+  await prisma.subscription.update({ where: { id: row.id }, data: { lastAccessedAt: new Date() } });
+  return {
+    content: output.content,
+    name: row.name,
+    subscriptionInfo: secrets.config.exposeSubscriptionUserInfo !== false ? secrets.subscriptionInfo : {},
+    cacheExpirySeconds: CACHE_TTL_SECONDS,
+    autoUpdateIntervalSeconds: row.autoUpdateInterval,
+    isAdmin: true,
+    nodeCount: output.links.length,
+    skippedNodeCount: output.skippedNodeCount,
   };
 }

@@ -551,9 +551,9 @@ describe("useSubscriptionLink", () => {
       mode: "quick",
     });
 
-    await hook.handleCopyStashUrl();
-    expect(hook.stashSubscriptionUrl).toBe("https://subboost.test/s/token-1?client=stash");
-    expect(globalThis.navigator.clipboard.writeText).toHaveBeenCalledWith("https://subboost.test/s/token-1?client=stash");
+    await hook.handleCopyV2RayUrl();
+    expect(hook.v2raySubscriptionUrl).toBe("https://subboost.test/s/token-1/v2ray");
+    expect(globalThis.navigator.clipboard.writeText).toHaveBeenCalledWith("https://subboost.test/s/token-1/v2ray");
   });
 
   it("updates editing subscriptions with fallback tokens and handles save failures", async () => {
