@@ -2,7 +2,8 @@ import type { CustomProxyGroup, CustomRule, CustomRuleSet, ProxyGroupRuleTarget 
 
 export const MY_ROUTING_TEMPLATE_TYPE = "my-routing" as const;
 export const MY_ROUTING_TEMPLATE_NAME = "Youko分流模板";
-export const MY_ROUTING_TEMPLATE_DESCRIPTION = "按用户提供的 Clash 分流规则生成：自定义策略组、远程 YAML 规则集和 FINAL 兜底";
+export const MY_ROUTING_TEMPLATE_DESCRIPTION =
+  "按用户提供的分流规则生成自定义策略组、规则顺序和 FINAL 兜底；Surge 模式使用原生 Surge 规则集";
 
 export const MY_ROUTING_CUSTOM_PROXY_GROUPS: CustomProxyGroup[] = [
   {

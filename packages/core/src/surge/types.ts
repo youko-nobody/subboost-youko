@@ -33,6 +33,8 @@ export interface SurgeProxyGroup {
   name: string;
   type: SurgeProxyGroupType;
   policies: SurgePolicyRef[];
+  icon?: string;
+  includeAllNodes?: boolean;
   enabled?: boolean;
   url?: string;
   interval?: number;
@@ -65,6 +67,7 @@ export interface SurgeConfig {
   regionGroups: SurgeRegionPolicyGroup[];
   ruleSets: SurgeRuleSet[];
   rules: SurgeRule[];
+  ruleOrder?: string[];
   finalTarget: SurgePolicyRef | string;
   testUrl: string;
   testInterval: number;

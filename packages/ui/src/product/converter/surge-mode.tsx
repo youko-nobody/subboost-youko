@@ -2,15 +2,19 @@
 
 import * as React from "react";
 import {
+  ChevronDown,
+  ChevronUp,
   FileCode2,
   Globe2,
+  GripVertical,
   ListPlus,
   Plus,
   Route,
+  RotateCcw,
   Server,
   Settings2,
   Trash2,
-  X,
+  WandSparkles,
 } from "lucide-react";
 import { Badge } from "@subboost/ui/components/ui/badge";
 import { Button } from "@subboost/ui/components/ui/button";
@@ -28,6 +32,7 @@ import { Textarea } from "@subboost/ui/components/ui/textarea";
 import { cn } from "@subboost/ui/lib/utils";
 import { useConfigStore } from "@subboost/ui/store/config-store";
 import {
+  createYoukoSurgeConfig,
   SURGE_PROXY_GROUP_TYPES,
   SURGE_RULE_TYPES,
   type SurgeConfig,
@@ -42,6 +47,7 @@ import {
 import { SectionHeader } from "./advanced-mode/section-header";
 import { InputSection } from "./advanced-mode/sections/input-section";
 import { NodeManagementSection } from "./advanced-mode/sections/node-management-section";
+import { ProxyGroupIconUrlEditor } from "./advanced-mode/sections/proxy-group-icon-url-editor";
 
 type SectionKey = "input" | "nodes" | "general" | "regions" | "groups" | "rules";
 
@@ -51,6 +57,10 @@ type PolicyOption = {
   disabled?: boolean;
 };
 
+type SurgeRuleOrderItem =
+  | { key: string; kind: "rule-set"; ruleSet: SurgeRuleSet }
+  | { key: string; kind: "rule"; rule: SurgeRule };
+
 const GROUP_TYPE_LABELS: Record<SurgeProxyGroupType, string> = {
   select: "手动选择",
   "url-test": "自动测速",
@@ -58,6 +68,8 @@ const GROUP_TYPE_LABELS: Record<SurgeProxyGroupType, string> = {
   "load-balance": "负载均衡",
   smart: "Smart 智能",
 };
+
+const SURGE_EDITABLE_RULE_TYPES = SURGE_RULE_TYPES.filter((type) => type !== "FINAL");
 
 function makeId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -169,6 +181,89 @@ function removeArrayItem<T extends { id: string }>(items: T[], id: string): T[] 
   return items.filter((item) => item.id !== id);
 }
 
+function moveArrayItem<T>(items: T[], index: number, direction: -1 | 1): T[] {
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= items.length) return items;
+
+  const next = [...items];
+  const [item] = next.splice(index, 1);
+  next.splice(nextIndex, 0, item);
+  return next;
+}
+
+function moveArrayItemById<T extends { id: string }>(items: T[], id: string, direction: -1 | 1): T[] {
+  return moveArrayItem(items, items.findIndex((item) => item.id === id), direction);
+}
+
+function ruleSetOrderKey(id: string): string {
+  return `rule-set:${id}`;
+}
+
+function ruleOrderKey(id: string): string {
+  return `rule:${id}`;
+}
+
+function buildSurgeRuleOrderItems(config: SurgeConfig, preferredOrder: string[] = config.ruleOrder ?? []): SurgeRuleOrderItem[] {
+  const items: SurgeRuleOrderItem[] = [
+    ...config.ruleSets.map((ruleSet) => ({
+      key: ruleSetOrderKey(ruleSet.id),
+      kind: "rule-set" as const,
+      ruleSet,
+    })),
+    ...config.rules
+      .filter((rule) => rule.type !== "FINAL")
+      .map((rule) => ({
+        key: ruleOrderKey(rule.id),
+        kind: "rule" as const,
+        rule,
+      })),
+  ];
+  const itemByKey = new Map(items.map((item) => [item.key, item]));
+  const seen = new Set<string>();
+  const ordered: SurgeRuleOrderItem[] = [];
+
+  for (const key of preferredOrder) {
+    const item = itemByKey.get(key);
+    if (!item || seen.has(key)) continue;
+    seen.add(key);
+    ordered.push(item);
+  }
+
+  for (const item of items) {
+    if (seen.has(item.key)) continue;
+    seen.add(item.key);
+    ordered.push(item);
+  }
+
+  return ordered;
+}
+
+function normalizeSurgeRuleOrder(config: SurgeConfig, preferredOrder: string[] = config.ruleOrder ?? []): string[] {
+  return buildSurgeRuleOrderItems(config, preferredOrder).map((item) => item.key);
+}
+
+function ruleOrderItemTitle(item: SurgeRuleOrderItem): string {
+  if (item.kind === "rule-set") return item.ruleSet.name || item.ruleSet.url || item.ruleSet.id;
+  return item.rule.value ? `${item.rule.type} / ${item.rule.value}` : item.rule.type;
+}
+
+function ruleOrderItemDetail(item: SurgeRuleOrderItem): string {
+  if (item.kind === "rule-set") return item.ruleSet.url || "未填写远程规则集 URL";
+  return item.rule.value || "未填写匹配内容";
+}
+
+function ruleOrderItemTarget(item: SurgeRuleOrderItem): SurgePolicyRef | string {
+  return item.kind === "rule-set" ? item.ruleSet.target : item.rule.target;
+}
+
+function ruleOrderItemEnabled(item: SurgeRuleOrderItem): boolean {
+  return item.kind === "rule-set" ? item.ruleSet.enabled !== false : item.rule.enabled !== false;
+}
+
+function ruleOrderItemNoResolve(item: SurgeRuleOrderItem): boolean {
+  return item.kind === "rule-set" ? item.ruleSet.noResolve === true : item.rule.noResolve === true;
+}
+
 function PolicyTargetSelect({
   value,
   options,
@@ -240,6 +335,7 @@ export function SurgeMode() {
   );
   const { nodes, surgeConfig, setSurgeConfig } = useConfigStore();
   const [memberDrafts, setMemberDrafts] = React.useState<Record<string, string>>({});
+  const [draggingRuleKey, setDraggingRuleKey] = React.useState<string | null>(null);
 
   const nodeNames = React.useMemo(
     () => nodes.map((node) => node.name).filter((name): name is string => typeof name === "string" && Boolean(name.trim())),
@@ -250,6 +346,7 @@ export function SurgeMode() {
     () => buildPolicyOptions({ config: surgeConfig, nodeNames }),
     [nodeNames, surgeConfig]
   );
+  const ruleOrderItems = React.useMemo(() => buildSurgeRuleOrderItems(surgeConfig), [surgeConfig]);
 
   const toggleSection = (section: SectionKey) => {
     setExpandedSections((prev) => {
@@ -267,6 +364,31 @@ export function SurgeMode() {
     });
   };
 
+  const moveRegion = (id: string, direction: -1 | 1) => {
+    setSurgeConfig({
+      ...surgeConfig,
+      regionGroups: moveArrayItemById(surgeConfig.regionGroups, id, direction),
+    });
+  };
+
+  const addRegion = () => {
+    setSurgeConfig({
+      ...surgeConfig,
+      regionGroups: [
+        ...surgeConfig.regionGroups,
+        {
+          id: makeId("surge-region"),
+          name: "新地区 Smart",
+          enabled: true,
+          type: "smart",
+          keywords: [],
+          includeInProxy: true,
+          policyPriority: "",
+        },
+      ],
+    });
+  };
+
   const updateGroup = (id: string, patch: Partial<SurgeProxyGroup>) => {
     const current = surgeConfig.proxyGroups.find((group) => group.id === id);
     const nextPatch =
@@ -276,6 +398,13 @@ export function SurgeMode() {
     setSurgeConfig({
       ...surgeConfig,
       proxyGroups: updateArrayItem(surgeConfig.proxyGroups, id, nextPatch),
+    });
+  };
+
+  const moveGroup = (id: string, direction: -1 | 1) => {
+    setSurgeConfig({
+      ...surgeConfig,
+      proxyGroups: moveArrayItemById(surgeConfig.proxyGroups, id, direction),
     });
   };
 
@@ -324,20 +453,26 @@ export function SurgeMode() {
     updateGroup(group.id, { policies: group.policies.filter((_, i) => i !== index) });
   };
 
+  const moveMember = (group: SurgeProxyGroup, index: number, direction: -1 | 1) => {
+    updateGroup(group.id, { policies: moveArrayItem(group.policies, index, direction) });
+  };
+
   const addRuleSet = () => {
     const id = makeId("surge-ruleset");
-    setSurgeConfig({
+    const nextRuleSet: SurgeRuleSet = {
+      id,
+      name: "新远程规则集",
+      url: "",
+      target: { kind: "group", id: "proxy" },
+      enabled: true,
+    };
+    const nextConfig = {
       ...surgeConfig,
-      ruleSets: [
-        ...surgeConfig.ruleSets,
-        {
-          id,
-          name: "新远程规则集",
-          url: "",
-          target: { kind: "group", id: "proxy" },
-          enabled: true,
-        },
-      ],
+      ruleSets: [...surgeConfig.ruleSets, nextRuleSet],
+    };
+    setSurgeConfig({
+      ...nextConfig,
+      ruleOrder: [...normalizeSurgeRuleOrder(surgeConfig), ruleSetOrderKey(id)],
     });
   };
 
@@ -348,27 +483,88 @@ export function SurgeMode() {
     });
   };
 
+  const removeRuleSet = (id: string) => {
+    const nextOrder = (surgeConfig.ruleOrder ?? []).filter((key) => key !== ruleSetOrderKey(id));
+    const nextConfig = {
+      ...surgeConfig,
+      ruleSets: removeArrayItem(surgeConfig.ruleSets, id),
+    };
+    setSurgeConfig({
+      ...nextConfig,
+      ruleOrder: normalizeSurgeRuleOrder(nextConfig, nextOrder),
+    });
+  };
+
   const addRule = () => {
     const id = makeId("surge-rule");
-    setSurgeConfig({
+    const nextRule: SurgeRule = {
+      id,
+      type: "DOMAIN-SUFFIX",
+      value: "",
+      target: { kind: "group", id: "proxy" },
+      enabled: true,
+    };
+    const nextConfig = {
       ...surgeConfig,
-      rules: [
-        ...surgeConfig.rules,
-        {
-          id,
-          type: "DOMAIN-SUFFIX",
-          value: "",
-          target: { kind: "group", id: "proxy" },
-          enabled: true,
-        },
-      ],
+      rules: [...surgeConfig.rules, nextRule],
+    };
+    setSurgeConfig({
+      ...nextConfig,
+      ruleOrder: [...normalizeSurgeRuleOrder(surgeConfig), ruleOrderKey(id)],
     });
   };
 
   const updateRule = (id: string, patch: Partial<SurgeRule>) => {
+    const nextConfig = {
+      ...surgeConfig,
+      rules: updateArrayItem(surgeConfig.rules, id, patch.type === "FINAL" ? { ...patch, value: "", noResolve: false } : patch),
+    };
+    setSurgeConfig({
+      ...nextConfig,
+      ruleOrder: normalizeSurgeRuleOrder(nextConfig),
+    });
+  };
+
+  const removeRule = (id: string) => {
+    const nextOrder = (surgeConfig.ruleOrder ?? []).filter((key) => key !== ruleOrderKey(id));
+    const nextConfig = {
+      ...surgeConfig,
+      rules: removeArrayItem(surgeConfig.rules, id),
+    };
+    setSurgeConfig({
+      ...nextConfig,
+      ruleOrder: normalizeSurgeRuleOrder(nextConfig, nextOrder),
+    });
+  };
+
+  const setRuleOrderFromItems = (items: SurgeRuleOrderItem[]) => {
     setSurgeConfig({
       ...surgeConfig,
-      rules: updateArrayItem(surgeConfig.rules, id, patch),
+      ruleOrder: items.map((item) => item.key),
+    });
+  };
+
+  const moveRuleOrderItem = (key: string, direction: -1 | 1) => {
+    const index = ruleOrderItems.findIndex((item) => item.key === key);
+    setRuleOrderFromItems(moveArrayItem(ruleOrderItems, index, direction));
+  };
+
+  const moveRuleOrderItemTo = (sourceKey: string, targetKey: string) => {
+    if (!sourceKey || sourceKey === targetKey) return;
+    const sourceIndex = ruleOrderItems.findIndex((item) => item.key === sourceKey);
+    const targetIndex = ruleOrderItems.findIndex((item) => item.key === targetKey);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const next = [...ruleOrderItems];
+    const [source] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, source);
+    setRuleOrderFromItems(next);
+  };
+
+  const resetRuleOrderToYouko = () => {
+    setSurgeConfig({
+      ...surgeConfig,
+      ruleOrder: normalizeSurgeRuleOrder(surgeConfig, createYoukoSurgeConfig().ruleOrder ?? []),
     });
   };
 
@@ -387,6 +583,23 @@ export function SurgeMode() {
         />
         {expandedSections.has("general") && (
           <div className="mt-2 space-y-3 pl-6">
+            <div className="flex flex-col gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-cyan-100">Youko分流模板</div>
+                <div className="mt-1 text-xs leading-5 text-white/45">
+                  写入 Youko 的策略组、图标、规则顺序和 Surge 原生远程规则集。
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 gap-1.5 border-cyan-500/30 text-cyan-100 hover:bg-cyan-500/10"
+                onClick={() => setSurgeConfig(createYoukoSurgeConfig())}
+              >
+                <WandSparkles className="h-3.5 w-3.5" />
+                应用模板
+              </Button>
+            </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="space-y-1 text-xs text-white/55">
               <span>测速 URL</span>
@@ -449,9 +662,15 @@ export function SurgeMode() {
         />
         {expandedSections.has("regions") && (
           <div className="mt-2 space-y-2 pl-6">
-            {surgeConfig.regionGroups.map((group) => (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={addRegion}>
+                <Plus className="h-3.5 w-3.5" />
+                新增地区策略组
+              </Button>
+            </div>
+            {surgeConfig.regionGroups.map((group, index) => (
               <div key={group.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
-                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_9rem_8rem] lg:items-center">
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_9rem_8rem_auto] lg:items-center">
                   <div className="flex items-center gap-2 text-xs text-white/70">
                     <Switch
                       checked={group.enabled !== false}
@@ -473,6 +692,26 @@ export function SurgeMode() {
                       onCheckedChange={(checked) => updateRegion(group.id, { includeInProxy: checked })}
                       aria-label={`加入 PROXY：${group.name}`}
                     />
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <IconButton
+                      label={`上移地区策略组 ${group.name}`}
+                      variant="ghost"
+                      onClick={() => moveRegion(group.id, -1)}
+                      disabled={index <= 0}
+                      className="h-7 w-7 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                    </IconButton>
+                    <IconButton
+                      label={`下移地区策略组 ${group.name}`}
+                      variant="ghost"
+                      onClick={() => moveRegion(group.id, 1)}
+                      disabled={index >= surgeConfig.regionGroups.length - 1}
+                      className="h-7 w-7 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    </IconButton>
                   </div>
                 </div>
                 <div className={cn("mt-2 grid grid-cols-1 gap-2", group.type === "smart" && "lg:grid-cols-2")}>
@@ -507,7 +746,7 @@ export function SurgeMode() {
         />
         {expandedSections.has("groups") && (
           <div className="mt-2 space-y-2 pl-6">
-            {surgeConfig.proxyGroups.map((group) => {
+            {surgeConfig.proxyGroups.map((group, index) => {
               const options = buildPolicyOptions({
                 config: surgeConfig,
                 nodeNames,
@@ -517,7 +756,7 @@ export function SurgeMode() {
               const selectedDraft = memberDrafts[group.id] || options[0]?.value || "";
               return (
                 <div key={group.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_9rem_auto] lg:items-center">
+                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_9rem_auto_auto] lg:items-center">
                     <div className="flex items-center gap-2 text-xs text-white/70">
                       <Switch
                         checked={group.enabled !== false}
@@ -528,6 +767,26 @@ export function SurgeMode() {
                     </div>
                     <Input value={group.name} onChange={(event) => updateGroup(group.id, { name: event.target.value })} className="h-8 text-xs" />
                     <GroupTypeSelect value={group.type} onChange={(type) => updateGroup(group.id, { type })} />
+                    <div className="flex items-center justify-end gap-1">
+                      <IconButton
+                        label={`上移策略组 ${group.name}`}
+                        variant="ghost"
+                        onClick={() => moveGroup(group.id, -1)}
+                        disabled={index <= 0}
+                        className="h-7 w-7 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                      </IconButton>
+                      <IconButton
+                        label={`下移策略组 ${group.name}`}
+                        variant="ghost"
+                        onClick={() => moveGroup(group.id, 1)}
+                        disabled={index >= surgeConfig.proxyGroups.length - 1}
+                        className="h-7 w-7 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                      </IconButton>
+                    </div>
                     <IconButton
                       label="删除策略组"
                       variant="ghost"
@@ -562,6 +821,17 @@ export function SurgeMode() {
                       />
                     </div>
                   )}
+                  <ProxyGroupIconUrlEditor
+                    value={group.icon || ""}
+                    onChange={(icon) => updateGroup(group.id, { icon })}
+                    displayName={group.name}
+                    className="mt-2"
+                  />
+                  {group.includeAllNodes && (
+                    <div className="mt-2 text-xs leading-5 text-cyan-100/65">
+                      自动包含当前所有节点，订阅更新后新增节点也会自动加入此策略组。
+                    </div>
+                  )}
                   {group.type === "smart" && (
                     <div className="mt-2 space-y-2">
                       <Input
@@ -575,20 +845,45 @@ export function SurgeMode() {
                       </div>
                     </div>
                   )}
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="mt-2 space-y-1.5">
                     {group.policies.length === 0 ? (
                       <span className="text-xs text-white/40">暂无成员</span>
                     ) : (
                       group.policies.map((policy, index) => (
-                        <button
+                        <div
                           key={`${encodePolicyRef(policy)}-${index}`}
-                          type="button"
-                          onClick={() => removeMember(group, index)}
-                          className="inline-flex max-w-full items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 hover:border-red-400/40 hover:text-red-200"
+                          className="flex min-w-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
                         >
-                          <span className="truncate">{policyRefLabel(policy, groupNameById)}</span>
-                          <X className="h-3 w-3 shrink-0" />
-                        </button>
+                          <span className="min-w-0 flex-1 truncate text-xs text-white/70">
+                            {policyRefLabel(policy, groupNameById)}
+                          </span>
+                          <IconButton
+                            label={`上移成员 ${policyRefLabel(policy, groupNameById)}`}
+                            variant="ghost"
+                            onClick={() => moveMember(group, index, -1)}
+                            disabled={index <= 0}
+                            className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                          </IconButton>
+                          <IconButton
+                            label={`下移成员 ${policyRefLabel(policy, groupNameById)}`}
+                            variant="ghost"
+                            onClick={() => moveMember(group, index, 1)}
+                            disabled={index >= group.policies.length - 1}
+                            className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                          </IconButton>
+                          <IconButton
+                            label={`删除成员 ${policyRefLabel(policy, groupNameById)}`}
+                            variant="ghost"
+                            onClick={() => removeMember(group, index)}
+                            className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-red-300"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          </IconButton>
+                        </div>
                       ))
                     )}
                   </div>
@@ -637,6 +932,127 @@ export function SurgeMode() {
         />
         {expandedSections.has("rules") && (
           <div className="mt-2 space-y-3 pl-6">
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-xs font-medium text-white/70">规则顺序</div>
+                  <div className="mt-1 text-xs text-white/40">远程规则集和本地规则按这里的顺序写入，FINAL 固定在底部。</div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 shrink-0 gap-1.5"
+                  onClick={resetRuleOrderToYouko}
+                  disabled={ruleOrderItems.length === 0}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  恢复 Youko 默认顺序
+                </Button>
+              </div>
+              {ruleOrderItems.length === 0 ? (
+                <div className="mt-2">
+                  <EmptyHint>还没有可排序规则。</EmptyHint>
+                </div>
+              ) : (
+                <div
+                  role="list"
+                  className="mt-3 max-h-[420px] overflow-y-auto overflow-x-hidden rounded-lg border border-white/10 bg-black/10 custom-scrollbar"
+                >
+                  {ruleOrderItems.map((item, index) => {
+                    const enabled = ruleOrderItemEnabled(item);
+                    const targetLabel = policyRefLabel(ruleOrderItemTarget(item), groupNameById);
+                    const title = ruleOrderItemTitle(item);
+                    const detail = ruleOrderItemDetail(item);
+                    return (
+                      <div
+                        key={item.key}
+                        role="listitem"
+                        draggable={ruleOrderItems.length > 1}
+                        onDragStart={(event) => {
+                          setDraggingRuleKey(item.key);
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", item.key);
+                        }}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const sourceKey = draggingRuleKey || event.dataTransfer.getData("text/plain");
+                          moveRuleOrderItemTo(sourceKey, item.key);
+                          setDraggingRuleKey(null);
+                        }}
+                        onDragEnd={() => setDraggingRuleKey(null)}
+                        className={cn(
+                          "grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/10 px-3 py-2 last:border-b-0",
+                          enabled ? "bg-white/5" : "bg-white/[0.02] opacity-55",
+                          draggingRuleKey === item.key && "border-cyan-400/40 bg-cyan-500/10"
+                        )}
+                      >
+                        <GripVertical className="h-4 w-4 cursor-grab text-white/30 active:cursor-grabbing" aria-hidden="true" />
+                        <div className="w-6 text-right text-[10px] tabular-nums text-white/35">{index + 1}</div>
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "shrink-0 text-[10px]",
+                                item.kind === "rule-set"
+                                  ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-200"
+                                  : "border-indigo-500/30 bg-indigo-500/10 text-indigo-200"
+                              )}
+                            >
+                              {item.kind === "rule-set" ? "远程规则集" : item.rule.type}
+                            </Badge>
+                            <span className="min-w-0 max-w-full truncate text-xs font-medium text-white/75" title={title}>
+                              {title}
+                            </span>
+                            <Badge variant="outline" className="max-w-full border-white/10 bg-white/5 text-white/60">
+                              {targetLabel}
+                            </Badge>
+                            {ruleOrderItemNoResolve(item) && (
+                              <Badge variant="outline" className="shrink-0 border-amber-500/30 bg-amber-500/10 text-amber-200">
+                                no-resolve
+                              </Badge>
+                            )}
+                            {!enabled && (
+                              <Badge variant="outline" className="shrink-0 border-white/10 bg-white/5 text-white/45">
+                                已停用
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="mt-1 truncate font-mono text-[11px] text-white/40" title={detail}>
+                            {detail}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-1">
+                          <IconButton
+                            label={`上移规则 ${title}`}
+                            variant="ghost"
+                            onClick={() => moveRuleOrderItem(item.key, -1)}
+                            disabled={index <= 0}
+                            className="h-7 w-7 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                          </IconButton>
+                          <IconButton
+                            label={`下移规则 ${title}`}
+                            variant="ghost"
+                            onClick={() => moveRuleOrderItem(item.key, 1)}
+                            disabled={index >= ruleOrderItems.length - 1}
+                            className="h-7 w-7 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                          </IconButton>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-medium text-white/70">远程规则集</div>
               <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={addRuleSet}>
@@ -669,7 +1085,7 @@ export function SurgeMode() {
                     <IconButton
                       label="删除远程规则集"
                       variant="ghost"
-                      onClick={() => setSurgeConfig({ ...surgeConfig, ruleSets: removeArrayItem(surgeConfig.ruleSets, ruleSet.id) })}
+                      onClick={() => removeRuleSet(ruleSet.id)}
                       className="h-8 w-8 rounded-lg text-white/45 hover:text-red-300"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -702,7 +1118,7 @@ export function SurgeMode() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {SURGE_RULE_TYPES.map((type) => (
+                        {(rule.type === "FINAL" ? SURGE_RULE_TYPES : SURGE_EDITABLE_RULE_TYPES).map((type) => (
                           <SelectItem key={type} value={type}>
                             {type}
                           </SelectItem>
@@ -728,7 +1144,7 @@ export function SurgeMode() {
                     <IconButton
                       label="删除本地规则"
                       variant="ghost"
-                      onClick={() => setSurgeConfig({ ...surgeConfig, rules: removeArrayItem(surgeConfig.rules, rule.id) })}
+                      onClick={() => removeRule(rule.id)}
                       className="h-8 w-8 rounded-lg text-white/45 hover:text-red-300"
                     >
                       <Trash2 className="h-4 w-4" />

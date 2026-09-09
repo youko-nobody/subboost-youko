@@ -6,6 +6,7 @@ import { normalizePersistedRuleOrder } from "@subboost/core/generator/rules";
 import { PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
 import { normalizeRuleModelFromConfig } from "@subboost/core/rules/rule-model";
 import { resolveProxyGroupAdvancedModeEnabled } from "@subboost/core/proxy-group-advanced-mode";
+import { createYoukoSurgeConfig } from "@subboost/core/surge";
 import type { ConfigActions, SubBoostTemplateConfig } from "../definitions";
 import type { GetState, SetAndGenerateConfig, SetState } from "../store-types";
 
@@ -86,6 +87,7 @@ export function createTemplateActions(
             testUrl: config.testUrl,
             testInterval: config.testInterval,
             moduleRuleEditWarningAccepted: false,
+            surgeConfig: createYoukoSurgeConfig(),
           };
         });
         return;
@@ -236,6 +238,7 @@ export function createTemplateActions(
             typeof config.exposeSubscriptionUserInfo === "boolean"
               ? config.exposeSubscriptionUserInfo
               : state.exposeSubscriptionUserInfo,
+          ...(config.template === "my-routing" ? { surgeConfig: createYoukoSurgeConfig() } : {}),
         };
       });
     },

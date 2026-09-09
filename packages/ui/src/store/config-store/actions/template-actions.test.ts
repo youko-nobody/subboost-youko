@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TEMPLATES } from "@subboost/core/templates";
 import { getBuiltinTemplateId } from "@subboost/core/templates/builtin";
 import { DEFAULT_BASE_CONFIG_YAML, DEFAULT_SUBBOOST_CONFIG } from "@subboost/core/config/defaults";
+import { createYoukoSurgeConfig } from "@subboost/core/surge";
 import { initialState, type ConfigState, type SubBoostTemplateConfig } from "../definitions";
 import { createTemplateActions } from "./template-actions";
 
@@ -95,6 +96,7 @@ describe("createTemplateActions", () => {
       allowLan: DEFAULT_SUBBOOST_CONFIG.allowLan,
     });
     expect(getState().dnsYaml).toContain("enhanced-mode: fake-ip");
+    expect(getState().surgeConfig).toEqual(createYoukoSurgeConfig());
   });
 
   it("applies validated template config fields and refreshes rule order", () => {

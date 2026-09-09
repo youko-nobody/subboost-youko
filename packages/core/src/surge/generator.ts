@@ -376,7 +376,7 @@ function regionRegex(keywords: string[]): string {
 
 function appendPolicyGroupCommonParams(
   parts: string[],
-  group: Pick<SurgeProxyGroup, "type" | "url" | "interval" | "timeout" | "tolerance" | "policyPriority">,
+  group: Pick<SurgeProxyGroup, "type" | "url" | "interval" | "timeout" | "tolerance" | "policyPriority" | "icon">,
   fallback: { testUrl: string; testInterval: number }
 ) {
   if (group.type === "url-test" || group.type === "fallback" || group.type === "load-balance") {
@@ -388,6 +388,7 @@ function appendPolicyGroupCommonParams(
   if (group.type === "smart") {
     appendParam(parts, "policy-priority", stringValue(group.policyPriority));
   }
+  appendParam(parts, "icon-url", stringValue(group.icon));
 }
 
 function buildRegionGroupLine(
@@ -417,7 +418,8 @@ function buildProxyGroupLine(
       return resolvePolicyName(policy, groupNamesById, nodeNamesByOriginal);
     })
     .filter((policy): policy is string => Boolean(policy));
-  const uniquePolicies = Array.from(new Set(resolvedPolicies));
+  const allNodePolicies = group.includeAllNodes ? Array.from(nodeNamesByOriginal.values()) : [];
+  const uniquePolicies = Array.from(new Set([...resolvedPolicies, ...allNodePolicies]));
   const parts = [`${name} = ${group.type}`, ...uniquePolicies.map(formatToken)];
   appendPolicyGroupCommonParams(parts, group, fallback);
   return parts.join(", ");
@@ -543,16 +545,40 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
       fallback
     );
   });
-  const ruleLines = [
-    ...config.ruleSets
-      .map((ruleSet) => buildRuleSetLine(ruleSet, groupNamesById, nodeNamesByOriginal))
-      .filter((line): line is string => Boolean(line)),
-    ...config.rules
-      .map((rule) => buildRuleLine(rule, groupNamesById, nodeNamesByOriginal))
-      .filter((line): line is string => Boolean(line)),
-  ];
-  const explicitFinal = config.rules.some((rule) => rule.enabled !== false && rule.type === "FINAL");
-  if (!explicitFinal) {
+  const ruleEntries: Array<{ key: string; line: string }> = [];
+  for (const ruleSet of config.ruleSets) {
+    const line = buildRuleSetLine(
+      ruleSet,
+      groupNamesById,
+      nodeNamesByOriginal
+    );
+    if (line) ruleEntries.push({ key: `rule-set:${ruleSet.id}`, line });
+  }
+  const finalRuleLines: string[] = [];
+  for (const rule of config.rules) {
+    const line = buildRuleLine(rule, groupNamesById, nodeNamesByOriginal);
+    if (!line) continue;
+    if (rule.type === "FINAL") finalRuleLines.push(line);
+    else ruleEntries.push({ key: `rule:${rule.id}`, line });
+  }
+
+  const ruleEntryByKey = new Map(ruleEntries.map((entry) => [entry.key, entry]));
+  const emittedRuleKeys = new Set<string>();
+  const ruleLines: string[] = [];
+  for (const key of config.ruleOrder ?? []) {
+    const entry = ruleEntryByKey.get(key);
+    if (!entry || emittedRuleKeys.has(entry.key)) continue;
+    emittedRuleKeys.add(entry.key);
+    ruleLines.push(entry.line);
+  }
+  for (const entry of ruleEntries) {
+    if (emittedRuleKeys.has(entry.key)) continue;
+    emittedRuleKeys.add(entry.key);
+    ruleLines.push(entry.line);
+  }
+  if (finalRuleLines.length > 0) {
+    ruleLines.push(...finalRuleLines);
+  } else {
     const finalTarget = resolvePolicyName(config.finalTarget, groupNamesById, nodeNamesByOriginal) || "DIRECT";
     ruleLines.push(`FINAL,${formatToken(finalTarget)}`);
   }
@@ -569,7 +595,7 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
     lines.push(`# SubBoost 已跳过 ${skippedNodes.length} 个 Surge 不支持或字段不完整的节点`);
   }
   lines.push("", "[Proxy Group]");
-  lines.push(...regionGroupLines, ...proxyGroupLines);
+  lines.push(...proxyGroupLines, ...regionGroupLines);
   lines.push("", "[Rule]");
   lines.push(...ruleLines);
   if (wireGuardSections.length > 0) {

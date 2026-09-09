@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createDefaultSurgeConfig, createYoukoSurgeConfig } from "@subboost/core/surge";
 import { createSettingsActions } from "./settings-actions";
 
 function createStore(initial: Record<string, unknown> = {}) {
@@ -67,5 +68,28 @@ describe("config store settings actions", () => {
       })
     ).toThrow("第 1 行");
     expect(store.state()).toEqual({});
+  });
+
+  it("applies the native Youko Surge template when entering an untouched Surge profile", () => {
+    const store = createStore({ surgeConfig: createDefaultSurgeConfig() });
+    const actions = createSettingsActions(store.set as any, store.get as any, store.setAndGenerateConfig as any);
+
+    actions.setProfileType("surge");
+
+    expect(store.state().profileType).toBe("surge");
+    expect(store.state().surgeConfig).toEqual(createYoukoSurgeConfig());
+  });
+
+  it("does not overwrite a manually edited Surge profile", () => {
+    const edited = {
+      ...createDefaultSurgeConfig(),
+      generalText: "loglevel = verbose",
+    };
+    const store = createStore({ surgeConfig: edited });
+    const actions = createSettingsActions(store.set as any, store.get as any, store.setAndGenerateConfig as any);
+
+    actions.setProfileType("surge");
+
+    expect(store.state().surgeConfig).toEqual(edited);
   });
 });

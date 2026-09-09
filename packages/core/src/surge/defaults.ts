@@ -1,5 +1,19 @@
 import { DEFAULT_SUBBOOST_CONFIG } from "@subboost/core/config/defaults";
 import type {
+  CustomProxyGroup,
+  CustomRule,
+  CustomRuleSet,
+  ProxyGroupMemberRef,
+  ProxyGroupRuleTarget,
+} from "@subboost/core/types/config";
+import {
+  MY_ROUTING_CUSTOM_PROXY_GROUPS,
+  MY_ROUTING_CUSTOM_RULES,
+  MY_ROUTING_CUSTOM_RULE_SETS,
+  MY_ROUTING_FALLBACK_POLICY_TARGET,
+  MY_ROUTING_RULE_ORDER,
+} from "../templates/my-routing-template";
+import type {
   SurgeConfig,
   SurgePolicyRef,
   SurgeProxyGroup,
@@ -149,6 +163,109 @@ const defaultProxyPolicies: SurgePolicyRef[] = [
   { kind: "reject" },
 ];
 
+const SURGE_RULE_SET_BASE_URL =
+  "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge";
+
+const YOUKO_SURGE_RULE_SET_URLS: Record<string, string> = {
+  BM_ADVERTISING_LITE: `${SURGE_RULE_SET_BASE_URL}/AdvertisingLite/AdvertisingLite.list`,
+  BM_EASYPRIVACY: `${SURGE_RULE_SET_BASE_URL}/Privacy/Privacy.list`,
+  BLOCK_HTTP_DNS_PLUS: `${SURGE_RULE_SET_BASE_URL}/BlockHttpDNS/BlockHttpDNS.list`,
+  CHINA_DNS_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/ChinaDNS/ChinaDNS.list`,
+  CHINA_DNS_IP: `${SURGE_RULE_SET_BASE_URL}/ChinaDNS/ChinaDNS.list`,
+  HIJACKING_PLUS: `${SURGE_RULE_SET_BASE_URL}/Hijacking/Hijacking.list`,
+  GEMINI_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Gemini/Gemini.list`,
+  COPILOT_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Copilot/Copilot.list`,
+  BM_OPENAI: `${SURGE_RULE_SET_BASE_URL}/OpenAI/OpenAI.list`,
+  BM_CLAUDE: `${SURGE_RULE_SET_BASE_URL}/Claude/Claude.list`,
+  BM_TELEGRAM: `${SURGE_RULE_SET_BASE_URL}/Telegram/Telegram.list`,
+  BM_YOUTUBE: `${SURGE_RULE_SET_BASE_URL}/YouTube/YouTube.list`,
+  APPLE_NEWS_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/AppleNews/AppleNews.list`,
+  KWAI_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/KuaiShou/KuaiShou.list`,
+  GLOBAL_DNS_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/DNS/DNS.list`,
+  APPLE_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Apple/Apple_Domain.list`,
+  APPLE_IP: `${SURGE_RULE_SET_BASE_URL}/Apple/Apple_All_No_Resolve.list`,
+  MICROSOFT_APPS_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Microsoft/Microsoft.list`,
+  WEIYUN_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Tencent/Tencent_Domain.list`,
+  BAIDU_NETDISK_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Cloud/BaiduCloud/BaiduCloud.list`,
+  BM_BILIBILI: `${SURGE_RULE_SET_BASE_URL}/BiliBili/BiliBili.list`,
+  BM_XIAOHONGSHU: `${SURGE_RULE_SET_BASE_URL}/XiaoHongShu/XiaoHongShu.list`,
+  BM_TIKTOK: `${SURGE_RULE_SET_BASE_URL}/TikTok/TikTok.list`,
+  AQARA_CN_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/LvMiLianChuang/LvMiLianChuang.list`,
+  AQARA_GLOBAL_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/LvMiLianChuang/LvMiLianChuang.list`,
+  GEO_ROUTING_ASIA_CHINA_CCTLD_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
+  GEO_ROUTING_ASIA_CHINA_GEOIP: `${SURGE_RULE_SET_BASE_URL}/ChinaIPs/ChinaIPs.list`,
+  GEOSITE_CN_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
+  CHINA_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
+  CHINA_MAX_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/ChinaMax/ChinaMax_Domain.list`,
+};
+
+function mapYoukoTarget(target: ProxyGroupRuleTarget): SurgePolicyRef | string {
+  if (typeof target === "string") {
+    const normalized = target.trim().toUpperCase();
+    if (normalized === "DIRECT") return { kind: "direct" };
+    if (normalized === "REJECT") return { kind: "reject" };
+    return target.trim();
+  }
+  if (target.kind === "custom" || target.kind === "module") return { kind: "group", id: target.id };
+  return { kind: "direct" };
+}
+
+function mapYoukoMember(target: ProxyGroupMemberRef): SurgePolicyRef {
+  if (target.kind === "custom" || target.kind === "module") return { kind: "group", id: target.id };
+  if (target.kind === "node") return { kind: "node", name: target.name };
+  if (target.kind === "reject") return { kind: "reject" };
+  return { kind: "direct" };
+}
+
+function mapYoukoGroupType(group: CustomProxyGroup): SurgeProxyGroupType {
+  if (group.groupType === "direct-first" || group.groupType === "reject-first") return "select";
+  return group.groupType;
+}
+
+function mapYoukoProxyGroup(group: CustomProxyGroup): SurgeProxyGroup {
+  const configuredMembers = group.advanced?.memberOrder ?? group.advanced?.extraMembers ?? [];
+  const policies = configuredMembers.map(mapYoukoMember);
+  const includeAllNodes = group.advanced?.includeRegex !== "(?!)";
+  return {
+    id: group.id,
+    name: group.name,
+    type: mapYoukoGroupType(group),
+    policies,
+    ...(group.icon?.trim() ? { icon: group.icon.trim() } : {}),
+    ...(includeAllNodes ? { includeAllNodes: true } : {}),
+    ...(group.enabled === false ? { enabled: false } : {}),
+  };
+}
+
+function mapYoukoRuleSet(ruleSet: CustomRuleSet): SurgeRuleSet {
+  return {
+    id: ruleSet.id,
+    name: ruleSet.name,
+    url: YOUKO_SURGE_RULE_SET_URLS[ruleSet.id] ?? "",
+    target: mapYoukoTarget(ruleSet.target),
+    ...(ruleSet.noResolve ? { noResolve: true } : {}),
+    enabled: true,
+  };
+}
+
+function mapYoukoRule(rule: CustomRule): SurgeRule | null {
+  if (!SURGE_RULE_TYPES.includes(rule.type as SurgeRuleType)) return null;
+  return {
+    id: rule.id,
+    type: rule.type as SurgeRuleType,
+    value: rule.value,
+    target: mapYoukoTarget(rule.target),
+    ...(rule.noResolve ? { noResolve: true } : {}),
+    enabled: true,
+  };
+}
+
+function mapYoukoRuleOrder(key: string): string {
+  if (key.startsWith("custom-rule-set:")) return `rule-set:${key.slice("custom-rule-set:".length)}`;
+  if (key.startsWith("custom-rule:")) return `rule:${key.slice("custom-rule:".length)}`;
+  return key;
+}
+
 export function createDefaultSurgeConfig(): SurgeConfig {
   return {
     generalText: DEFAULT_SURGE_GENERAL_TEXT,
@@ -169,6 +286,24 @@ export function createDefaultSurgeConfig(): SurgeConfig {
     rules: [],
     finalTarget: { kind: "group", id: "proxy" },
     testUrl: DEFAULT_SUBBOOST_CONFIG.testUrl,
+    testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,
+    managedConfigEnabled: false,
+    managedConfigUrl: "",
+  };
+}
+
+export function createYoukoSurgeConfig(): SurgeConfig {
+  return {
+    generalText: DEFAULT_SURGE_GENERAL_TEXT,
+    proxyGroups: MY_ROUTING_CUSTOM_PROXY_GROUPS.map(mapYoukoProxyGroup),
+    regionGroups: [],
+    ruleSets: MY_ROUTING_CUSTOM_RULE_SETS
+      .map(mapYoukoRuleSet)
+      .filter((ruleSet) => Boolean(ruleSet.url)),
+    rules: MY_ROUTING_CUSTOM_RULES.map(mapYoukoRule).filter((rule): rule is SurgeRule => Boolean(rule)),
+    ruleOrder: MY_ROUTING_RULE_ORDER.map(mapYoukoRuleOrder),
+    finalTarget: mapYoukoTarget(MY_ROUTING_FALLBACK_POLICY_TARGET),
+    testUrl: "http://www.google.com/blank.html",
     testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,
     managedConfigEnabled: false,
     managedConfigUrl: "",
@@ -262,7 +397,7 @@ function normalizeRegionGroups(value: unknown, defaults: SurgeRegionPolicyGroup[
       ...(text(item.policyPriority) ? { policyPriority: text(item.policyPriority) } : {}),
     });
   }
-  return out.length > 0 ? out : defaults;
+  return out;
 }
 
 function normalizeProxyGroups(value: unknown, defaults: SurgeProxyGroup[]): SurgeProxyGroup[] {
@@ -279,6 +414,8 @@ function normalizeProxyGroups(value: unknown, defaults: SurgeProxyGroup[]): Surg
       name,
       type,
       policies: normalizePolicyRefs(item.policies),
+      ...(text(item.icon) ? { icon: text(item.icon) } : {}),
+      ...(item.includeAllNodes === true ? { includeAllNodes: true } : {}),
       ...(item.enabled === false ? { enabled: false } : {}),
       ...(text(item.url) ? { url: text(item.url) } : {}),
       ...(positiveInt(item.interval) ? { interval: positiveInt(item.interval) } : {}),
@@ -299,7 +436,7 @@ function normalizeRuleSets(value: unknown): SurgeRuleSet[] {
     const name = text(item.name) || id;
     const url = text(item.url);
     const target = normalizePolicyRef(item.target);
-    if (!id || !name || !url || !target) continue;
+    if (!id || !name || !target) continue;
     out.push({
       id,
       name,
@@ -322,7 +459,6 @@ function normalizeRules(value: unknown): SurgeRule[] {
     const ruleValue = text(item.value);
     const target = normalizePolicyRef(item.target);
     if (!id || !target) continue;
-    if (type !== "FINAL" && !ruleValue) continue;
     out.push({
       id,
       type,
@@ -345,6 +481,7 @@ export function normalizeSurgeConfig(value: unknown): SurgeConfig {
     regionGroups: normalizeRegionGroups(value.regionGroups, defaults.regionGroups),
     ruleSets: normalizeRuleSets(value.ruleSets),
     rules: normalizeRules(value.rules),
+    ...(Array.isArray(value.ruleOrder) ? { ruleOrder: normalizeStringList(value.ruleOrder) } : {}),
     finalTarget,
     testUrl: text(value.testUrl) || defaults.testUrl,
     testInterval: positiveInt(value.testInterval) ?? defaults.testInterval,

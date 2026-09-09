@@ -1,7 +1,11 @@
 import type { ConfigActions } from "../definitions";
 import { parseNodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
 import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
-import { normalizeSurgeConfig } from "@subboost/core/surge";
+import {
+  createDefaultSurgeConfig,
+  createYoukoSurgeConfig,
+  normalizeSurgeConfig,
+} from "@subboost/core/surge";
 import type { GetState, SetAndGenerateConfig, SetState } from "../store-types";
 
 type SettingsActions = Pick<
@@ -22,6 +26,13 @@ type SettingsActions = Pick<
   | "setExperimentalCnUseCnRuleSet"
 >;
 
+function isUnmodifiedDefaultSurgeConfig(value: unknown): boolean {
+  return (
+    JSON.stringify(normalizeSurgeConfig(value)) ===
+    JSON.stringify(normalizeSurgeConfig(createDefaultSurgeConfig()))
+  );
+}
+
 export function createSettingsActions(
   _set: SetState,
   _get: GetState,
@@ -29,7 +40,13 @@ export function createSettingsActions(
 ): SettingsActions {
   return {
     setProfileType: (profileType) => {
-      setAndGenerateConfig(() => ({ profileType: normalizeSubscriptionProfileType(profileType) }));
+      const normalizedProfileType = normalizeSubscriptionProfileType(profileType);
+      setAndGenerateConfig((state) => ({
+        profileType: normalizedProfileType,
+        ...(normalizedProfileType === "surge" && isUnmodifiedDefaultSurgeConfig(state.surgeConfig)
+          ? { surgeConfig: createYoukoSurgeConfig() }
+          : {}),
+      }));
     },
 
     setSurgeConfig: (config) => {
