@@ -21,12 +21,14 @@ import {
   getAutoUpdateIntervalPolicyMinLabel,
   type AutoUpdateIntervalPolicy,
 } from "@subboost/core/subscription/auto-update-interval";
+import type { SubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   subscriptionUrl: string;
   v2raySubscriptionUrl: string;
+  profileType: SubscriptionProfileType;
   subscriptionName: string;
   setSubscriptionName: (value: string) => void;
   autoUpdateEnabled: boolean;
@@ -54,6 +56,7 @@ export function SubscriptionLinkDialog({
   onOpenChange,
   subscriptionUrl,
   v2raySubscriptionUrl,
+  profileType,
   subscriptionName,
   setSubscriptionName,
   autoUpdateEnabled,
@@ -77,6 +80,11 @@ export function SubscriptionLinkDialog({
 }: Props) {
   const close = () => onOpenChange(false);
   const minAutoUpdateLabel = getAutoUpdateIntervalPolicyMinLabel(autoUpdatePolicy);
+  const mainLinkLabel = profileType === "surge" ? "Surge CONF 链接" : "通用 YAML 链接";
+  const mainLinkDescription =
+    profileType === "surge"
+      ? "适用于 Surge；会自动生成独立的 [Proxy]、[Proxy Group] 和 [Rule]"
+      : "适用于 Clash Verge / FLClash / Clash Meta / Stash，保留所有支持 Mihomo 的节点（包括 Mieru）";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -93,7 +101,7 @@ export function SubscriptionLinkDialog({
               ? "按客户端复制对应链接导入使用"
               : isEditingExistingSubscription
                 ? "将覆盖该订阅的配置与订阅源，链接保持不变"
-                : "生成持久化的订阅链接，支持在 Clash 客户端中自动更新"}
+                : `生成持久化的 ${profileType === "surge" ? "Surge" : "Clash"} 订阅链接，支持在客户端中自动更新`}
           </DialogDescription>
         </DialogHeader>
 
@@ -187,8 +195,8 @@ export function SubscriptionLinkDialog({
         ) : (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <p className="text-sm font-medium">通用 YAML 链接</p>
-              <p className="text-xs text-white/50">适用于 Clash Verge / FLClash / Clash Meta / Stash，保留所有支持 Mihomo 的节点（包括 Mieru）</p>
+              <p className="text-sm font-medium">{mainLinkLabel}</p>
+              <p className="text-xs text-white/50">{mainLinkDescription}</p>
               <div className="flex gap-2">
                 <Input value={subscriptionUrl} readOnly className="font-mono text-xs" />
                 <IconButton
@@ -206,6 +214,7 @@ export function SubscriptionLinkDialog({
               </div>
             </div>
 
+            {v2raySubscriptionUrl && (
             <div className="space-y-2">
               <p className="text-sm font-medium">V2Ray / V2RayN 链接</p>
               <p className="text-xs text-white/50">Base64 节点订阅；会自动略过 Mieru 和仅支持 Mihomo 的协议</p>
@@ -225,6 +234,7 @@ export function SubscriptionLinkDialog({
                 </IconButton>
               </div>
             </div>
+            )}
 
             <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-sm">
               <p className="text-green-200 font-medium mb-1">

@@ -23,6 +23,8 @@
     "./proxy-group-targets": "./src/proxy-group-targets.ts",
     "./rules/*": "./src/rules/*.ts",
     "./rules-database": "./src/rules-database.ts",
+    "./surge": "./src/surge/index.ts",
+    "./surge/*": "./src/surge/*.ts",
     "./subscription/*": "./src/subscription/*.ts",
     "./templates": "./src/templates/index.ts",
     "./templates/*": "./src/templates/*.ts",

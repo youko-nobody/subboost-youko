@@ -51,9 +51,11 @@ export function useHomeActions({
     });
 
     const timestamp = getCompactDateStampInBeijing();
-    const filename = `clash-config-${timestamp}.yaml`;
-    const blob = new Blob([generatedYaml], { type: "application/x-yaml;charset=utf-8" });
-    const file = new File([blob], filename, { type: "application/x-yaml;charset=utf-8" });
+    const isSurgeMode = useConfigStore.getState().profileType === "surge";
+    const filename = isSurgeMode ? `surge-config-${timestamp}.conf` : `clash-config-${timestamp}.yaml`;
+    const mimeType = isSurgeMode ? "text/plain;charset=utf-8" : "application/x-yaml;charset=utf-8";
+    const blob = new Blob([generatedYaml], { type: mimeType });
+    const file = new File([blob], filename, { type: mimeType });
     const url = URL.createObjectURL(file);
 
     const a = document.createElement("a");

@@ -4,7 +4,7 @@ import * as React from "react";
 import type { TemplateType } from "@subboost/core/types/config";
 import type { SourceType } from "@subboost/ui/store/config-store";
 
-export type ProductMode = "quick" | "advanced";
+export type ProductMode = "quick" | "advanced" | "surge";
 export type ProductInteractionResult = "success" | "validationError" | "runtimeError" | "noInput";
 export type ProductTemplateSource = "builtin" | "default" | "catalog" | "my" | "unknown";
 export type ProductTemplateKind = "config" | "yaml" | "unknown";

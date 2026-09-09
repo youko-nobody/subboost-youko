@@ -96,16 +96,16 @@ type Props = {
   adapter: DashboardSurfaceAdapter;
 };
 
-function buildYamlDownloadFilename(name: string): string {
+function buildSubscriptionDownloadFilename(name: string, profileType?: Subscription["profileType"]): string {
   const base =
     String(name || "subboost-config")
       .trim()
       .replace(/[\r\n]/g, " ")
       .replace(/[<>:"/\\|?*]+/g, "")
       .replace(/\s+/g, "_")
-      .replace(/\.(?:ya?ml)$/i, "")
+      .replace(/\.(?:ya?ml|conf)$/i, "")
       .slice(0, 80) || "subboost-config";
-  return `${base}.yaml`;
+  return `${base}.${profileType === "surge" ? "conf" : "yaml"}`;
 }
 
 function triggerBrowserDownload(href: string, filename: string) {
@@ -333,7 +333,7 @@ export function SubscriptionDashboardSurface({ adapter }: Props) {
   };
 
   const downloadSubscription = async (subscription: Subscription) => {
-    const filename = buildYamlDownloadFilename(subscription.name);
+    const filename = buildSubscriptionDownloadFilename(subscription.name, subscription.profileType);
     try {
       const response = await fetch(adapter.resolveDownloadUrl?.(subscription) ?? subscription.subscriptionUrl);
       if (!response.ok) throw new Error(`Download failed with status ${response.status}`);
@@ -1011,7 +1011,7 @@ function SubscriptionRow({
           size="sm"
           onClick={() => void onCopy(sub.subscriptionUrl, sub.id)}
           className="gap-0 sm:gap-2"
-          title="复制订阅链接"
+          title={sub.profileType === "surge" ? "复制 Surge 订阅链接" : "复制订阅链接"}
         >
           {copiedId === sub.id ? (
             <>
@@ -1021,29 +1021,31 @@ function SubscriptionRow({
           ) : (
             <>
               <Copy className="h-4 w-4" />
-              <span className="hidden sm:inline">链接</span>
+              <span className="hidden sm:inline">{sub.profileType === "surge" ? "Surge" : "链接"}</span>
             </>
           )}
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void onCopy(buildV2RaySubscriptionUrl(sub.subscriptionUrl), `${sub.id}:v2ray`)}
-          className="gap-0 sm:gap-2"
-          title="复制 V2Ray / V2RayN 订阅链接"
-        >
-          {copiedId === `${sub.id}:v2ray` ? (
-            <>
-              <Check className="h-4 w-4 text-green-500" />
-              <span className="hidden sm:inline text-green-500">已复制</span>
-            </>
-          ) : (
-            <>
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">V2Ray</span>
-            </>
-          )}
-        </Button>
+        {sub.profileType !== "surge" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void onCopy(buildV2RaySubscriptionUrl(sub.subscriptionUrl), `${sub.id}:v2ray`)}
+            className="gap-0 sm:gap-2"
+            title="复制 V2Ray / V2RayN 订阅链接"
+          >
+            {copiedId === `${sub.id}:v2ray` ? (
+              <>
+                <Check className="h-4 w-4 text-green-500" />
+                <span className="hidden sm:inline text-green-500">已复制</span>
+              </>
+            ) : (
+              <>
+                <Shield className="h-4 w-4" />
+                <span className="hidden sm:inline">V2Ray</span>
+              </>
+            )}
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

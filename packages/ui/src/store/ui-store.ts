@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { SubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 
 type EditingSubscription = {
   id: string;
@@ -7,6 +8,7 @@ type EditingSubscription = {
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
   updateLockEnabled: boolean;
+  profileType?: SubscriptionProfileType;
 };
 
 interface UIState {

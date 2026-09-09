@@ -13,6 +13,9 @@ export interface Subscription {
   name: string;
   token: string;
   subscriptionUrl: string;
+  profileType?: "clash" | "surge";
+  yamlUrl?: string;
+  surgeUrl?: string;
   isPrimary: boolean;
   autoUpdateInterval: number | null;
   autoUpdateState: SubscriptionAutoUpdateState;

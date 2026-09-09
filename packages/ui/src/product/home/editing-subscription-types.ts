@@ -1,4 +1,5 @@
 import type { SubscriptionSource } from "@subboost/ui/store/config-store";
+import type { SubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 
 export type EditingSubscription = {
   id: string;
@@ -7,6 +8,7 @@ export type EditingSubscription = {
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
   updateLockEnabled: boolean;
+  profileType?: SubscriptionProfileType;
 };
 
 export type EditingSubscriptionLoaderOptions = {

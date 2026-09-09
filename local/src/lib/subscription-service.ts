@@ -2,9 +2,16 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { generateClashYaml } from "@subboost/core/generator";
 import { buildNodeContentKey } from "@subboost/core/node-identity";
 import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboost/core/subscription/config-utils";
+import {
+  buildSurgeSubscriptionUrl,
+  normalizeSubscriptionProfileType,
+  type SubscriptionProfileType,
+} from "@subboost/core/subscription/profile-type";
 import { getNodeOriginName } from "@subboost/core/subscription/node-source-state";
+import { resolveNodeNameFilter } from "@subboost/core/subscription/node-name-filter";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
 import { buildV2RaySubscriptionContent } from "@subboost/core/subscription/v2ray-subscription";
+import { generateSurgeProfile, normalizeSurgeConfig } from "@subboost/core/surge";
 import type { SubscriptionResponseInfo } from "@subboost/core/subscription/subscription-response-info";
 import type { ParsedNode } from "@subboost/core/types/node";
 import {
@@ -67,9 +74,11 @@ export type SubscriptionSummary = {
   name: string;
   token: string;
   subscriptionUrl: string;
+  profileType: SubscriptionProfileType;
   nodeCount: number;
   sourceCount: number;
   yamlUrl: string;
+  surgeUrl: string;
   isPrimary: boolean;
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
@@ -106,6 +115,17 @@ export type GeneratedSubscriptionYaml = {
 };
 
 export type GeneratedV2RaySubscription = {
+  content: string;
+  name: string;
+  subscriptionInfo: SubscriptionResponseInfo;
+  cacheExpirySeconds: number;
+  autoUpdateIntervalSeconds: number | null;
+  isAdmin: boolean;
+  nodeCount: number;
+  skippedNodeCount: number;
+};
+
+export type GeneratedSurgeSubscription = {
   content: string;
   name: string;
   subscriptionInfo: SubscriptionResponseInfo;
@@ -175,9 +195,14 @@ function validateLocalSubscriptionNodes(value: unknown): ParsedNode[] {
   return validateSubscriptionNodeList(value);
 }
 
-function buildLocalSubscriptionUrl(token: string, appUrl?: string): string {
+function buildLocalSubscriptionUrl(
+  token: string,
+  appUrl?: string,
+  profileType: SubscriptionProfileType = "clash"
+): string {
   const baseUrl = (appUrl?.trim() || getAppUrl()).replace(/\/+$/, "");
-  return `${baseUrl}/api/subscriptions/${token}/config.yaml`;
+  const yamlUrl = `${baseUrl}/api/subscriptions/${token}/config.yaml`;
+  return profileType === "surge" ? buildSurgeSubscriptionUrl(yamlUrl) : yamlUrl;
 }
 
 function buildLocalSubscriptionConfig(
@@ -219,6 +244,12 @@ function assertNodeNameFilterKeepsOutput(
   config: Record<string, unknown>
 ): void {
   if (nodes.length === 0) return;
+  if (normalizeSubscriptionProfileType(config.profileType) === "surge") {
+    if (resolveNodeNameFilter(nodes, config.nodeNameFilter).effectiveCount === 0) {
+      throw new Error("过滤后没有可用节点");
+    }
+    return;
+  }
   const options = buildGenerateOptionsFromConfig(config, { nodes });
   const hasProxyProviders = Boolean(
     options.proxyProviders && Object.keys(options.proxyProviders).length > 0
@@ -402,10 +433,14 @@ export function formatSubscription(
   options: FormatSubscriptionOptions = {}
 ): SubscriptionSummary {
   const secrets = readSubscriptionSecrets(row);
-  const subscriptionUrl = buildLocalSubscriptionUrl(row.token, options.appUrl);
+  const profileType = normalizeSubscriptionProfileType(secrets.config.profileType);
+  const subscriptionUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, profileType);
+  const yamlUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "clash");
+  const surgeUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "surge");
   return serializeSubscriptionSummaryData(row, secrets, {
     subscriptionUrl,
-    yamlUrl: subscriptionUrl,
+    yamlUrl,
+    surgeUrl,
     dateMode: "iso",
     includeCounts: true,
     includeFailureSourceState: false,
@@ -418,10 +453,14 @@ export function formatSubscriptionDetail(
   options: FormatSubscriptionOptions = {}
 ): SubscriptionDetail {
   const secrets = readSubscriptionSecrets(row);
-  const subscriptionUrl = buildLocalSubscriptionUrl(row.token, options.appUrl);
+  const profileType = normalizeSubscriptionProfileType(secrets.config.profileType);
+  const subscriptionUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, profileType);
+  const yamlUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "clash");
+  const surgeUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "surge");
   return serializeSubscriptionDetailData(row, secrets, {
     subscriptionUrl,
-    yamlUrl: subscriptionUrl,
+    yamlUrl,
+    surgeUrl,
     dateMode: "iso",
     includeCounts: true,
     includeFailureSourceState: false,
@@ -743,6 +782,7 @@ export async function generateSubscriptionYaml(token: string): Promise<Generated
   if (!row) return null;
   const secrets = readSubscriptionSecrets(row);
   const config = secrets.config;
+  if (normalizeSubscriptionProfileType(config.profileType) !== "clash") return null;
   const exposeSubscriptionUserInfo = secrets.config.exposeSubscriptionUserInfo !== false;
   const { testUrl, testInterval } = getEffectiveTestOptions(config);
   const proxyProviders = buildProxyProvidersFromConfig(config, { testUrl, testInterval });
@@ -761,6 +801,33 @@ export async function generateSubscriptionYaml(token: string): Promise<Generated
     cacheExpirySeconds: CACHE_TTL_SECONDS,
     autoUpdateIntervalSeconds: row.autoUpdateInterval,
     isAdmin: true,
+  };
+}
+
+export async function generateSurgeSubscription(token: string): Promise<GeneratedSurgeSubscription | null> {
+  const row = await prisma.subscription.findUnique({ where: { token }, include: { autoUpdateState: true } });
+  if (!row) return null;
+
+  const secrets = readSubscriptionSecrets(row);
+  if (normalizeSubscriptionProfileType(secrets.config.profileType) !== "surge") return null;
+  if (secrets.nodes.length === 0) return null;
+
+  const output = generateSurgeProfile({
+    nodes: secrets.nodes,
+    config: normalizeSurgeConfig(secrets.config.surgeConfig),
+  });
+  if (output.proxyCount === 0) return null;
+
+  await prisma.subscription.update({ where: { id: row.id }, data: { lastAccessedAt: new Date() } });
+  return {
+    content: output.content,
+    name: row.name,
+    subscriptionInfo: secrets.config.exposeSubscriptionUserInfo !== false ? secrets.subscriptionInfo : {},
+    cacheExpirySeconds: CACHE_TTL_SECONDS,
+    autoUpdateIntervalSeconds: row.autoUpdateInterval,
+    isAdmin: true,
+    nodeCount: output.proxyCount,
+    skippedNodeCount: output.skippedNodes.length,
   };
 }
 

@@ -1,8 +1,10 @@
 import { generateClashYaml } from "@subboost/core/generator";
+import { generateSurgeConfig, normalizeSurgeConfig } from "@subboost/core/surge";
 import {
   buildGenerateOptionsFromConfig,
   getEffectiveTestOptions,
 } from "@subboost/core/subscription/config-utils";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
 import { resolveNodeNameFilter } from "@subboost/core/subscription/node-name-filter";
 import type { ParsedNode } from "@subboost/core/types/node";
@@ -86,12 +88,18 @@ export function prepareRefreshCacheResult(params: {
     };
   }
 
-  const generatedYaml = generateClashYaml(
-    buildGenerateOptionsFromConfig(params.config, {
-      nodes: params.snapshot.nodes,
-      proxyProviders,
-    })
-  );
+  const generatedYaml =
+    normalizeSubscriptionProfileType(params.config.profileType) === "surge"
+      ? generateSurgeConfig({
+          nodes: nodeNameFilterResult.effectiveNodes,
+          config: normalizeSurgeConfig(params.config.surgeConfig),
+        })
+      : generateClashYaml(
+          buildGenerateOptionsFromConfig(params.config, {
+            nodes: params.snapshot.nodes,
+            proxyProviders,
+          })
+        );
 
   return {
     ok: true,

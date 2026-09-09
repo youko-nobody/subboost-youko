@@ -1,9 +1,13 @@
 import type { ConfigActions } from "../definitions";
 import { parseNodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
+import { normalizeSurgeConfig } from "@subboost/core/surge";
 import type { GetState, SetAndGenerateConfig, SetState } from "../store-types";
 
 type SettingsActions = Pick<
   ConfigActions,
+  | "setProfileType"
+  | "setSurgeConfig"
   | "setDnsYaml"
   | "setMixedPort"
   | "setAllowLan"
@@ -24,6 +28,19 @@ export function createSettingsActions(
   setAndGenerateConfig: SetAndGenerateConfig
 ): SettingsActions {
   return {
+    setProfileType: (profileType) => {
+      setAndGenerateConfig(() => ({ profileType: normalizeSubscriptionProfileType(profileType) }));
+    },
+
+    setSurgeConfig: (config) => {
+      setAndGenerateConfig((state) => ({
+        surgeConfig: normalizeSurgeConfig({
+          ...state.surgeConfig,
+          ...(config && typeof config === "object" ? config : {}),
+        }),
+      }));
+    },
+
     setDnsYaml: (yaml: string) => {
       setAndGenerateConfig(() => ({ dnsYaml: yaml }));
     },

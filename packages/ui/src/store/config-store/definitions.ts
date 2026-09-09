@@ -24,6 +24,11 @@ import {
   DEFAULT_NODE_NAME_FILTER_CONFIG,
   type NodeNameFilterConfig,
 } from "@subboost/core/subscription/node-name-filter";
+import {
+  normalizeSubscriptionProfileType,
+  type SubscriptionProfileType,
+} from "@subboost/core/subscription/profile-type";
+import { createDefaultSurgeConfig, type SurgeConfig } from "@subboost/core/surge";
 import { getActiveProductApiAdapter } from "@subboost/ui/product/api-adapter";
 import {
   getNodeSourceIds,
@@ -40,6 +45,8 @@ export type RuleSetDraft = Omit<CustomRuleSet, "target">;
 export type { BuiltinRuleEdits, CustomRuleSet, GroupListenerBinding, GroupListenerTarget, ProxyGroupAdvancedConfig };
 export type { DialerProxyGroup, SubBoostTemplateConfig } from "@subboost/core/types/template-config";
 export type { NodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
+export type { SubscriptionProfileType } from "@subboost/core/subscription/profile-type";
+export type { SurgeConfig } from "@subboost/core/surge";
 
 export type ConfigHistoryEntry =
   | string
@@ -185,6 +192,7 @@ export interface ConfigState {
   sources: SubscriptionSource[];
 
   // 配置选项
+  profileType: SubscriptionProfileType;
   template: TemplateType;
   enabledProxyGroups: string[];
   hiddenProxyGroups: string[]; // 隐藏的内置代理组（仅影响 UI，不参与生成）
@@ -226,6 +234,7 @@ export interface ConfigState {
   exposeSubscriptionUserInfo: boolean;
   cnIpNoResolve: boolean;
   experimentalCnUseCnRuleSet: boolean;
+  surgeConfig: SurgeConfig;
 
   // 节点监听端口（用于生成 listeners）
   listenerPorts: Record<string, number>;
@@ -261,6 +270,8 @@ export interface ConfigActions {
   setNodeNameFilter: (config: NodeNameFilterConfig) => void;
 
   // 模板和配置
+  setProfileType: (profileType: SubscriptionProfileType) => void;
+  setSurgeConfig: (config: SurgeConfig | Partial<SurgeConfig>) => void;
   setTemplate: (template: TemplateType) => void;
   setEnabledProxyGroups: (groups: string[]) => void;
   toggleProxyGroup: (groupId: string) => void;
@@ -368,6 +379,7 @@ export const initialState: ConfigState = {
     { id: "3", type: "nodes", content: "" },
   ],
   // 默认从空白配置开始，内置策略组和规则由用户自行启用或添加。
+  profileType: normalizeSubscriptionProfileType("clash"),
   template: "blank",
   enabledProxyGroups: TEMPLATES.blank.groups,
   hiddenProxyGroups: [],
@@ -393,6 +405,7 @@ export const initialState: ConfigState = {
   exposeSubscriptionUserInfo: true,
   cnIpNoResolve: DEFAULT_SUBBOOST_CONFIG.cnIpNoResolve,
   experimentalCnUseCnRuleSet: false,
+  surgeConfig: createDefaultSurgeConfig(),
   listenerPorts: {},
   groupListeners: [],
   generatedYaml: "",

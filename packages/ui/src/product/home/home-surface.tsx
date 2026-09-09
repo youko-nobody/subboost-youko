@@ -52,6 +52,8 @@ type Props = {
 function HomeSurfaceInner({ adapter }: Props) {
   const {
     nodes,
+    profileType,
+    setProfileType,
     deletedNodeNames,
     deletedNodes,
     generatedYaml,
@@ -84,6 +86,7 @@ function HomeSurfaceInner({ adapter }: Props) {
     appliedTemplateId,
     exposeSubscriptionUserInfo,
     setExposeSubscriptionUserInfo,
+    surgeConfig,
   } = useConfigStore();
   const { user, fetchUser, clearUser } = useUserStore();
   const userId = user?.id ?? null;
@@ -102,6 +105,7 @@ function HomeSurfaceInner({ adapter }: Props) {
     clearUser,
     subscriptionAdapter: adapter?.subscription,
     generatedYaml,
+    profileType,
     editingSubscription,
     setEditingSubscription,
     appliedTemplateId,
@@ -130,6 +134,7 @@ function HomeSurfaceInner({ adapter }: Props) {
     testInterval,
     cnIpNoResolve,
     experimentalCnUseCnRuleSet,
+    surgeConfig,
   });
   const { setSubscriptionName, setSubscriptionUrl, setCopied } = subscription;
 
@@ -212,6 +217,8 @@ function HomeSurfaceInner({ adapter }: Props) {
       editSubscriptionId={editSubscriptionId}
       generatedYaml={generatedYaml}
       generatedYamlError={generatedYamlError}
+      profileType={profileType}
+      setProfileType={setProfileType}
       configLoading={configLoading}
       hasValidSources={hasValidSources}
       handleGenerate={handleGenerate}

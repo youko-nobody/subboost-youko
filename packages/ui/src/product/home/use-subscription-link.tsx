@@ -7,6 +7,8 @@ import {
   getNodeSourceIds,
   type SubscriptionSource,
   type DialerProxyGroup,
+  type SubscriptionProfileType,
+  type SurgeConfig,
 } from "@subboost/ui/store/config-store";
 import type {
   BuiltinRuleEdits,
@@ -36,6 +38,8 @@ import {
 import type { NodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
 import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/url-input";
 import { buildV2RaySubscriptionUrl } from "@subboost/core/subscription/v2ray-subscription";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
+import { normalizeSurgeConfig } from "@subboost/core/surge";
 import { DEFAULT_NODE_NAME_TEMPLATE } from "@subboost/core/node-name-template";
 import { formatDateInBeijing } from "@subboost/core/time/beijing";
 import {
@@ -51,6 +55,7 @@ type EditingSubscription = {
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
   updateLockEnabled: boolean;
+  profileType?: SubscriptionProfileType;
 };
 
 export type HomeSubscriptionSaveInput = {
@@ -73,6 +78,7 @@ type Options = {
   clearUser: () => void;
   subscriptionAdapter?: HomeSubscriptionAdapter;
   generatedYaml: string;
+  profileType: SubscriptionProfileType;
   editingSubscription: EditingSubscription | null;
   setEditingSubscription: (subscription: EditingSubscription | null) => void;
   appliedTemplateId: string | null;
@@ -101,6 +107,7 @@ type Options = {
   testInterval: number;
   cnIpNoResolve: boolean;
   experimentalCnUseCnRuleSet: boolean;
+  surgeConfig: SurgeConfig;
 };
 
 export function useSubscriptionLink({
@@ -110,6 +117,7 @@ export function useSubscriptionLink({
   clearUser,
   subscriptionAdapter,
   generatedYaml,
+  profileType,
   editingSubscription,
   setEditingSubscription,
   appliedTemplateId,
@@ -138,6 +146,7 @@ export function useSubscriptionLink({
   testInterval,
   cnIpNoResolve,
   experimentalCnUseCnRuleSet,
+  surgeConfig,
 }: Options) {
   const autoUpdatePolicy = React.useMemo(
     () =>
@@ -202,10 +211,11 @@ export function useSubscriptionLink({
       ? Math.max(autoUpdatePolicy.minHours, autoUpdateIntervalSecondsToHours(currentAutoUpdateInterval))
       : autoUpdatePolicy.defaultHours;
 
+    const resolvedProfileType = normalizeSubscriptionProfileType(profileType);
     setSubscriptionName(
       isEditingExistingSubscription
         ? editingSubscription?.name || ""
-        : `我的配置 ${formatDateInBeijing(new Date())}`
+        : `${resolvedProfileType === "surge" ? "Surge 配置" : "我的配置"} ${formatDateInBeijing(new Date())}`
     );
     setAutoUpdateEnabled(nextAutoUpdateEnabled);
     setAutoUpdateHours(nextAutoUpdateHours);
@@ -213,7 +223,7 @@ export function useSubscriptionLink({
     setUpdateLockEnabled(editingSubscription?.updateLockEnabled !== false);
     setSubscriptionUrl("");
     setSubscriptionDialog(true);
-  }, [autoUpdatePolicy.defaultHours, autoUpdatePolicy.minHours, editingSubscription, isEditingExistingSubscription]);
+  }, [autoUpdatePolicy.defaultHours, autoUpdatePolicy.minHours, editingSubscription, isEditingExistingSubscription, profileType]);
 
   // 打开订阅链接对话框
   const handleGenerateSubscription = React.useCallback((mode: ProductMode) => {
@@ -341,6 +351,7 @@ export function useSubscriptionLink({
           ...(hasSubscriptionInfo ? { subscriptionInfo } : {}),
           // 订阅链接存储“结构化配置 + 节点列表”用于生成配置
           config: {
+            profileType: normalizeSubscriptionProfileType(profileType),
             template,
             appliedTemplateId,
             smartNodeMatchingEnabled,
@@ -419,6 +430,7 @@ export function useSubscriptionLink({
             testInterval,
             cnIpNoResolve,
             experimentalCnUseCnRuleSet,
+            surgeConfig: normalizeSurgeConfig(surgeConfig),
             autoSelectStrategy: "url-test",
           },
         };
@@ -464,6 +476,7 @@ export function useSubscriptionLink({
             autoUpdateInterval: nextAutoUpdateInterval,
             smartNodeMatchingEnabled,
             updateLockEnabled,
+            profileType: normalizeSubscriptionProfileType(profileType),
           });
         }
         trackSubscriptionMutation("success");
@@ -507,11 +520,13 @@ export function useSubscriptionLink({
     moduleRuleEditWarningAccepted,
     nodes,
     proxyGroupNameOverrides,
+    profileType,
     ruleProviderBaseUrl,
     setEditingSubscription,
     smartNodeMatchingEnabled,
     updateLockEnabled,
     storeSources,
+    surgeConfig,
     subscriptionName,
     subscriptionAdapter,
     template,
@@ -538,8 +553,11 @@ export function useSubscriptionLink({
   }, [interactions, isEditingExistingSubscription, subscriptionFlowMode, subscriptionUrl]);
 
   const v2raySubscriptionUrl = React.useMemo(
-    () => (subscriptionUrl ? buildV2RaySubscriptionUrl(subscriptionUrl) : ""),
-    [subscriptionUrl]
+    () =>
+      normalizeSubscriptionProfileType(profileType) === "clash" && subscriptionUrl
+        ? buildV2RaySubscriptionUrl(subscriptionUrl)
+        : "",
+    [profileType, subscriptionUrl]
   );
 
   const handleCopyV2RayUrl = React.useCallback(async () => {

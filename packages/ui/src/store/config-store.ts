@@ -38,7 +38,9 @@ export type {
   RuleSetDraft,
   SourceType,
   SubBoostTemplateConfig,
+  SubscriptionProfileType,
   SubscriptionSource,
+  SurgeConfig,
 } from "./config-store/definitions";
 export type { CustomProxyGroup } from "@subboost/core/types/config";
 

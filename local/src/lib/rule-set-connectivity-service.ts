@@ -2,7 +2,9 @@ import { generateClashConfig } from "@subboost/core/generator";
 import { PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
 import { EXPERIMENTAL_CN_RULE } from "@subboost/core/generator/rules";
 import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboost/core/subscription/config-utils";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
+import { normalizeSurgeConfig } from "@subboost/core/surge";
 import type { ParsedNode } from "@subboost/core/types/node";
 import { SUBSCRIPTION_IMPORT_USER_AGENTS } from "@subboost/server-core/subscription";
 import { createMyRoutingTemplateParts } from "@subboost/core/templates/my-routing-template";
@@ -102,6 +104,20 @@ export function collectGeneratedRuleSetProviders(params: {
   config: Record<string, unknown>;
   nodes: ParsedNode[];
 }): RuleSetConnectivityItem[] {
+  if (normalizeSubscriptionProfileType(params.config.profileType) === "surge") {
+    const surgeConfig = normalizeSurgeConfig(params.config.surgeConfig);
+    return surgeConfig.ruleSets
+      .filter((ruleSet) => ruleSet.enabled !== false)
+      .map((ruleSet) => ({
+        id: ruleSet.id,
+        name: ruleSet.name,
+        source: "custom" as const,
+        url: ruleSet.url,
+        result: ruleSet.url ? "failed" as const : "skipped" as const,
+        ...(ruleSet.url ? {} : { error: "规则集没有生成 URL" }),
+      }));
+  }
+
   const { testUrl, testInterval } = getEffectiveTestOptions(params.config);
   const proxyProviders = buildProxyProvidersFromConfig(params.config, { testUrl, testInterval });
   const generated = generateClashConfig(

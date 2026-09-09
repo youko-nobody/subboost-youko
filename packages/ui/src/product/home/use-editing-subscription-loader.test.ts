@@ -309,6 +309,7 @@ describe("useEditingSubscriptionLoader", () => {
       token: "token-1",
       name: "Saved",
       autoUpdateInterval: 7200,
+      profileType: "clash",
       smartNodeMatchingEnabled: false,
       updateLockEnabled: true,
     });

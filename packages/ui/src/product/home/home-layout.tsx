@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Eye,
   Loader2,
+  Orbit,
   Server,
   Settings2,
   Upload,
@@ -18,6 +19,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@subboost/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@subboost/ui/components/ui/tabs";
 import { QuickMode } from "@subboost/ui/product/converter/quick-mode";
 import { AdvancedMode } from "@subboost/ui/product/converter/advanced-mode";
+import { SurgeMode } from "@subboost/ui/product/converter/surge-mode";
 import { UnsavedPrompt } from "@subboost/ui/product/home/unsaved-prompt";
 import { VisualGraph } from "@subboost/ui/product/preview/visual-graph";
 import { YamlHighlight } from "@subboost/ui/product/preview/diff-highlight";
@@ -27,6 +29,7 @@ import { useProductInteractionAdapter, type ProductMode } from "@subboost/ui/pro
 import { cn } from "@subboost/ui/lib/utils";
 import type { User } from "@subboost/ui/store/user-store";
 import type { AutoUpdateIntervalPolicy } from "@subboost/core/subscription/auto-update-interval";
+import type { SubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 
 type EditingSubscription = {
   id: string;
@@ -35,6 +38,7 @@ type EditingSubscription = {
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
   updateLockEnabled: boolean;
+  profileType?: SubscriptionProfileType;
 };
 
 type SubscriptionLinkState = {
@@ -79,6 +83,8 @@ type Props = {
 
   generatedYaml: string;
   generatedYamlError: string | null;
+  profileType: SubscriptionProfileType;
+  setProfileType: (profileType: SubscriptionProfileType) => void;
   configLoading: boolean;
   hasValidSources: boolean;
 
@@ -110,6 +116,8 @@ export function HomeLayout({
   editSubscriptionId,
   generatedYaml,
   generatedYamlError,
+  profileType,
+  setProfileType,
   configLoading,
   hasValidSources,
   handleGenerate,
@@ -122,24 +130,33 @@ export function HomeLayout({
   templateUploadHref = "/templates?upload=1",
   onTemplateUploadOpen,
 }: Props) {
-  const [configTab, setConfigTab] = React.useState<"quick" | "advanced">(editSubscriptionId ? "advanced" : "quick");
+  const [configTab, setConfigTab] = React.useState<ProductMode>(profileType === "surge" ? "surge" : editSubscriptionId ? "advanced" : "quick");
+  const [previewTab, setPreviewTab] = React.useState<"config" | "visual">("visual");
   const interactions = useProductInteractionAdapter();
 
   React.useEffect(() => {
-    if (!editSubscriptionId) return;
-    setConfigTab("advanced");
-  }, [editSubscriptionId]);
+    if (profileType === "surge") {
+      setConfigTab("surge");
+      setPreviewTab("config");
+      return;
+    }
+    if (editSubscriptionId) setConfigTab("advanced");
+  }, [editSubscriptionId, profileType]);
 
   const handleConfigTabChange = React.useCallback((value: string) => {
-    const nextMode: ProductMode = value === "advanced" ? "advanced" : "quick";
+    const nextMode: ProductMode = value === "surge" ? "surge" : value === "advanced" ? "advanced" : "quick";
     setConfigTab(nextMode);
+    setProfileType(nextMode === "surge" ? "surge" : "clash");
+    if (nextMode === "surge") setPreviewTab("config");
     interactions.modeChanged?.({ mode: nextMode });
-  }, [interactions]);
+  }, [interactions, setProfileType]);
+
+  const isSurgeMode = profileType === "surge";
 
   return (
     <div className="w-full max-w-[clamp(1200px,95vw,2400px)] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3 lg:py-5 [@media(max-height:1000px)]:py-3 min-h-[calc(100vh-64px)] flex flex-col">
       {renderAnnouncement?.({
-        placement: configTab === "advanced" ? "advanced" : "home",
+        placement: configTab === "advanced" || configTab === "surge" ? "advanced" : "home",
         authChecked,
         user,
       })}
@@ -152,7 +169,7 @@ export function HomeLayout({
           </span>
         </h1>
         <p className="text-white/50 max-w-2xl mx-auto leading-snug text-[clamp(0.75rem,1vw,0.95rem)] [@media(max-height:1000px)]:text-[0.875rem]">
-          Clash 订阅转换、生成与管理服务，支持链式代理、智能分流、多协议和多订阅聚合
+          Clash / Surge 订阅转换、生成与管理服务，支持链式代理、智能分流、多协议和多订阅聚合
         </p>
         {deployGuideHref && (
           <div className="mt-2 flex justify-center">
@@ -210,7 +227,11 @@ export function HomeLayout({
                     </TabsTrigger>
                     <TabsTrigger value="advanced" className={cn(artisticTabsTriggerClassName, "min-w-[7rem]")}>
                       <Settings2 className={artisticTabsIconClassName} />
-                      高级模式
+                      Clash 高级
+                    </TabsTrigger>
+                    <TabsTrigger value="surge" className={cn(artisticTabsTriggerClassName, "min-w-[7rem]")}>
+                      <Orbit className={artisticTabsIconClassName} />
+                      Surge
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -227,6 +248,12 @@ export function HomeLayout({
                   className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0 lg:overflow-y-auto custom-scrollbar lg:pr-1"
                 >
                   <AdvancedMode />
+                </TabsContent>
+                <TabsContent
+                  value="surge"
+                  className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0 lg:overflow-y-auto custom-scrollbar lg:pr-1"
+                >
+                  <SurgeMode />
                 </TabsContent>
               </CardContent>
               <CardFooter className="justify-center gap-2 flex-shrink-0 pt-3 flex-row flex-wrap">
@@ -271,7 +298,7 @@ export function HomeLayout({
             showAiColumn ? "lg:col-span-4 xl:col-span-4" : "lg:col-span-6 xl:col-span-6"
           } flex flex-col gap-3 min-h-0 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
         >
-          <Tabs defaultValue="visual" className={`w-full flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
+          <Tabs value={previewTab} onValueChange={(value) => setPreviewTab(value === "visual" ? "visual" : "config")} className={`w-full flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
             <Card className={`w-full flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
               <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -280,24 +307,24 @@ export function HomeLayout({
                     预览
                   </CardTitle>
                   <TabsList className="h-8">
-                    <TabsTrigger value="yaml" className="text-xs px-3 h-6">
-                      YAML
+                    <TabsTrigger value="config" className="text-xs px-3 h-6">
+                      {isSurgeMode ? "CONF" : "YAML"}
                     </TabsTrigger>
-                    <TabsTrigger value="visual" className="text-xs px-3 h-6">
+                    <TabsTrigger value="visual" disabled={isSurgeMode} className="text-xs px-3 h-6">
                       可视化
                     </TabsTrigger>
                   </TabsList>
                 </div>
               </CardHeader>
               <CardContent className={`pt-0 relative lg:flex-1 lg:overflow-hidden ${DESKTOP_PANEL_CONTENT_MIN_HEIGHT_CLASS}`}>
-                <TabsContent value="yaml" className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0">
+                <TabsContent value="config" className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0">
                   <div className="h-[clamp(420px,70vh,820px)] lg:h-full rounded-xl bg-white/5 border border-white/10 overflow-auto custom-scrollbar">
                     {generatedYamlError ? (
                       <div className="h-full p-4 text-sm text-rose-200">
                         <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">
                           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-300" />
                           <div>
-                            <div className="font-medium text-rose-100">基础和 DNS 配置有错误</div>
+                            <div className="font-medium text-rose-100">{isSurgeMode ? "Surge 配置有错误" : "基础和 DNS 配置有错误"}</div>
                             <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-rose-100/90">
                               {generatedYamlError}
                             </pre>
@@ -308,7 +335,18 @@ export function HomeLayout({
                       <YamlHighlight content={generatedYaml} className="h-full" />
                     ) : (
                       <pre className="p-4 font-mono text-xs text-white/60 whitespace-pre">
-                        {`# 请先添加订阅或节点
+                        {isSurgeMode ? `# 请先添加订阅或节点
+# Surge 配置将在此处预览
+
+# 示例配置结构:
+# [Proxy]
+#   节点 = ss, example.com, 443, encrypt-method=..., password=...
+#
+# [Proxy Group]
+#   PROXY = select, 香港 Smart, DIRECT, REJECT
+#
+# [Rule]
+#   FINAL,PROXY` : `# 请先添加订阅或节点
 # 配置将在此处预览
 
 # 示例配置结构:
@@ -342,7 +380,7 @@ export function HomeLayout({
                   onClick={() => handleDownload(configTab)}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  下载配置
+                  {isSurgeMode ? "下载 Surge 配置" : "下载配置"}
                 </Button>
                 <Button
                   className="h-10"
@@ -394,6 +432,7 @@ export function HomeLayout({
         onOpenChange={subscription.setSubscriptionDialog}
         subscriptionUrl={subscription.subscriptionUrl}
         v2raySubscriptionUrl={subscription.v2raySubscriptionUrl}
+        profileType={profileType}
         subscriptionName={subscription.subscriptionName}
         setSubscriptionName={subscription.setSubscriptionName}
         autoUpdateEnabled={subscription.autoUpdateEnabled}

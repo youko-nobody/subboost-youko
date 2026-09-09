@@ -11,6 +11,8 @@ import { normalizeRuleModelFromConfig } from "@subboost/core/rules/rule-model";
 import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
 import { resolveProxyGroupAdvancedModeEnabled } from "@subboost/core/proxy-group-advanced-mode";
 import { normalizeProxyGroupAdvancedConfig } from "@subboost/core/proxy-group-advanced";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
+import { normalizeSurgeConfig } from "@subboost/core/surge";
 import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/url-input";
 import {
   hasSubscriptionUserInfo,
@@ -91,6 +93,7 @@ export function useEditingSubscriptionLoader({
           return out;
         })();
         const cfg = sub.config && typeof sub.config === "object" ? (sub.config as Record<string, unknown>) : {};
+        const profileTypeFromCfg = normalizeSubscriptionProfileType((cfg as any).profileType);
         const subscriptionInfoFromRecord = normalizeSubscriptionUserInfo((sub as any).subscriptionInfo);
         const hasSubscriptionInfoFromRecord = hasSubscriptionUserInfo(subscriptionInfoFromRecord);
         const deletedNodesFromCfg = Array.isArray((cfg as any).deletedNodes)
@@ -551,6 +554,7 @@ export function useEditingSubscriptionLoader({
 
         useConfigStore.setState((state) => ({
           ...state,
+          profileType: profileTypeFromCfg,
           nodes: hydratedNodes,
           deletedNodeNames: deletedNodeNamesMerged.length > 0 ? deletedNodeNamesMerged : state.deletedNodeNames,
           deletedNodes:
@@ -602,6 +606,7 @@ export function useEditingSubscriptionLoader({
             typeof (cfg as any).experimentalCnUseCnRuleSet === "boolean"
               ? Boolean((cfg as any).experimentalCnUseCnRuleSet)
               : state.experimentalCnUseCnRuleSet,
+          surgeConfig: normalizeSurgeConfig((cfg as any).surgeConfig),
         }));
 
         useConfigStore.getState().generateConfig();
@@ -620,6 +625,7 @@ export function useEditingSubscriptionLoader({
             autoUpdateInterval,
             smartNodeMatchingEnabled: (cfg as any).smartNodeMatchingEnabled !== false,
             updateLockEnabled: (cfg as any).updateLockEnabled !== false,
+            profileType: profileTypeFromCfg,
           });
           setSubscriptionName(sub.name || "");
           setSubscriptionUrl("");

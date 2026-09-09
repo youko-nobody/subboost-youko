@@ -1,5 +1,7 @@
 import { generateClashYaml } from "@subboost/core/generator";
+import { generateSurgeConfig } from "@subboost/core/surge";
 import { stripImportedNodeControlFieldsFromList } from "@subboost/core/subscription/imported-node-controls";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { resolveNodeNameFilter } from "@subboost/core/subscription/node-name-filter";
 import type { ParsedNode } from "@subboost/core/types/node";
 import type { ConfigState } from "./definitions";
@@ -92,6 +94,15 @@ export function computeGeneratedYamlResult(state: ConfigState): GeneratedYamlRes
 
   try {
     const { effectiveNodes } = resolveNodeNameFilter(state.nodes, state.nodeNameFilter);
+    if (normalizeSubscriptionProfileType(state.profileType) === "surge") {
+      const hasPreviewContent = effectiveNodes.length > 0;
+      const content = generateSurgeConfig({
+        nodes: stripImportedNodeControlFieldsFromList(effectiveNodes),
+        config: state.surgeConfig,
+      });
+      return { yaml: hasPreviewContent ? content : "", error: null };
+    }
+
     const hasPreviewContent = effectiveNodes.length > 0 || Boolean(proxyProviders);
     const yaml = generateClashYaml(
       buildGenerateClashYamlOptions(state, proxyProviders, effectiveNodes)

@@ -5,6 +5,8 @@ import { ensureCustomRulesHaveIds } from "@subboost/core/rules/custom-rule-utils
 import { normalizeRuleModelFromConfig } from "@subboost/core/rules/rule-model";
 import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
 import { normalizeNodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
+import { normalizeSurgeConfig } from "@subboost/core/surge";
 import {
   DEFAULT_LOAD_BALANCE_STRATEGY,
   isLoadBalanceStrategy,
@@ -17,7 +19,7 @@ export {
   getConfigDraftStorageNameForUser,
 } from "./draft-storage";
 
-export const CONFIG_DRAFT_STORAGE_VERSION = 10;
+export const CONFIG_DRAFT_STORAGE_VERSION = 11;
 
 type ConfigDraftStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -147,6 +149,7 @@ export function normalizePersistedConfigState(
           : undefined;
 
   return {
+    profileType: normalizeSubscriptionProfileType(state.profileType),
     ...(template ? { template } : {}),
     ...(Array.isArray(state.enabledProxyGroups)
       ? { enabledProxyGroups: state.enabledProxyGroups.filter((item): item is string => typeof item === "string") }
@@ -175,11 +178,13 @@ export function normalizePersistedConfigState(
     nodeNameFilter: normalizeNodeNameFilterConfig(state.nodeNameFilter),
     cnIpNoResolve: typeof state.cnIpNoResolve === "boolean" ? state.cnIpNoResolve : true,
     ...(experimentalCnUseCnRuleSet !== undefined ? { experimentalCnUseCnRuleSet } : {}),
+    surgeConfig: normalizeSurgeConfig(state.surgeConfig),
   } as Partial<ConfigState>;
 }
 
 export function partializeConfigState(state: ConfigState): Partial<ConfigState> {
   return {
+    profileType: state.profileType,
     template: state.template,
     enabledProxyGroups: state.enabledProxyGroups,
     hiddenProxyGroups: state.hiddenProxyGroups,
@@ -203,6 +208,7 @@ export function partializeConfigState(state: ConfigState): Partial<ConfigState> 
     nodeNameFilter: normalizeNodeNameFilterConfig(state.nodeNameFilter),
     cnIpNoResolve: state.cnIpNoResolve,
     experimentalCnUseCnRuleSet: state.experimentalCnUseCnRuleSet,
+    surgeConfig: normalizeSurgeConfig(state.surgeConfig),
   };
 }
 

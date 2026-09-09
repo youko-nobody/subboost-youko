@@ -52,7 +52,9 @@ vi.mock("lucide-react", () => ({
   Download: () => React.createElement("span", null, "download-icon"),
   ExternalLink: () => React.createElement("span", null, "external-icon"),
   Eye: () => React.createElement("span", null, "eye-icon"),
+  Link2: () => React.createElement("span", null, "link2-icon"),
   Loader2: () => React.createElement("span", null, "loader-icon"),
+  Orbit: () => React.createElement("span", null, "orbit-icon"),
   Server: () => React.createElement("span", null, "server-icon"),
   Settings2: () => React.createElement("span", null, "settings-icon"),
   Upload: () => React.createElement("span", null, "upload-icon"),
@@ -90,6 +92,10 @@ vi.mock("@subboost/ui/product/converter/quick-mode", () => ({
 
 vi.mock("@subboost/ui/product/converter/advanced-mode", () => ({
   AdvancedMode: () => React.createElement("div", null, "advanced-mode"),
+}));
+
+vi.mock("@subboost/ui/product/converter/surge-mode", () => ({
+  SurgeMode: () => React.createElement("div", null, "surge-mode"),
 }));
 
 vi.mock("@subboost/ui/product/home/unsaved-prompt", () => ({
@@ -170,6 +176,7 @@ const baseProps = {
   hasValidSources: false,
   handleGenerate: vi.fn(),
   handleDownload: vi.fn(),
+  setProfileType: vi.fn(),
   subscription: createSubscription(),
 };
 
@@ -206,6 +213,7 @@ describe("HomeLayout", () => {
     expect(html).toContain("SubBoost");
     expect(html).toContain("quick-mode");
     expect(html).toContain("advanced-mode");
+    expect(html).toContain("surge-mode");
     expect(html).toContain("visual-graph");
     expect(html).toContain("VPS 部署教程");
     expect(html).toContain("# 请先添加订阅或节点");

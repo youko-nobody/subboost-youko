@@ -5,6 +5,8 @@ import { normalizeNodeNameFilterConfig } from "@subboost/core/subscription/node-
 import { resolveProxyGroupAdvancedModeEnabled } from "@subboost/core/proxy-group-advanced-mode";
 import { normalizeRuleModelFromConfig } from "@subboost/core/rules/rule-model";
 import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
+import { normalizeSurgeConfig } from "@subboost/core/surge";
 
 export const AUTH_CONFIG_HANDOFF_STORAGE_NAME = "subboost-auth-config-handoff";
 
@@ -118,6 +120,8 @@ function sameStringArray(a: string[], b: string[]): boolean {
 function hasMeaningfulConfig(state: ConfigState): boolean {
   return (
     state.sources.some((source) => source.content.trim()) ||
+    state.profileType !== initialState.profileType ||
+    JSON.stringify(normalizeSurgeConfig(state.surgeConfig)) !== JSON.stringify(normalizeSurgeConfig(initialState.surgeConfig)) ||
     state.nodes.length > 0 ||
     state.nodeNameFilter.enabled ||
     state.nodeNameFilter.excludeRegexes.length > 0 ||
@@ -154,8 +158,15 @@ function hasMeaningfulConfig(state: ConfigState): boolean {
 }
 
 function buildHandoffState(state: ConfigState): Partial<ConfigState> {
+  const includeSurgeConfig =
+    state.profileType === "surge" ||
+    JSON.stringify(normalizeSurgeConfig(state.surgeConfig)) !==
+      JSON.stringify(normalizeSurgeConfig(initialState.surgeConfig));
+
   return {
     sources: sourceArray(state.sources) ?? [],
+    ...(state.profileType === "surge" ? { profileType: "surge" as const } : {}),
+    ...(includeSurgeConfig ? { surgeConfig: normalizeSurgeConfig(state.surgeConfig) } : {}),
     nodes: state.nodes,
     nodeNameFilter: normalizeNodeNameFilterConfig(state.nodeNameFilter),
     deletedNodeNames: state.deletedNodeNames,
@@ -196,6 +207,12 @@ function normalizeHandoffState(raw: unknown): Partial<ConfigState> | null {
 
   const sources = sourceArray(raw.sources);
   if (sources) out.sources = sources;
+  if (raw.profileType === "surge") {
+    out.profileType = normalizeSubscriptionProfileType(raw.profileType);
+  }
+  if (raw.surgeConfig !== undefined) {
+    out.surgeConfig = normalizeSurgeConfig(raw.surgeConfig);
+  }
   const nodes = objectArray<ConfigState["nodes"][number]>(raw.nodes);
   if (nodes) out.nodes = nodes;
   out.nodeNameFilter = normalizeNodeNameFilterConfig(raw.nodeNameFilter);

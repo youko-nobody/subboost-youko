@@ -1,5 +1,11 @@
 import { stripImportedNodeControlFieldsFromList } from "@subboost/core/subscription/imported-node-controls";
 import { parseNodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
+import {
+  buildClashSubscriptionUrl,
+  buildSurgeSubscriptionUrl,
+  normalizeSubscriptionProfileType,
+} from "@subboost/core/subscription/profile-type";
+import { normalizeSurgeConfig } from "@subboost/core/surge";
 import { normalizeSubscriptionResponseInfo } from "@subboost/core/subscription/subscription-response-info";
 import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/url-input";
 import type { ParsedNode } from "@subboost/core/types/node";
@@ -45,6 +51,7 @@ export type SerializeSubscriptionOptions = {
   subscriptionUrl: string;
   dateMode?: "preserve" | "iso";
   yamlUrl?: string;
+  surgeUrl?: string;
   includeCounts?: boolean;
   includeFailureSourceState?: boolean;
   includeLastAttemptedAt?: boolean;
@@ -186,6 +193,18 @@ export function normalizeSubscriptionConfigForPersistence(
     baseConfig.updateLockEnabled = options.defaultUpdateLockEnabled;
   }
 
+  const hasProfileType = Object.prototype.hasOwnProperty.call(baseConfig, "profileType");
+  const hasSurgeConfig = Object.prototype.hasOwnProperty.call(baseConfig, "surgeConfig");
+  if (hasProfileType || hasSurgeConfig) {
+    const profileType = normalizeSubscriptionProfileType(baseConfig.profileType);
+    baseConfig.profileType = profileType;
+    if (profileType === "surge") {
+      baseConfig.surgeConfig = normalizeSurgeConfig(baseConfig.surgeConfig);
+    } else {
+      delete baseConfig.surgeConfig;
+    }
+  }
+
   return baseConfig;
 }
 
@@ -217,8 +236,10 @@ export function serializeSubscriptionSummaryData(
     id: subscription.id,
     name: subscription.name,
     token: subscription.token,
+    profileType: normalizeSubscriptionProfileType(secrets.config.profileType),
     subscriptionUrl: options.subscriptionUrl,
-    ...(options.yamlUrl ? { yamlUrl: options.yamlUrl } : {}),
+    yamlUrl: options.yamlUrl ?? buildClashSubscriptionUrl(options.subscriptionUrl),
+    surgeUrl: options.surgeUrl ?? buildSurgeSubscriptionUrl(options.subscriptionUrl),
     ...(options.includeCounts ? { nodeCount: secrets.nodes.length, sourceCount: sources.length } : {}),
     isPrimary: subscription.isPrimary,
     autoUpdateInterval: subscription.autoUpdateInterval ?? null,

@@ -1,8 +1,10 @@
 import yaml from "js-yaml";
 import { generateClashYaml } from "@subboost/core/generator";
+import { generateSurgeProfile, normalizeSurgeConfig, SURGE_PROXY_GROUP_TYPES, SURGE_RULE_TYPES } from "@subboost/core/surge";
 import { getModulesForTemplate, PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
 import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboost/core/subscription/config-utils";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
+import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import {
   isValidRuleSetBehaviorFormat,
   isValidRuleSetPathOrUrl,
@@ -353,11 +355,136 @@ function validateGroupListeners(
   });
 }
 
+function collectSurgePolicyTargets(config: ReturnType<typeof normalizeSurgeConfig>, nodes: ParsedNode[]) {
+  const groupIds = new Set<string>();
+  const groupNames = new Set<string>();
+  for (const group of config.regionGroups) {
+    if (group.enabled === false) continue;
+    groupIds.add(group.id);
+    groupNames.add(group.name);
+  }
+  for (const group of config.proxyGroups) {
+    if (group.enabled === false) continue;
+    groupIds.add(group.id);
+    groupNames.add(group.name);
+  }
+  return {
+    groupIds,
+    groupNames,
+    nodeNames: new Set(nodes.map((node) => toTrimmedString(node.name)).filter(Boolean)),
+  };
+}
+
+function validateSurgeTarget(
+  target: unknown,
+  label: string,
+  facts: ReturnType<typeof collectSurgePolicyTargets>,
+  errors: string[]
+) {
+  if (typeof target === "string") {
+    const name = target.trim();
+    if (!name) {
+      errors.push(`${label}缺少策略目标`);
+      return;
+    }
+    if (name !== "DIRECT" && name !== "REJECT" && !facts.groupNames.has(name) && !facts.nodeNames.has(name)) {
+      errors.push(`${label}指向不存在的策略目标「${name}」`);
+    }
+    return;
+  }
+  if (!isRecord(target)) {
+    errors.push(`${label}缺少策略目标`);
+    return;
+  }
+  if (target.kind === "direct" || target.kind === "reject") return;
+  if (target.kind === "group") {
+    const id = toTrimmedString(target.id);
+    if (!facts.groupIds.has(id)) errors.push(`${label}指向不存在或已停用的 Surge 策略组「${id || "空"}」`);
+    return;
+  }
+  if (target.kind === "node") {
+    const name = toTrimmedString(target.name);
+    if (!facts.nodeNames.has(name)) errors.push(`${label}指向不存在的节点「${name || "空"}」`);
+    return;
+  }
+  errors.push(`${label}策略目标类型无效`);
+}
+
+function validateSurgeSubscriptionConfig(params: {
+  nodes: ParsedNode[];
+  config: Record<string, unknown>;
+}): SubscriptionConfigValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const surgeConfig = normalizeSurgeConfig(params.config.surgeConfig);
+  const facts = collectSurgePolicyTargets(surgeConfig, params.nodes);
+  const groupIds: string[] = [];
+  const groupNames: string[] = [];
+
+  for (const group of [...surgeConfig.regionGroups, ...surgeConfig.proxyGroups]) {
+    groupIds.push(group.id);
+    if (group.enabled !== false) groupNames.push(group.name);
+    if (!SURGE_PROXY_GROUP_TYPES.includes(group.type)) {
+      errors.push(`Surge 策略组「${group.name}」类型无效`);
+    }
+    if (group.type === "smart" && "policies" in group) {
+      const policies = Array.isArray((group as { policies?: unknown }).policies)
+        ? ((group as { policies?: unknown[] }).policies ?? [])
+        : [];
+      const invalid = policies.some((policy) => isRecord(policy) && policy.kind !== "node");
+      if (invalid) warnings.push(`Surge smart 策略组「${group.name}」只会使用真实节点，DIRECT/REJECT/嵌套组会被生成器忽略`);
+    }
+  }
+  addDuplicateErrors(groupIds, "Surge 策略组 ID", errors);
+  addDuplicateErrors(groupNames, "Surge 策略组名称", errors);
+
+  for (const ruleSet of surgeConfig.ruleSets) {
+    if (!/^https?:\/\//i.test(ruleSet.url)) warnings.push(`Surge 远程规则集「${ruleSet.name}」不是 HTTP/HTTPS URL`);
+    validateSurgeTarget(ruleSet.target, `Surge 远程规则集「${ruleSet.name}」`, facts, errors);
+  }
+  for (const rule of surgeConfig.rules) {
+    if (!SURGE_RULE_TYPES.includes(rule.type)) errors.push(`Surge 规则「${rule.id}」类型无效`);
+    validateSurgeTarget(rule.target, `Surge 规则「${rule.value || rule.id}」`, facts, errors);
+  }
+  validateSurgeTarget(surgeConfig.finalTarget, "Surge FINAL 兜底", facts, errors);
+
+  let generatedYamlBytes: number | undefined;
+  let proxyGroupCount: number | undefined;
+  let ruleCount: number | undefined;
+  try {
+    const output = generateSurgeProfile({ nodes: params.nodes, config: surgeConfig });
+    generatedYamlBytes = new TextEncoder().encode(output.content).byteLength;
+    proxyGroupCount = output.policyGroupCount;
+    ruleCount = output.ruleCount;
+    if (params.nodes.length > 0 && output.proxyCount === 0) {
+      errors.push("当前节点没有 Surge 可用协议或缺少必要字段");
+    }
+    if (output.skippedNodes.length > 0) {
+      warnings.push(`有 ${output.skippedNodes.length} 个节点暂未进入 Surge 配置`);
+    }
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : "Surge 配置生成失败");
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    ...(generatedYamlBytes !== undefined ? { generatedYamlBytes } : {}),
+    ...(proxyGroupCount !== undefined ? { proxyGroupCount } : {}),
+    ...(ruleCount !== undefined ? { ruleCount } : {}),
+  };
+}
+
 export function validateLocalSubscriptionConfig(params: {
   urls: string[];
   nodes: ParsedNode[];
   config: Record<string, unknown>;
 }): SubscriptionConfigValidationResult {
+  if (normalizeSubscriptionProfileType(params.config.profileType) === "surge") {
+    return validateSurgeSubscriptionConfig({ nodes: params.nodes, config: params.config });
+  }
+
   const errors: string[] = [];
   const warnings: string[] = [];
   const config = isRecord(params.config) ? params.config : {};
