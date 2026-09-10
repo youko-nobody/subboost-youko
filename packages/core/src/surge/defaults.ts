@@ -173,6 +173,8 @@ const defaultProxyPolicies: SurgePolicyRef[] = [
 
 const SURGE_RULE_SET_BASE_URL =
   "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge";
+const RABBIT_SURGE_RULE_SET_BASE_URL =
+  "https://raw.githubusercontent.com/Rabbit-Spec/Surge/Master/Rules";
 
 type YoukoSurgeRuleSetSource = {
   url: string;
@@ -271,6 +273,174 @@ const YOUKO_SURGE_RULE_SET_URLS: Record<string, YoukoSurgeRuleSetSource> = {
   ),
 };
 
+function surgeGroupTarget(id: string): SurgePolicyRef {
+  return { kind: "group", id };
+}
+
+function surgeDirectTarget(): SurgePolicyRef {
+  return { kind: "direct" };
+}
+
+function rabbitSurgeRuleSet(
+  id: string,
+  name: string,
+  fileName: string,
+  target: SurgePolicyRef,
+  options: { noResolve?: boolean } = {},
+): SurgeRuleSet {
+  return {
+    id: `RABBIT_${id}`,
+    name: `Rabbit ${name}`,
+    url: `${RABBIT_SURGE_RULE_SET_BASE_URL}/${fileName}.list`,
+    target,
+    ...(options.noResolve ? { noResolve: true } : {}),
+    enabled: true,
+  };
+}
+
+function surgeRuleSetOrderKey(id: string): string {
+  return `rule-set:${id}`;
+}
+
+const RABBIT_YOUKO_SURGE_RULE_SETS: SurgeRuleSet[] = [
+  rabbitSurgeRuleSet("AIGC", "AIGC", "AIGC", surgeGroupTarget("my-ai")),
+  rabbitSurgeRuleSet(
+    "TELEGRAM",
+    "Telegram",
+    "Telegram",
+    surgeGroupTarget("my-tg"),
+  ),
+  rabbitSurgeRuleSet(
+    "TELEGRAM_ASN",
+    "TelegramASN",
+    "TelegramASN",
+    surgeGroupTarget("my-tg"),
+  ),
+  rabbitSurgeRuleSet(
+    "YOUTUBE",
+    "YouTube",
+    "YouTube",
+    surgeGroupTarget("my-youtube"),
+  ),
+  rabbitSurgeRuleSet(
+    "TIKTOK",
+    "TikTok",
+    "TikTok",
+    surgeGroupTarget("my-tiktok"),
+  ),
+  rabbitSurgeRuleSet(
+    "MICROSOFT",
+    "Microsoft",
+    "Microsoft",
+    surgeGroupTarget("my-proxy"),
+  ),
+  rabbitSurgeRuleSet(
+    "NETFLIX",
+    "Netflix",
+    "Netflix",
+    surgeGroupTarget("my-proxy"),
+  ),
+  rabbitSurgeRuleSet(
+    "DISNEY",
+    "Disney",
+    "Disney",
+    surgeGroupTarget("my-proxy"),
+  ),
+  rabbitSurgeRuleSet(
+    "SPOTIFY",
+    "Spotify",
+    "Spotify",
+    surgeGroupTarget("my-proxy"),
+  ),
+  rabbitSurgeRuleSet(
+    "GOOGLE",
+    "Google",
+    "Google",
+    surgeGroupTarget("my-proxy"),
+  ),
+  rabbitSurgeRuleSet(
+    "FACEBOOK",
+    "Facebook",
+    "Facebook",
+    surgeGroupTarget("my-proxy"),
+  ),
+  rabbitSurgeRuleSet(
+    "INSTAGRAM",
+    "Instagram",
+    "Instagram",
+    surgeGroupTarget("my-proxy"),
+  ),
+  rabbitSurgeRuleSet("META", "Meta", "Meta", surgeGroupTarget("my-proxy")),
+  rabbitSurgeRuleSet(
+    "GLOBAL_MEDIA",
+    "GlobalMedia",
+    "GlobalMedia",
+    surgeGroupTarget("my-proxy"),
+  ),
+  rabbitSurgeRuleSet("GAME", "Game", "Game", surgeGroupTarget("my-proxy")),
+  rabbitSurgeRuleSet("PROXY", "Proxy", "Proxy", surgeGroupTarget("my-proxy")),
+  rabbitSurgeRuleSet("APPLE", "Apple", "Apple", surgeGroupTarget("my-apple")),
+  rabbitSurgeRuleSet("BILIBILI", "BiliBili", "BiliBili", surgeDirectTarget()),
+  rabbitSurgeRuleSet(
+    "CHINA_MEDIA",
+    "ChinaMedia",
+    "ChinaMedia",
+    surgeDirectTarget(),
+  ),
+  rabbitSurgeRuleSet("CHINA", "China", "China", surgeDirectTarget()),
+  rabbitSurgeRuleSet(
+    "CHINA_CIDR",
+    "ChinaCIDR",
+    "ChinaCIDR",
+    surgeDirectTarget(),
+    {
+      noResolve: true,
+    },
+  ),
+];
+
+const RABBIT_YOUKO_SURGE_RULE_ORDER_INSERTS: Record<string, string[]> = {
+  [surgeRuleSetOrderKey("GEMINI_DOMAIN")]: [
+    surgeRuleSetOrderKey("RABBIT_AIGC"),
+  ],
+  [surgeRuleSetOrderKey("BM_TELEGRAM")]: [
+    surgeRuleSetOrderKey("RABBIT_TELEGRAM"),
+    surgeRuleSetOrderKey("RABBIT_TELEGRAM_ASN"),
+  ],
+  [surgeRuleSetOrderKey("BM_YOUTUBE")]: [
+    surgeRuleSetOrderKey("RABBIT_YOUTUBE"),
+  ],
+  [surgeRuleSetOrderKey("APPLE_NEWS_DOMAIN")]: [
+    surgeRuleSetOrderKey("RABBIT_NETFLIX"),
+    surgeRuleSetOrderKey("RABBIT_DISNEY"),
+    surgeRuleSetOrderKey("RABBIT_SPOTIFY"),
+    surgeRuleSetOrderKey("RABBIT_GOOGLE"),
+    surgeRuleSetOrderKey("RABBIT_FACEBOOK"),
+    surgeRuleSetOrderKey("RABBIT_INSTAGRAM"),
+    surgeRuleSetOrderKey("RABBIT_META"),
+    surgeRuleSetOrderKey("RABBIT_GLOBAL_MEDIA"),
+    surgeRuleSetOrderKey("RABBIT_GAME"),
+    surgeRuleSetOrderKey("RABBIT_PROXY"),
+  ],
+  [surgeRuleSetOrderKey("APPLE_DOMAIN")]: [
+    surgeRuleSetOrderKey("RABBIT_APPLE"),
+  ],
+  [surgeRuleSetOrderKey("MICROSOFT_APPS_DOMAIN")]: [
+    surgeRuleSetOrderKey("RABBIT_MICROSOFT"),
+  ],
+  [surgeRuleSetOrderKey("BM_BILIBILI")]: [
+    surgeRuleSetOrderKey("RABBIT_BILIBILI"),
+    surgeRuleSetOrderKey("RABBIT_CHINA_MEDIA"),
+  ],
+  [surgeRuleSetOrderKey("BM_TIKTOK")]: [surgeRuleSetOrderKey("RABBIT_TIKTOK")],
+  [surgeRuleSetOrderKey("GEO_ROUTING_ASIA_CHINA_CCTLD_DOMAIN")]: [
+    surgeRuleSetOrderKey("RABBIT_CHINA"),
+  ],
+  [surgeRuleSetOrderKey("CHINA_DNS_IP")]: [
+    surgeRuleSetOrderKey("RABBIT_CHINA_CIDR"),
+  ],
+};
+
 function mapYoukoTarget(target: ProxyGroupRuleTarget): SurgePolicyRef | string {
   if (typeof target === "string") {
     const normalized = target.trim().toUpperCase();
@@ -348,6 +518,39 @@ function mapYoukoRuleOrder(key: string): string {
   return key;
 }
 
+function createYoukoSurgeRuleOrder(): string[] {
+  const insertedRabbitKeys = new Set<string>();
+  const order: string[] = [];
+  for (const key of MY_ROUTING_RULE_ORDER.map(mapYoukoRuleOrder)) {
+    for (const rabbitKey of RABBIT_YOUKO_SURGE_RULE_ORDER_INSERTS[key] ?? []) {
+      if (insertedRabbitKeys.has(rabbitKey)) continue;
+      insertedRabbitKeys.add(rabbitKey);
+      order.push(rabbitKey);
+    }
+    order.push(key);
+  }
+
+  for (const ruleSet of RABBIT_YOUKO_SURGE_RULE_SETS) {
+    const key = surgeRuleSetOrderKey(ruleSet.id);
+    if (insertedRabbitKeys.has(key)) continue;
+    insertedRabbitKeys.add(key);
+    order.push(key);
+  }
+  return order;
+}
+
+function sortSurgeRuleSetsByOrder(
+  ruleSets: SurgeRuleSet[],
+  ruleOrder: string[],
+): SurgeRuleSet[] {
+  const indexByKey = new Map(ruleOrder.map((key, index) => [key, index]));
+  return [...ruleSets].sort(
+    (a, b) =>
+      (indexByKey.get(surgeRuleSetOrderKey(a.id)) ?? Number.MAX_SAFE_INTEGER) -
+      (indexByKey.get(surgeRuleSetOrderKey(b.id)) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
 export function createDefaultSurgeConfig(): SurgeConfig {
   return {
     generalText: DEFAULT_SURGE_GENERAL_TEXT,
@@ -376,17 +579,22 @@ export function createDefaultSurgeConfig(): SurgeConfig {
 }
 
 export function createYoukoSurgeConfig(): SurgeConfig {
+  const ruleSets = [
+    ...MY_ROUTING_CUSTOM_RULE_SETS.map(mapYoukoRuleSet).filter((ruleSet) =>
+      Boolean(ruleSet.url),
+    ),
+    ...RABBIT_YOUKO_SURGE_RULE_SETS,
+  ];
+  const ruleOrder = createYoukoSurgeRuleOrder();
   return {
     generalText: DEFAULT_SURGE_GENERAL_TEXT,
     proxyGroups: MY_ROUTING_CUSTOM_PROXY_GROUPS.map(mapYoukoProxyGroup),
     regionGroups: [],
-    ruleSets: MY_ROUTING_CUSTOM_RULE_SETS.map(mapYoukoRuleSet).filter(
-      (ruleSet) => Boolean(ruleSet.url),
-    ),
+    ruleSets: sortSurgeRuleSetsByOrder(ruleSets, ruleOrder),
     rules: MY_ROUTING_CUSTOM_RULES.map(mapYoukoRule).filter(
       (rule): rule is SurgeRule => Boolean(rule),
     ),
-    ruleOrder: MY_ROUTING_RULE_ORDER.map(mapYoukoRuleOrder),
+    ruleOrder,
     finalTarget: mapYoukoTarget(MY_ROUTING_FALLBACK_POLICY_TARGET),
     testUrl: "http://www.google.com/blank.html",
     testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,

@@ -215,6 +215,25 @@ function moveArrayItem<T>(items: T[], index: number, direction: -1 | 1): T[] {
   return next;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function moveArrayItemToIndex<T>(
+  items: T[],
+  index: number,
+  targetIndex: number,
+): T[] {
+  if (index < 0 || index >= items.length || items.length <= 1) return items;
+  const nextIndex = clamp(Math.floor(targetIndex), 0, items.length - 1);
+  if (nextIndex === index) return items;
+
+  const next = [...items];
+  const [item] = next.splice(index, 1);
+  next.splice(nextIndex, 0, item);
+  return next;
+}
+
 function moveArrayItemById<T extends { id: string }>(
   items: T[],
   id: string,
@@ -408,6 +427,9 @@ export function SurgeMode() {
   const [memberDrafts, setMemberDrafts] = React.useState<
     Record<string, string>
   >({});
+  const [ruleOrderDrafts, setRuleOrderDrafts] = React.useState<
+    Record<string, string>
+  >({});
   const [draggingRuleKey, setDraggingRuleKey] = React.useState<string | null>(
     null,
   );
@@ -455,6 +477,35 @@ export function SurgeMode() {
     setSurgeConfig({
       ...surgeConfig,
       regionGroups: moveArrayItemById(surgeConfig.regionGroups, id, direction),
+    });
+  };
+
+  const removeRegion = (id: string) => {
+    const deletedGroupRef = `group:${id}`;
+    const isDeletedRegionTarget = (target: SurgePolicyRef | string) =>
+      encodePolicyRef(target) === deletedGroupRef;
+    setSurgeConfig({
+      ...surgeConfig,
+      regionGroups: removeArrayItem(surgeConfig.regionGroups, id),
+      proxyGroups: surgeConfig.proxyGroups.map((group) => ({
+        ...group,
+        policies: group.policies.filter(
+          (policy) => encodePolicyRef(policy) !== deletedGroupRef,
+        ),
+      })),
+      ruleSets: surgeConfig.ruleSets.map((ruleSet) =>
+        isDeletedRegionTarget(ruleSet.target)
+          ? { ...ruleSet, target: { kind: "direct" } }
+          : ruleSet,
+      ),
+      rules: surgeConfig.rules.map((rule) =>
+        isDeletedRegionTarget(rule.target)
+          ? { ...rule, target: { kind: "direct" } }
+          : rule,
+      ),
+      finalTarget: isDeletedRegionTarget(surgeConfig.finalTarget)
+        ? { kind: "direct" }
+        : surgeConfig.finalTarget,
     });
   };
 
@@ -575,11 +626,11 @@ export function SurgeMode() {
     };
     const nextConfig = {
       ...surgeConfig,
-      ruleSets: [...surgeConfig.ruleSets, nextRuleSet],
+      ruleSets: [nextRuleSet, ...surgeConfig.ruleSets],
     };
     setSurgeConfig({
       ...nextConfig,
-      ruleOrder: [...normalizeSurgeRuleOrder(surgeConfig), ruleSetOrderKey(id)],
+      ruleOrder: [ruleSetOrderKey(id), ...normalizeSurgeRuleOrder(surgeConfig)],
     });
   };
 
@@ -615,11 +666,11 @@ export function SurgeMode() {
     };
     const nextConfig = {
       ...surgeConfig,
-      rules: [...surgeConfig.rules, nextRule],
+      rules: [nextRule, ...surgeConfig.rules],
     };
     setSurgeConfig({
       ...nextConfig,
-      ruleOrder: [...normalizeSurgeRuleOrder(surgeConfig), ruleOrderKey(id)],
+      ruleOrder: [ruleOrderKey(id), ...normalizeSurgeRuleOrder(surgeConfig)],
     });
   };
 
@@ -659,11 +710,40 @@ export function SurgeMode() {
       ...surgeConfig,
       ruleOrder: items.map((item) => item.key),
     });
+    setRuleOrderDrafts((prev) => {
+      const validKeys = new Set(items.map((item) => item.key));
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (!validKeys.has(key)) delete next[key];
+      }
+      return next;
+    });
   };
 
   const moveRuleOrderItem = (key: string, direction: -1 | 1) => {
     const index = ruleOrderItems.findIndex((item) => item.key === key);
     setRuleOrderFromItems(moveArrayItem(ruleOrderItems, index, direction));
+  };
+
+  const moveRuleOrderItemToPosition = (key: string, position: number) => {
+    const index = ruleOrderItems.findIndex((item) => item.key === key);
+    if (index < 0 || !Number.isFinite(position)) return;
+    setRuleOrderFromItems(
+      moveArrayItemToIndex(ruleOrderItems, index, position - 1),
+    );
+  };
+
+  const clearRuleOrderDraft = (key: string) => {
+    setRuleOrderDrafts((prev) => {
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const commitRuleOrderDraft = (key: string) => {
+    const value = Number.parseInt(ruleOrderDrafts[key] ?? "", 10);
+    if (Number.isFinite(value)) moveRuleOrderItemToPosition(key, value);
+    clearRuleOrderDraft(key);
   };
 
   const moveRuleOrderItemTo = (sourceKey: string, targetKey: string) => {
@@ -878,7 +958,7 @@ export function SurgeMode() {
                 key={group.id}
                 className="rounded-lg border border-white/10 bg-white/5 p-3"
               >
-                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_9rem_8rem_auto] lg:items-center">
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_9rem_8rem_auto_auto] lg:items-center">
                   <div className="flex items-center gap-2 text-xs text-white/70">
                     <Switch
                       checked={group.enabled !== false}
@@ -930,6 +1010,14 @@ export function SurgeMode() {
                       <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
                     </IconButton>
                   </div>
+                  <IconButton
+                    label={`删除地区策略组 ${group.name}`}
+                    variant="ghost"
+                    onClick={() => removeRegion(group.id)}
+                    className="h-8 w-8 rounded-lg text-white/45 hover:text-red-300"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </IconButton>
                 </div>
                 <div
                   className={cn(
@@ -1324,9 +1412,37 @@ export function SurgeMode() {
                           className="h-4 w-4 cursor-grab text-white/30 active:cursor-grabbing"
                           aria-hidden="true"
                         />
-                        <div className="w-6 text-right text-[10px] tabular-nums text-white/35">
-                          {index + 1}
-                        </div>
+                        <Input
+                          value={
+                            Object.prototype.hasOwnProperty.call(
+                              ruleOrderDrafts,
+                              item.key,
+                            )
+                              ? ruleOrderDrafts[item.key]
+                              : String(index + 1)
+                          }
+                          onChange={(event) =>
+                            setRuleOrderDrafts((prev) => ({
+                              ...prev,
+                              [item.key]: event.target.value,
+                            }))
+                          }
+                          onBlur={() => commitRuleOrderDraft(item.key)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              clearRuleOrderDraft(item.key);
+                              return;
+                            }
+                            if (event.key === "Enter") {
+                              commitRuleOrderDraft(item.key);
+                            }
+                          }}
+                          onDragStart={(event) => event.stopPropagation()}
+                          inputMode="numeric"
+                          title="规则顺序（1=最前）"
+                          aria-label={`规则顺序 ${title}`}
+                          className="h-7 w-14 shrink-0 rounded-md border-white/10 bg-white/10 px-1 text-center text-[11px] tabular-nums"
+                        />
                         <div className="min-w-0">
                           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                             <Badge

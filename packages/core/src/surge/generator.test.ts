@@ -323,6 +323,70 @@ describe("generateSurgeProfile", () => {
         }),
       ]),
     );
+    const ruleSetById = new Map(
+      config.ruleSets.map((ruleSet) => [ruleSet.id, ruleSet]),
+    );
+    expect(ruleSetById.has("RABBIT_CHINA_ASN")).toBe(false);
+    expect(ruleSetById.get("RABBIT_APPLE")).toEqual(
+      expect.objectContaining({
+        url: expect.stringContaining(
+          "/Rabbit-Spec/Surge/Master/Rules/Apple.list",
+        ),
+        target: { kind: "group", id: "my-apple" },
+      }),
+    );
+    for (const id of [
+      "RABBIT_MICROSOFT",
+      "RABBIT_NETFLIX",
+      "RABBIT_DISNEY",
+      "RABBIT_SPOTIFY",
+      "RABBIT_GOOGLE",
+      "RABBIT_FACEBOOK",
+      "RABBIT_INSTAGRAM",
+      "RABBIT_META",
+    ]) {
+      expect(ruleSetById.get(id)).toEqual(
+        expect.objectContaining({
+          target: { kind: "group", id: "my-proxy" },
+        }),
+      );
+    }
+    const ruleOrder = config.ruleOrder ?? [];
+    const orderIndex = (key: string) => {
+      const index = ruleOrder.indexOf(key);
+      expect(index).toBeGreaterThanOrEqual(0);
+      return index;
+    };
+    expect(orderIndex("rule-set:RABBIT_AIGC")).toBeLessThan(
+      orderIndex("rule-set:GEMINI_DOMAIN"),
+    );
+    expect(orderIndex("rule-set:RABBIT_TELEGRAM")).toBeLessThan(
+      orderIndex("rule-set:BM_TELEGRAM"),
+    );
+    expect(orderIndex("rule-set:RABBIT_YOUTUBE")).toBeLessThan(
+      orderIndex("rule-set:BM_YOUTUBE"),
+    );
+    expect(orderIndex("rule-set:RABBIT_NETFLIX")).toBeLessThan(
+      orderIndex("rule-set:APPLE_NEWS_DOMAIN"),
+    );
+    expect(orderIndex("rule-set:RABBIT_APPLE")).toBeLessThan(
+      orderIndex("rule-set:APPLE_DOMAIN"),
+    );
+    expect(orderIndex("rule-set:RABBIT_MICROSOFT")).toBeLessThan(
+      orderIndex("rule-set:MICROSOFT_APPS_DOMAIN"),
+    );
+    expect(orderIndex("rule-set:RABBIT_BILIBILI")).toBeLessThan(
+      orderIndex("rule-set:BM_BILIBILI"),
+    );
+    expect(orderIndex("rule-set:RABBIT_TIKTOK")).toBeLessThan(
+      orderIndex("rule-set:BM_TIKTOK"),
+    );
+    expect(orderIndex("rule-set:RABBIT_CHINA")).toBeLessThan(
+      orderIndex("rule-set:GEO_ROUTING_ASIA_CHINA_CCTLD_DOMAIN"),
+    );
+    expect(orderIndex("rule-set:RABBIT_CHINA_CIDR")).toBeLessThan(
+      orderIndex("rule-set:CHINA_DNS_IP"),
+    );
 
     expect(output.content).toContain(
       "PROXY = select, ♻️ 自动测速, DIRECT, 香港 01, icon-url=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Proxy.png",
@@ -355,6 +419,75 @@ describe("generateSurgeProfile", () => {
     );
     expect(output.content).not.toContain(
       "RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/ChinaMax/ChinaMax_Domain.list",
+    );
+    const rabbitRulesBase =
+      "https://raw.githubusercontent.com/Rabbit-Spec/Surge/Master/Rules";
+    expect(output.content).toContain(
+      `RULE-SET,${rabbitRulesBase}/AIGC.list,AI`,
+    );
+    expect(output.content).toContain(
+      `RULE-SET,${rabbitRulesBase}/Telegram.list,TG`,
+    );
+    expect(output.content).toContain(
+      `RULE-SET,${rabbitRulesBase}/TelegramASN.list,TG`,
+    );
+    expect(output.content).toContain(
+      `RULE-SET,${rabbitRulesBase}/YouTube.list,YOUTUBE`,
+    );
+    expect(output.content).toContain(
+      `RULE-SET,${rabbitRulesBase}/TikTok.list,TIKTOK`,
+    );
+    expect(output.content).toContain(
+      `RULE-SET,${rabbitRulesBase}/Apple.list,APPLE`,
+    );
+    for (const fileName of [
+      "Microsoft",
+      "Netflix",
+      "Disney",
+      "Spotify",
+      "Google",
+      "Facebook",
+      "Instagram",
+      "Meta",
+      "GlobalMedia",
+      "Game",
+      "Proxy",
+    ]) {
+      expect(output.content).toContain(
+        `RULE-SET,${rabbitRulesBase}/${fileName}.list,PROXY`,
+      );
+    }
+    for (const fileName of ["BiliBili", "ChinaMedia", "China"]) {
+      expect(output.content).toContain(
+        `RULE-SET,${rabbitRulesBase}/${fileName}.list,DIRECT`,
+      );
+    }
+    expect(output.content).toContain(
+      `RULE-SET,${rabbitRulesBase}/ChinaCIDR.list,DIRECT,no-resolve`,
+    );
+    expect(output.content).not.toContain(`${rabbitRulesBase}/ChinaASN.list`);
+    expect(
+      output.content.indexOf(`RULE-SET,${rabbitRulesBase}/AIGC.list,AI`),
+    ).toBeLessThan(
+      output.content.indexOf(
+        "RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Gemini/Gemini.list,AI",
+      ),
+    );
+    expect(
+      output.content.indexOf(`RULE-SET,${rabbitRulesBase}/Apple.list,APPLE`),
+    ).toBeLessThan(
+      output.content.indexOf(
+        "DOMAIN-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Apple/Apple_Domain.list,APPLE",
+      ),
+    );
+    expect(
+      output.content.indexOf(
+        `RULE-SET,${rabbitRulesBase}/Microsoft.list,PROXY`,
+      ),
+    ).toBeLessThan(
+      output.content.indexOf(
+        "RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Microsoft/Microsoft.list,DIRECT",
+      ),
     );
 
     const localRuleIndex = output.content.indexOf(
