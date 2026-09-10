@@ -1,4 +1,7 @@
-export type SurgeProxyGroupType = "select" | "url-test" | "fallback" | "load-balance" | "smart";
+export type SurgeProxyGroupType =
+  "select" | "url-test" | "fallback" | "load-balance" | "smart";
+
+export type SurgeRuleSetResourceType = "rule-set" | "domain-set";
 
 export type SurgeRuleType =
   | "DOMAIN"
@@ -48,6 +51,7 @@ export interface SurgeRuleSet {
   name: string;
   url: string;
   target: SurgePolicyRef | string;
+  resourceType?: SurgeRuleSetResourceType;
   noResolve?: boolean;
   enabled?: boolean;
 }

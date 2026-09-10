@@ -21,6 +21,7 @@ import type {
   SurgeRegionPolicyGroup,
   SurgeRule,
   SurgeRuleSet,
+  SurgeRuleSetResourceType,
   SurgeRuleType,
 } from "./types";
 
@@ -49,6 +50,11 @@ export const SURGE_RULE_TYPES: SurgeRuleType[] = [
   "DST-PORT",
   "SRC-PORT",
   "FINAL",
+];
+
+export const SURGE_RULE_SET_RESOURCE_TYPES: SurgeRuleSetResourceType[] = [
+  "rule-set",
+  "domain-set",
 ];
 
 export const DEFAULT_SURGE_REGION_GROUPS: SurgeRegionPolicyGroup[] = [
@@ -166,37 +172,101 @@ const defaultProxyPolicies: SurgePolicyRef[] = [
 const SURGE_RULE_SET_BASE_URL =
   "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge";
 
-const YOUKO_SURGE_RULE_SET_URLS: Record<string, string> = {
-  BM_ADVERTISING_LITE: `${SURGE_RULE_SET_BASE_URL}/AdvertisingLite/AdvertisingLite.list`,
-  BM_EASYPRIVACY: `${SURGE_RULE_SET_BASE_URL}/Privacy/Privacy.list`,
-  BLOCK_HTTP_DNS_PLUS: `${SURGE_RULE_SET_BASE_URL}/BlockHttpDNS/BlockHttpDNS.list`,
-  CHINA_DNS_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/ChinaDNS/ChinaDNS.list`,
-  CHINA_DNS_IP: `${SURGE_RULE_SET_BASE_URL}/ChinaDNS/ChinaDNS.list`,
-  HIJACKING_PLUS: `${SURGE_RULE_SET_BASE_URL}/Hijacking/Hijacking.list`,
-  GEMINI_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Gemini/Gemini.list`,
-  COPILOT_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Copilot/Copilot.list`,
-  BM_OPENAI: `${SURGE_RULE_SET_BASE_URL}/OpenAI/OpenAI.list`,
-  BM_CLAUDE: `${SURGE_RULE_SET_BASE_URL}/Claude/Claude.list`,
-  BM_TELEGRAM: `${SURGE_RULE_SET_BASE_URL}/Telegram/Telegram.list`,
-  BM_YOUTUBE: `${SURGE_RULE_SET_BASE_URL}/YouTube/YouTube.list`,
-  APPLE_NEWS_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/AppleNews/AppleNews.list`,
-  KWAI_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/KuaiShou/KuaiShou.list`,
-  GLOBAL_DNS_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/DNS/DNS.list`,
-  APPLE_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Apple/Apple_Domain.list`,
-  APPLE_IP: `${SURGE_RULE_SET_BASE_URL}/Apple/Apple_All_No_Resolve.list`,
-  MICROSOFT_APPS_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Microsoft/Microsoft.list`,
-  WEIYUN_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Tencent/Tencent_Domain.list`,
-  BAIDU_NETDISK_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/Cloud/BaiduCloud/BaiduCloud.list`,
-  BM_BILIBILI: `${SURGE_RULE_SET_BASE_URL}/BiliBili/BiliBili.list`,
-  BM_XIAOHONGSHU: `${SURGE_RULE_SET_BASE_URL}/XiaoHongShu/XiaoHongShu.list`,
-  BM_TIKTOK: `${SURGE_RULE_SET_BASE_URL}/TikTok/TikTok.list`,
-  AQARA_CN_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/LvMiLianChuang/LvMiLianChuang.list`,
-  AQARA_GLOBAL_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/LvMiLianChuang/LvMiLianChuang.list`,
-  GEO_ROUTING_ASIA_CHINA_CCTLD_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
-  GEO_ROUTING_ASIA_CHINA_GEOIP: `${SURGE_RULE_SET_BASE_URL}/ChinaIPs/ChinaIPs.list`,
-  GEOSITE_CN_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
-  CHINA_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
-  CHINA_MAX_DOMAIN: `${SURGE_RULE_SET_BASE_URL}/ChinaMax/ChinaMax_Domain.list`,
+type YoukoSurgeRuleSetSource = {
+  url: string;
+  resourceType?: SurgeRuleSetResourceType;
+};
+
+function surgeRuleSet(
+  url: string,
+  resourceType: SurgeRuleSetResourceType = "rule-set",
+): YoukoSurgeRuleSetSource {
+  return { url, resourceType };
+}
+
+function surgeDomainSet(url: string): YoukoSurgeRuleSetSource {
+  return surgeRuleSet(url, "domain-set");
+}
+
+const YOUKO_SURGE_RULE_SET_URLS: Record<string, YoukoSurgeRuleSetSource> = {
+  BM_ADVERTISING_LITE: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/AdvertisingLite/AdvertisingLite.list`,
+  ),
+  BM_EASYPRIVACY: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/Privacy/Privacy.list`,
+  ),
+  BLOCK_HTTP_DNS_PLUS: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/BlockHttpDNS/BlockHttpDNS.list`,
+  ),
+  CHINA_DNS_DOMAIN: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/ChinaDNS/ChinaDNS.list`,
+  ),
+  CHINA_DNS_IP: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/ChinaDNS/ChinaDNS.list`,
+  ),
+  HIJACKING_PLUS: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/Hijacking/Hijacking.list`,
+  ),
+  GEMINI_DOMAIN: surgeRuleSet(`${SURGE_RULE_SET_BASE_URL}/Gemini/Gemini.list`),
+  COPILOT_DOMAIN: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/Copilot/Copilot.list`,
+  ),
+  BM_OPENAI: surgeRuleSet(`${SURGE_RULE_SET_BASE_URL}/OpenAI/OpenAI.list`),
+  BM_CLAUDE: surgeRuleSet(`${SURGE_RULE_SET_BASE_URL}/Claude/Claude.list`),
+  BM_TELEGRAM: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/Telegram/Telegram.list`,
+  ),
+  BM_YOUTUBE: surgeRuleSet(`${SURGE_RULE_SET_BASE_URL}/YouTube/YouTube.list`),
+  APPLE_NEWS_DOMAIN: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/AppleNews/AppleNews.list`,
+  ),
+  KWAI_DOMAIN: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/KuaiShou/KuaiShou.list`,
+  ),
+  GLOBAL_DNS_DOMAIN: surgeRuleSet(`${SURGE_RULE_SET_BASE_URL}/DNS/DNS.list`),
+  APPLE_DOMAIN: surgeDomainSet(
+    `${SURGE_RULE_SET_BASE_URL}/Apple/Apple_Domain.list`,
+  ),
+  APPLE_IP: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/Apple/Apple_All_No_Resolve.list`,
+  ),
+  MICROSOFT_APPS_DOMAIN: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/Microsoft/Microsoft.list`,
+  ),
+  WEIYUN_DOMAIN: surgeDomainSet(
+    `${SURGE_RULE_SET_BASE_URL}/Tencent/Tencent_Domain.list`,
+  ),
+  BAIDU_NETDISK_DOMAIN: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/Cloud/BaiduCloud/BaiduCloud.list`,
+  ),
+  BM_BILIBILI: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/BiliBili/BiliBili.list`,
+  ),
+  BM_XIAOHONGSHU: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/XiaoHongShu/XiaoHongShu.list`,
+  ),
+  BM_TIKTOK: surgeRuleSet(`${SURGE_RULE_SET_BASE_URL}/TikTok/TikTok.list`),
+  AQARA_CN_DOMAIN: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/LvMiLianChuang/LvMiLianChuang.list`,
+  ),
+  AQARA_GLOBAL_DOMAIN: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/LvMiLianChuang/LvMiLianChuang.list`,
+  ),
+  GEO_ROUTING_ASIA_CHINA_CCTLD_DOMAIN: surgeDomainSet(
+    `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
+  ),
+  GEO_ROUTING_ASIA_CHINA_GEOIP: surgeRuleSet(
+    `${SURGE_RULE_SET_BASE_URL}/ChinaIPs/ChinaIPs.list`,
+  ),
+  GEOSITE_CN_DOMAIN: surgeDomainSet(
+    `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
+  ),
+  CHINA_DOMAIN: surgeDomainSet(
+    `${SURGE_RULE_SET_BASE_URL}/China/China_Domain.list`,
+  ),
+  CHINA_MAX_DOMAIN: surgeDomainSet(
+    `${SURGE_RULE_SET_BASE_URL}/ChinaMax/ChinaMax_Domain.list`,
+  ),
 };
 
 function mapYoukoTarget(target: ProxyGroupRuleTarget): SurgePolicyRef | string {
@@ -206,24 +276,28 @@ function mapYoukoTarget(target: ProxyGroupRuleTarget): SurgePolicyRef | string {
     if (normalized === "REJECT") return { kind: "reject" };
     return target.trim();
   }
-  if (target.kind === "custom" || target.kind === "module") return { kind: "group", id: target.id };
+  if (target.kind === "custom" || target.kind === "module")
+    return { kind: "group", id: target.id };
   return { kind: "direct" };
 }
 
 function mapYoukoMember(target: ProxyGroupMemberRef): SurgePolicyRef {
-  if (target.kind === "custom" || target.kind === "module") return { kind: "group", id: target.id };
+  if (target.kind === "custom" || target.kind === "module")
+    return { kind: "group", id: target.id };
   if (target.kind === "node") return { kind: "node", name: target.name };
   if (target.kind === "reject") return { kind: "reject" };
   return { kind: "direct" };
 }
 
 function mapYoukoGroupType(group: CustomProxyGroup): SurgeProxyGroupType {
-  if (group.groupType === "direct-first" || group.groupType === "reject-first") return "select";
+  if (group.groupType === "direct-first" || group.groupType === "reject-first")
+    return "select";
   return group.groupType;
 }
 
 function mapYoukoProxyGroup(group: CustomProxyGroup): SurgeProxyGroup {
-  const configuredMembers = group.advanced?.memberOrder ?? group.advanced?.extraMembers ?? [];
+  const configuredMembers =
+    group.advanced?.memberOrder ?? group.advanced?.extraMembers ?? [];
   const policies = configuredMembers.map(mapYoukoMember);
   const includeAllNodes = group.advanced?.includeRegex !== "(?!)";
   return {
@@ -238,11 +312,15 @@ function mapYoukoProxyGroup(group: CustomProxyGroup): SurgeProxyGroup {
 }
 
 function mapYoukoRuleSet(ruleSet: CustomRuleSet): SurgeRuleSet {
+  const source = YOUKO_SURGE_RULE_SET_URLS[ruleSet.id];
   return {
     id: ruleSet.id,
     name: ruleSet.name,
-    url: YOUKO_SURGE_RULE_SET_URLS[ruleSet.id] ?? "",
+    url: source?.url ?? "",
     target: mapYoukoTarget(ruleSet.target),
+    ...(source?.resourceType && source.resourceType !== "rule-set"
+      ? { resourceType: source.resourceType }
+      : {}),
     ...(ruleSet.noResolve ? { noResolve: true } : {}),
     enabled: true,
   };
@@ -261,8 +339,10 @@ function mapYoukoRule(rule: CustomRule): SurgeRule | null {
 }
 
 function mapYoukoRuleOrder(key: string): string {
-  if (key.startsWith("custom-rule-set:")) return `rule-set:${key.slice("custom-rule-set:".length)}`;
-  if (key.startsWith("custom-rule:")) return `rule:${key.slice("custom-rule:".length)}`;
+  if (key.startsWith("custom-rule-set:"))
+    return `rule-set:${key.slice("custom-rule-set:".length)}`;
+  if (key.startsWith("custom-rule:"))
+    return `rule:${key.slice("custom-rule:".length)}`;
   return key;
 }
 
@@ -297,10 +377,12 @@ export function createYoukoSurgeConfig(): SurgeConfig {
     generalText: DEFAULT_SURGE_GENERAL_TEXT,
     proxyGroups: MY_ROUTING_CUSTOM_PROXY_GROUPS.map(mapYoukoProxyGroup),
     regionGroups: [],
-    ruleSets: MY_ROUTING_CUSTOM_RULE_SETS
-      .map(mapYoukoRuleSet)
-      .filter((ruleSet) => Boolean(ruleSet.url)),
-    rules: MY_ROUTING_CUSTOM_RULES.map(mapYoukoRule).filter((rule): rule is SurgeRule => Boolean(rule)),
+    ruleSets: MY_ROUTING_CUSTOM_RULE_SETS.map(mapYoukoRuleSet).filter(
+      (ruleSet) => Boolean(ruleSet.url),
+    ),
+    rules: MY_ROUTING_CUSTOM_RULES.map(mapYoukoRule).filter(
+      (rule): rule is SurgeRule => Boolean(rule),
+    ),
     ruleOrder: MY_ROUTING_RULE_ORDER.map(mapYoukoRuleOrder),
     finalTarget: mapYoukoTarget(MY_ROUTING_FALLBACK_POLICY_TARGET),
     testUrl: "http://www.google.com/blank.html",
@@ -323,21 +405,41 @@ function rawText(value: unknown): string | undefined {
 }
 
 function positiveInt(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
 }
 
 function bool(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function normalizeGroupType(value: unknown, fallback: SurgeProxyGroupType = "select"): SurgeProxyGroupType {
+function normalizeGroupType(
+  value: unknown,
+  fallback: SurgeProxyGroupType = "select",
+): SurgeProxyGroupType {
   return SURGE_PROXY_GROUP_TYPES.includes(value as SurgeProxyGroupType)
     ? (value as SurgeProxyGroupType)
     : fallback;
 }
 
-function normalizeRuleType(value: unknown, fallback: SurgeRuleType = "DOMAIN-SUFFIX"): SurgeRuleType {
-  return SURGE_RULE_TYPES.includes(value as SurgeRuleType) ? (value as SurgeRuleType) : fallback;
+function normalizeRuleType(
+  value: unknown,
+  fallback: SurgeRuleType = "DOMAIN-SUFFIX",
+): SurgeRuleType {
+  return SURGE_RULE_TYPES.includes(value as SurgeRuleType)
+    ? (value as SurgeRuleType)
+    : fallback;
+}
+
+function normalizeRuleSetResourceType(
+  value: unknown,
+): SurgeRuleSetResourceType {
+  return SURGE_RULE_SET_RESOURCE_TYPES.includes(
+    value as SurgeRuleSetResourceType,
+  )
+    ? (value as SurgeRuleSetResourceType)
+    : "rule-set";
 }
 
 function normalizeStringList(value: unknown): string[] {
@@ -376,10 +478,16 @@ function normalizePolicyRefs(value: unknown): SurgePolicyRef[] {
   if (!Array.isArray(value)) return [];
   return value
     .map(normalizePolicyRef)
-    .filter((item): item is SurgePolicyRef => Boolean(item) && typeof item !== "string");
+    .filter(
+      (item): item is SurgePolicyRef =>
+        Boolean(item) && typeof item !== "string",
+    );
 }
 
-function normalizeRegionGroups(value: unknown, defaults: SurgeRegionPolicyGroup[]): SurgeRegionPolicyGroup[] {
+function normalizeRegionGroups(
+  value: unknown,
+  defaults: SurgeRegionPolicyGroup[],
+): SurgeRegionPolicyGroup[] {
   if (!Array.isArray(value)) return defaults;
   const out: SurgeRegionPolicyGroup[] = [];
   for (const item of value) {
@@ -394,13 +502,18 @@ function normalizeRegionGroups(value: unknown, defaults: SurgeRegionPolicyGroup[
       type: normalizeGroupType(item.type, "smart"),
       keywords: normalizeStringList(item.keywords),
       includeInProxy: item.includeInProxy !== false,
-      ...(text(item.policyPriority) ? { policyPriority: text(item.policyPriority) } : {}),
+      ...(text(item.policyPriority)
+        ? { policyPriority: text(item.policyPriority) }
+        : {}),
     });
   }
   return out;
 }
 
-function normalizeProxyGroups(value: unknown, defaults: SurgeProxyGroup[]): SurgeProxyGroup[] {
+function normalizeProxyGroups(
+  value: unknown,
+  defaults: SurgeProxyGroup[],
+): SurgeProxyGroup[] {
   if (!Array.isArray(value)) return defaults;
   const out: SurgeProxyGroup[] = [];
   for (const item of value) {
@@ -418,10 +531,18 @@ function normalizeProxyGroups(value: unknown, defaults: SurgeProxyGroup[]): Surg
       ...(item.includeAllNodes === true ? { includeAllNodes: true } : {}),
       ...(item.enabled === false ? { enabled: false } : {}),
       ...(text(item.url) ? { url: text(item.url) } : {}),
-      ...(positiveInt(item.interval) ? { interval: positiveInt(item.interval) } : {}),
-      ...(positiveInt(item.timeout) ? { timeout: positiveInt(item.timeout) } : {}),
-      ...(positiveInt(item.tolerance) ? { tolerance: positiveInt(item.tolerance) } : {}),
-      ...(text(item.policyPriority) ? { policyPriority: text(item.policyPriority) } : {}),
+      ...(positiveInt(item.interval)
+        ? { interval: positiveInt(item.interval) }
+        : {}),
+      ...(positiveInt(item.timeout)
+        ? { timeout: positiveInt(item.timeout) }
+        : {}),
+      ...(positiveInt(item.tolerance)
+        ? { tolerance: positiveInt(item.tolerance) }
+        : {}),
+      ...(text(item.policyPriority)
+        ? { policyPriority: text(item.policyPriority) }
+        : {}),
     });
   }
   return out.length > 0 ? out : defaults;
@@ -442,6 +563,9 @@ function normalizeRuleSets(value: unknown): SurgeRuleSet[] {
       name,
       url,
       target,
+      ...(normalizeRuleSetResourceType(item.resourceType) !== "rule-set"
+        ? { resourceType: normalizeRuleSetResourceType(item.resourceType) }
+        : {}),
       ...(item.noResolve === true ? { noResolve: true } : {}),
       ...(item.enabled === false ? { enabled: false } : {}),
     });
@@ -474,14 +598,20 @@ function normalizeRules(value: unknown): SurgeRule[] {
 export function normalizeSurgeConfig(value: unknown): SurgeConfig {
   const defaults = createDefaultSurgeConfig();
   if (!isRecord(value)) return defaults;
-  const finalTarget = normalizePolicyRef(value.finalTarget) ?? defaults.finalTarget;
+  const finalTarget =
+    normalizePolicyRef(value.finalTarget) ?? defaults.finalTarget;
   return {
     generalText: rawText(value.generalText) ?? defaults.generalText,
     proxyGroups: normalizeProxyGroups(value.proxyGroups, defaults.proxyGroups),
-    regionGroups: normalizeRegionGroups(value.regionGroups, defaults.regionGroups),
+    regionGroups: normalizeRegionGroups(
+      value.regionGroups,
+      defaults.regionGroups,
+    ),
     ruleSets: normalizeRuleSets(value.ruleSets),
     rules: normalizeRules(value.rules),
-    ...(Array.isArray(value.ruleOrder) ? { ruleOrder: normalizeStringList(value.ruleOrder) } : {}),
+    ...(Array.isArray(value.ruleOrder)
+      ? { ruleOrder: normalizeStringList(value.ruleOrder) }
+      : {}),
     finalTarget,
     testUrl: text(value.testUrl) || defaults.testUrl,
     testInterval: positiveInt(value.testInterval) ?? defaults.testInterval,

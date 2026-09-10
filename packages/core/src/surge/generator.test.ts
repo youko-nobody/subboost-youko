@@ -37,17 +37,56 @@ describe("generateSurgeProfile", () => {
 
     expect(output.content).toContain("[Proxy]");
     expect(output.content).toContain("香港 01 = ss, hk.example.com, 443");
-    expect(output.content).toContain("香港 Smart = smart, include-all-proxies=true");
+    expect(output.content).toContain(
+      "香港 Smart = smart, include-all-proxies=true",
+    );
     expect(output.content).toContain("PROXY = select, 香港 Smart");
     const proxyGroupSectionStart = output.content.indexOf("[Proxy Group]");
-    const proxyLineIndex = output.content.indexOf("PROXY = select", proxyGroupSectionStart);
-    const regionLineIndex = output.content.indexOf("香港 Smart = smart", proxyGroupSectionStart);
+    const proxyLineIndex = output.content.indexOf(
+      "PROXY = select",
+      proxyGroupSectionStart,
+    );
+    const regionLineIndex = output.content.indexOf(
+      "香港 Smart = smart",
+      proxyGroupSectionStart,
+    );
     expect(proxyLineIndex).toBeGreaterThan(proxyGroupSectionStart);
     expect(regionLineIndex).toBeGreaterThan(proxyLineIndex);
-    expect(output.content).toContain("RULE-SET,https://example.com/ads.list,REJECT,no-resolve");
+    expect(output.content).toContain(
+      "RULE-SET,https://example.com/ads.list,REJECT,no-resolve",
+    );
     expect(output.content).toContain("FINAL,PROXY");
     expect(output.proxyCount).toBe(1);
     expect(output.policyGroupCount).toBeGreaterThan(1);
+  });
+
+  it("emits domain-set remote resources with DOMAIN-SET", () => {
+    const output = generateSurgeProfile({
+      nodes: [ssNode],
+      config: {
+        ...createDefaultSurgeConfig(),
+        ruleSets: [
+          {
+            id: "apple-domain",
+            name: "Apple Domain",
+            url: "https://example.com/Apple_Domain.list",
+            target: { kind: "direct" },
+            resourceType: "domain-set",
+            noResolve: true,
+          },
+        ],
+      },
+    });
+
+    expect(output.content).toContain(
+      "DOMAIN-SET,https://example.com/Apple_Domain.list,DIRECT",
+    );
+    expect(output.content).not.toContain(
+      "RULE-SET,https://example.com/Apple_Domain.list",
+    );
+    expect(output.content).not.toContain(
+      "DOMAIN-SET,https://example.com/Apple_Domain.list,DIRECT,no-resolve",
+    );
   });
 
   it("filters non-node members from smart manual groups", () => {
@@ -96,7 +135,9 @@ describe("generateSurgeProfile", () => {
       },
     });
 
-    expect(output.content).toContain("Smart = smart, 香港 01, policy-priority=香港:0.9");
+    expect(output.content).toContain(
+      "Smart = smart, 香港 01, policy-priority=香港:0.9",
+    );
     expect(output.content).not.toContain("Smart = smart, 香港 01, url=");
     expect(output.content).not.toContain("interval=30");
   });
@@ -121,7 +162,9 @@ describe("generateSurgeProfile", () => {
       },
     });
 
-    expect(output.content).toContain("地区测速 = url-test, include-all-proxies=true");
+    expect(output.content).toContain(
+      "地区测速 = url-test, include-all-proxies=true",
+    );
     expect(output.content).not.toContain("policy-priority");
   });
 
@@ -184,8 +227,12 @@ describe("generateSurgeProfile", () => {
       },
     });
 
-    const ruleSetIndex = output.content.indexOf("RULE-SET,https://example.com/ads.list,REJECT");
-    const domainIndex = output.content.indexOf("DOMAIN-SUFFIX,example.com,PROXY");
+    const ruleSetIndex = output.content.indexOf(
+      "RULE-SET,https://example.com/ads.list,REJECT",
+    );
+    const domainIndex = output.content.indexOf(
+      "DOMAIN-SUFFIX,example.com,PROXY",
+    );
     const finalIndex = output.content.indexOf("FINAL,DIRECT");
 
     expect(ruleSetIndex).toBeGreaterThan(output.content.indexOf("[Rule]"));
@@ -210,28 +257,93 @@ describe("generateSurgeProfile", () => {
       "APPLE",
       "♻️ 自动测速",
     ]);
-    expect(config.proxyGroups.every((group) => group.icon?.startsWith("https://"))).toBe(true);
+    expect(
+      config.proxyGroups.every((group) => group.icon?.startsWith("https://")),
+    ).toBe(true);
     expect(config.ruleSets.length).toBeGreaterThan(0);
-    expect(config.ruleSets.every((ruleSet) => ruleSet.url.endsWith(".list"))).toBe(true);
-    expect(config.ruleSets.every((ruleSet) => !ruleSet.url.includes("/Clash/"))).toBe(true);
+    expect(
+      config.ruleSets.every((ruleSet) => ruleSet.url.endsWith(".list")),
+    ).toBe(true);
+    expect(
+      config.ruleSets.every((ruleSet) => !ruleSet.url.includes("/Clash/")),
+    ).toBe(true);
     expect(config.ruleSets).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "KWAI_DOMAIN", url: expect.stringContaining("/KuaiShou/KuaiShou.list") }),
-        expect.objectContaining({ id: "GLOBAL_DNS_DOMAIN", url: expect.stringContaining("/DNS/DNS.list") }),
-        expect.objectContaining({ id: "WEIYUN_DOMAIN", url: expect.stringContaining("/Tencent/Tencent_Domain.list") }),
-        expect.objectContaining({ id: "AQARA_CN_DOMAIN", url: expect.stringContaining("/LvMiLianChuang/LvMiLianChuang.list") }),
-        expect.objectContaining({ id: "AQARA_GLOBAL_DOMAIN", url: expect.stringContaining("/LvMiLianChuang/LvMiLianChuang.list") }),
-      ])
+        expect.objectContaining({
+          id: "KWAI_DOMAIN",
+          url: expect.stringContaining("/KuaiShou/KuaiShou.list"),
+        }),
+        expect.objectContaining({
+          id: "GLOBAL_DNS_DOMAIN",
+          url: expect.stringContaining("/DNS/DNS.list"),
+        }),
+        expect.objectContaining({
+          id: "APPLE_DOMAIN",
+          url: expect.stringContaining("/Apple/Apple_Domain.list"),
+          resourceType: "domain-set",
+        }),
+        expect.objectContaining({
+          id: "WEIYUN_DOMAIN",
+          url: expect.stringContaining("/Tencent/Tencent_Domain.list"),
+          resourceType: "domain-set",
+        }),
+        expect.objectContaining({
+          id: "AQARA_CN_DOMAIN",
+          url: expect.stringContaining("/LvMiLianChuang/LvMiLianChuang.list"),
+        }),
+        expect.objectContaining({
+          id: "AQARA_GLOBAL_DOMAIN",
+          url: expect.stringContaining("/LvMiLianChuang/LvMiLianChuang.list"),
+        }),
+        expect.objectContaining({
+          id: "CHINA_DOMAIN",
+          url: expect.stringContaining("/China/China_Domain.list"),
+          resourceType: "domain-set",
+        }),
+        expect.objectContaining({
+          id: "CHINA_MAX_DOMAIN",
+          url: expect.stringContaining("/ChinaMax/ChinaMax_Domain.list"),
+          resourceType: "domain-set",
+        }),
+      ]),
     );
 
     expect(output.content).toContain(
-      "PROXY = select, ♻️ 自动测速, DIRECT, 香港 01, icon-url=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Proxy.png"
+      "PROXY = select, ♻️ 自动测速, DIRECT, 香港 01, icon-url=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Proxy.png",
     );
     expect(output.content).toContain("DOMAIN-SUFFIX,emby.fan,Emby代理");
     expect(output.content).toContain("FINAL,FINAL");
-    expect(output.content).toContain("RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list,AI");
+    expect(output.content).toContain(
+      "RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list,AI",
+    );
+    expect(output.content).toContain(
+      "DOMAIN-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Apple/Apple_Domain.list,APPLE",
+    );
+    expect(output.content).toContain(
+      "DOMAIN-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Tencent/Tencent_Domain.list,DIRECT",
+    );
+    expect(output.content).toContain(
+      "DOMAIN-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/China/China_Domain.list,DIRECT",
+    );
+    expect(output.content).toContain(
+      "DOMAIN-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/ChinaMax/ChinaMax_Domain.list,DIRECT",
+    );
+    expect(output.content).not.toContain(
+      "RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Apple/Apple_Domain.list",
+    );
+    expect(output.content).not.toContain(
+      "RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Tencent/Tencent_Domain.list",
+    );
+    expect(output.content).not.toContain(
+      "RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/China/China_Domain.list",
+    );
+    expect(output.content).not.toContain(
+      "RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/ChinaMax/ChinaMax_Domain.list",
+    );
 
-    const localRuleIndex = output.content.indexOf("DOMAIN-SUFFIX,emby.fan,Emby代理");
+    const localRuleIndex = output.content.indexOf(
+      "DOMAIN-SUFFIX,emby.fan,Emby代理",
+    );
     const remoteRuleIndex = output.content.indexOf("RULE-SET,");
     expect(localRuleIndex).toBeGreaterThan(output.content.indexOf("[Rule]"));
     expect(remoteRuleIndex).toBeGreaterThan(localRuleIndex);

@@ -42,7 +42,9 @@ function stringValue(value: unknown): string {
 }
 
 function numberValue(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function booleanValue(value: unknown): boolean | undefined {
@@ -56,7 +58,11 @@ function stringList(value: unknown): string[] {
 }
 
 function escapeQuoted(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r/g, "\\r").replace(/\n/g, "\\n");
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n");
 }
 
 function formatToken(value: string): string {
@@ -75,19 +81,26 @@ function appendParam(out: string[], key: string, value: unknown) {
 }
 
 function sanitizeName(name: string, fallback: string): string {
-  const normalized = name.replace(/[\r\n]+/g, " ").replace(/[=,]/g, " ").replace(/\s+/g, " ").trim();
+  const normalized = name
+    .replace(/[\r\n]+/g, " ")
+    .replace(/[=,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return normalized || fallback;
 }
 
 function ensureUniqueNames<T>(
   items: T[],
   getRawName: (item: T, index: number) => string,
-  fallbackPrefix: string
+  fallbackPrefix: string,
 ): Map<T, string> {
   const used = new Set<string>();
   const map = new Map<T, string>();
   items.forEach((item, index) => {
-    const base = sanitizeName(getRawName(item, index), `${fallbackPrefix}${index + 1}`);
+    const base = sanitizeName(
+      getRawName(item, index),
+      `${fallbackPrefix}${index + 1}`,
+    );
     let name = base;
     let suffix = 2;
     while (used.has(name)) {
@@ -101,14 +114,19 @@ function ensureUniqueNames<T>(
 
 function buildWsParams(record: NodeRecord, out: string[]) {
   const ws = isRecord(record["ws-opts"]) ? record["ws-opts"] : {};
-  if (stringValue(record.network) !== "ws" && Object.keys(ws).length === 0) return;
+  if (stringValue(record.network) !== "ws" && Object.keys(ws).length === 0)
+    return;
   out.push("ws=true");
   appendParam(out, "ws-path", stringValue(ws.path) || "/");
   const headers = isRecord(ws.headers) ? ws.headers : {};
   const headerText = Object.entries(headers)
     .map(([key, value]) => {
-      const headerValue = Array.isArray(value) ? value.map(String).join(",") : String(value ?? "");
-      return key.trim() && headerValue.trim() ? `${key.trim()}:${headerValue.trim()}` : "";
+      const headerValue = Array.isArray(value)
+        ? value.map(String).join(",")
+        : String(value ?? "");
+      return key.trim() && headerValue.trim()
+        ? `${key.trim()}:${headerValue.trim()}`
+        : "";
     })
     .filter(Boolean)
     .join("|");
@@ -116,17 +134,30 @@ function buildWsParams(record: NodeRecord, out: string[]) {
 }
 
 function appendCommonProxyParams(record: NodeRecord, out: string[]) {
-  appendParam(out, "sni", stringValue(record.sni) || stringValue(record.servername));
-  appendParam(out, "server-cert-fingerprint-sha256", stringValue(record.fingerprint));
+  appendParam(
+    out,
+    "sni",
+    stringValue(record.sni) || stringValue(record.servername),
+  );
+  appendParam(
+    out,
+    "server-cert-fingerprint-sha256",
+    stringValue(record.fingerprint),
+  );
   const skipCertVerify = booleanValue(record["skip-cert-verify"]);
-  if (skipCertVerify !== undefined) appendParam(out, "skip-cert-verify", skipCertVerify);
+  if (skipCertVerify !== undefined)
+    appendParam(out, "skip-cert-verify", skipCertVerify);
   const udp = booleanValue(record.udp);
   if (udp !== undefined) appendParam(out, "udp-relay", udp);
   const tfo = booleanValue(record.tfo);
   if (tfo !== undefined) appendParam(out, "tfo", tfo);
 }
 
-function baseProxyParts(name: string, surgeType: string, record: NodeRecord): string[] | null {
+function baseProxyParts(
+  name: string,
+  surgeType: string,
+  record: NodeRecord,
+): string[] | null {
   const server = stringValue(record.server);
   const port = numberValue(record.port);
   if (!server || !port) return null;
@@ -142,7 +173,9 @@ function serializeSs(name: string, record: NodeRecord): string | null {
   appendParam(parts, "password", password);
 
   const plugin = stringValue(record.plugin).toLowerCase();
-  const pluginOpts = isRecord(record["plugin-opts"]) ? record["plugin-opts"] : {};
+  const pluginOpts = isRecord(record["plugin-opts"])
+    ? record["plugin-opts"]
+    : {};
   if (plugin === "obfs") {
     appendParam(parts, "obfs", stringValue(pluginOpts.mode));
     appendParam(parts, "obfs-host", stringValue(pluginOpts.host));
@@ -160,7 +193,8 @@ function serializeVmess(name: string, record: NodeRecord): string | null {
   const cipher = stringValue(record.cipher);
   if (cipher) appendParam(parts, "encrypt-method", cipher);
   appendParam(parts, "vmess-aead", numberValue(record.alterId) === 0);
-  if (record.tls !== undefined) appendParam(parts, "tls", booleanValue(record.tls) === true);
+  if (record.tls !== undefined)
+    appendParam(parts, "tls", booleanValue(record.tls) === true);
   buildWsParams(record, parts);
   appendCommonProxyParams(record, parts);
   return parts.join(", ");
@@ -171,14 +205,18 @@ function serializeTrojan(name: string, record: NodeRecord): string | null {
   const password = stringValue(record.password);
   if (!parts || !password) return null;
   appendParam(parts, "password", password);
-  if (record.tls !== undefined) appendParam(parts, "tls", booleanValue(record.tls) !== false);
+  if (record.tls !== undefined)
+    appendParam(parts, "tls", booleanValue(record.tls) !== false);
   buildWsParams(record, parts);
   appendCommonProxyParams(record, parts);
   return parts.join(", ");
 }
 
 function serializeHttp(name: string, record: NodeRecord): string | null {
-  const type = stringValue(record.type) === "https" || record.tls === true ? "https" : "http";
+  const type =
+    stringValue(record.type) === "https" || record.tls === true
+      ? "https"
+      : "http";
   const parts = baseProxyParts(name, type, record);
   if (!parts) return null;
   appendParam(parts, "username", stringValue(record.username));
@@ -188,7 +226,11 @@ function serializeHttp(name: string, record: NodeRecord): string | null {
 }
 
 function serializeSocks5(name: string, record: NodeRecord): string | null {
-  const parts = baseProxyParts(name, record.tls === true ? "socks5-tls" : "socks5", record);
+  const parts = baseProxyParts(
+    name,
+    record.tls === true ? "socks5-tls" : "socks5",
+    record,
+  );
   if (!parts) return null;
   appendParam(parts, "username", stringValue(record.username));
   appendParam(parts, "password", stringValue(record.password));
@@ -219,12 +261,21 @@ function serializeHysteria2(name: string, record: NodeRecord): string | null {
   appendParam(parts, "password", password);
   appendParam(parts, "sni", stringValue(record.sni));
   const skipCertVerify = booleanValue(record["skip-cert-verify"]);
-  if (skipCertVerify !== undefined) appendParam(parts, "skip-cert-verify", skipCertVerify);
+  if (skipCertVerify !== undefined)
+    appendParam(parts, "skip-cert-verify", skipCertVerify);
   appendParam(parts, "download-bandwidth", stringValue(record.down));
   if (stringValue(record.obfs) === "salamander") {
-    appendParam(parts, "salamander-password", stringValue(record["obfs-password"]));
+    appendParam(
+      parts,
+      "salamander-password",
+      stringValue(record["obfs-password"]),
+    );
   }
-  appendParam(parts, "port-hopping-interval", numberValue(record["hop-interval"]));
+  appendParam(
+    parts,
+    "port-hopping-interval",
+    numberValue(record["hop-interval"]),
+  );
   return parts.join(", ");
 }
 
@@ -250,7 +301,8 @@ function serializeAnyTls(name: string, record: NodeRecord): string | null {
   appendParam(parts, "password", password);
   appendParam(parts, "sni", stringValue(record.sni));
   const skipCertVerify = booleanValue(record["skip-cert-verify"]);
-  if (skipCertVerify !== undefined) appendParam(parts, "skip-cert-verify", skipCertVerify);
+  if (skipCertVerify !== undefined)
+    appendParam(parts, "skip-cert-verify", skipCertVerify);
   return parts.join(", ");
 }
 
@@ -263,7 +315,11 @@ function serializeSsh(name: string, record: NodeRecord): string | null {
   appendParam(parts, "username", username);
   appendParam(parts, "password", password);
   appendParam(parts, "private-key", privateKey);
-  appendParam(parts, "server-fingerprint", stringValue(record["server-fingerprint"]));
+  appendParam(
+    parts,
+    "server-fingerprint",
+    stringValue(record["server-fingerprint"]),
+  );
   return parts.join(", ");
 }
 
@@ -271,7 +327,7 @@ function serializeWireGuardProxy(
   name: string,
   record: NodeRecord,
   sectionName: string,
-  wireGuardSections: string[]
+  wireGuardSections: string[],
 ): string | null {
   const privateKey = stringValue(record["private-key"]);
   const server = stringValue(record.server);
@@ -292,12 +348,16 @@ function serializeWireGuardProxy(
   if (keepalive) lines.push(`keepalive = ${keepalive}`);
   const peerParts = [
     `public-key = ${publicKey}`,
-    stringValue(record["pre-shared-key"]) ? `pre-shared-key = ${stringValue(record["pre-shared-key"])}` : "",
+    stringValue(record["pre-shared-key"])
+      ? `pre-shared-key = ${stringValue(record["pre-shared-key"])}`
+      : "",
     `endpoint = "${server}:${port}"`,
     stringList(record["allowed-ips"]).length > 0
       ? `allowed-ips = "${stringList(record["allowed-ips"]).join(", ")}"`
       : "",
-    Array.isArray(record.reserved) ? `client-id = "${record.reserved.join("/")}"` : "",
+    Array.isArray(record.reserved)
+      ? `client-id = "${record.reserved.join("/")}"`
+      : "",
   ].filter(Boolean);
   lines.push(`peer = (${peerParts.join(", ")})`);
   wireGuardSections.push(lines.join("\n"));
@@ -308,7 +368,7 @@ function serializeProxyNode(
   node: ParsedNode,
   name: string,
   wireGuardSections: string[],
-  wireGuardSectionName: string
+  wireGuardSectionName: string,
 ): string | null {
   const record = node as unknown as NodeRecord;
   const type = stringValue(record.type).toLowerCase();
@@ -335,7 +395,12 @@ function serializeProxyNode(
     case "ssh":
       return serializeSsh(name, record);
     case "wireguard":
-      return serializeWireGuardProxy(name, record, wireGuardSectionName, wireGuardSections);
+      return serializeWireGuardProxy(
+        name,
+        record,
+        wireGuardSectionName,
+        wireGuardSections,
+      );
     default:
       return null;
   }
@@ -352,7 +417,7 @@ function isSupportedNode(node: ParsedNode): boolean {
 function resolvePolicyName(
   target: SurgePolicyRef | string | undefined,
   groupNamesById: Map<string, string>,
-  nodeNamesByOriginal: Map<string, string>
+  nodeNamesByOriginal: Map<string, string>,
 ): string | null {
   if (!target) return null;
   if (typeof target === "string") {
@@ -362,7 +427,8 @@ function resolvePolicyName(
   if (target.kind === "direct") return "DIRECT";
   if (target.kind === "reject") return "REJECT";
   if (target.kind === "group") return groupNamesById.get(target.id) ?? null;
-  if (target.kind === "node") return nodeNamesByOriginal.get(target.name) ?? null;
+  if (target.kind === "node")
+    return nodeNamesByOriginal.get(target.name) ?? null;
   return null;
 }
 
@@ -376,12 +442,29 @@ function regionRegex(keywords: string[]): string {
 
 function appendPolicyGroupCommonParams(
   parts: string[],
-  group: Pick<SurgeProxyGroup, "type" | "url" | "interval" | "timeout" | "tolerance" | "policyPriority" | "icon">,
-  fallback: { testUrl: string; testInterval: number }
+  group: Pick<
+    SurgeProxyGroup,
+    | "type"
+    | "url"
+    | "interval"
+    | "timeout"
+    | "tolerance"
+    | "policyPriority"
+    | "icon"
+  >,
+  fallback: { testUrl: string; testInterval: number },
 ) {
-  if (group.type === "url-test" || group.type === "fallback" || group.type === "load-balance") {
+  if (
+    group.type === "url-test" ||
+    group.type === "fallback" ||
+    group.type === "load-balance"
+  ) {
     appendParam(parts, "url", stringValue(group.url) || fallback.testUrl);
-    appendParam(parts, "interval", numberValue(group.interval) ?? fallback.testInterval);
+    appendParam(
+      parts,
+      "interval",
+      numberValue(group.interval) ?? fallback.testInterval,
+    );
   }
   appendParam(parts, "timeout", numberValue(group.timeout));
   appendParam(parts, "tolerance", numberValue(group.tolerance));
@@ -394,14 +477,22 @@ function appendPolicyGroupCommonParams(
 function buildRegionGroupLine(
   group: SurgeRegionPolicyGroup,
   name: string,
-  fallback: { testUrl: string; testInterval: number }
+  fallback: { testUrl: string; testInterval: number },
 ): string {
-  const parts = [`${name} = ${group.type}`, "include-all-proxies=true", `policy-regex-filter=${formatToken(regionRegex(group.keywords))}`];
-  appendPolicyGroupCommonParams(parts, {
-    type: group.type,
-    interval: fallback.testInterval,
-    policyPriority: group.policyPriority,
-  }, fallback);
+  const parts = [
+    `${name} = ${group.type}`,
+    "include-all-proxies=true",
+    `policy-regex-filter=${formatToken(regionRegex(group.keywords))}`,
+  ];
+  appendPolicyGroupCommonParams(
+    parts,
+    {
+      type: group.type,
+      interval: fallback.testInterval,
+      policyPriority: group.policyPriority,
+    },
+    fallback,
+  );
   return parts.join(", ");
 }
 
@@ -410,7 +501,7 @@ function buildProxyGroupLine(
   name: string,
   groupNamesById: Map<string, string>,
   nodeNamesByOriginal: Map<string, string>,
-  fallback: { testUrl: string; testInterval: number }
+  fallback: { testUrl: string; testInterval: number },
 ): string {
   const resolvedPolicies = group.policies
     .map((policy) => {
@@ -418,8 +509,12 @@ function buildProxyGroupLine(
       return resolvePolicyName(policy, groupNamesById, nodeNamesByOriginal);
     })
     .filter((policy): policy is string => Boolean(policy));
-  const allNodePolicies = group.includeAllNodes ? Array.from(nodeNamesByOriginal.values()) : [];
-  const uniquePolicies = Array.from(new Set([...resolvedPolicies, ...allNodePolicies]));
+  const allNodePolicies = group.includeAllNodes
+    ? Array.from(nodeNamesByOriginal.values())
+    : [];
+  const uniquePolicies = Array.from(
+    new Set([...resolvedPolicies, ...allNodePolicies]),
+  );
   const parts = [`${name} = ${group.type}`, ...uniquePolicies.map(formatToken)];
   appendPolicyGroupCommonParams(parts, group, fallback);
   return parts.join(", ");
@@ -428,10 +523,14 @@ function buildProxyGroupLine(
 function buildRuleLine(
   rule: SurgeRule,
   groupNamesById: Map<string, string>,
-  nodeNamesByOriginal: Map<string, string>
+  nodeNamesByOriginal: Map<string, string>,
 ): string | null {
   if (rule.enabled === false) return null;
-  const target = resolvePolicyName(rule.target, groupNamesById, nodeNamesByOriginal);
+  const target = resolvePolicyName(
+    rule.target,
+    groupNamesById,
+    nodeNamesByOriginal,
+  );
   if (!target) return null;
   if (rule.type === "FINAL") return `FINAL,${formatToken(target)}`;
   const value = stringValue(rule.value);
@@ -443,24 +542,38 @@ function buildRuleLine(
 function buildRuleSetLine(
   ruleSet: SurgeRuleSet,
   groupNamesById: Map<string, string>,
-  nodeNamesByOriginal: Map<string, string>
+  nodeNamesByOriginal: Map<string, string>,
 ): string | null {
   if (ruleSet.enabled === false) return null;
   const url = stringValue(ruleSet.url);
-  const target = resolvePolicyName(ruleSet.target, groupNamesById, nodeNamesByOriginal);
+  const target = resolvePolicyName(
+    ruleSet.target,
+    groupNamesById,
+    nodeNamesByOriginal,
+  );
   if (!url || !target) return null;
-  const base = `RULE-SET,${formatToken(url)},${formatToken(target)}`;
-  return ruleSet.noResolve ? `${base},no-resolve` : base;
+  const directive =
+    ruleSet.resourceType === "domain-set" ? "DOMAIN-SET" : "RULE-SET";
+  const base = `${directive},${formatToken(url)},${formatToken(target)}`;
+  return ruleSet.noResolve && directive === "RULE-SET"
+    ? `${base},no-resolve`
+    : base;
 }
 
 function normalizeGeneralLines(text: string): string[] {
   return text
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
-    .filter((line) => line.trim() && !/^\s*\[(?:general|proxy|proxy group|rule|wireguard\b)/i.test(line));
+    .filter(
+      (line) =>
+        line.trim() &&
+        !/^\s*\[(?:general|proxy|proxy group|rule|wireguard\b)/i.test(line),
+    );
 }
 
-export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenerationResult {
+export function generateSurgeProfile(
+  options: GenerateSurgeOptions,
+): SurgeGenerationResult {
   const config = normalizeSurgeConfig(options.config);
   const nodes = Array.isArray(options.nodes) ? options.nodes : [];
   const supportedNodes = nodes.filter(isSupportedNode);
@@ -475,19 +588,32 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
   const nodeNamesByNode = ensureUniqueNames(
     supportedNodes,
     (node) => stringValue((node as unknown as NodeRecord).name),
-    "Proxy "
+    "Proxy ",
   );
   const nodeNamesByOriginal = new Map<string, string>();
   supportedNodes.forEach((node) => {
     const original = stringValue((node as unknown as NodeRecord).name);
     const finalName = nodeNamesByNode.get(node);
-    if (original && finalName && !nodeNamesByOriginal.has(original)) nodeNamesByOriginal.set(original, finalName);
+    if (original && finalName && !nodeNamesByOriginal.has(original))
+      nodeNamesByOriginal.set(original, finalName);
   });
 
-  const activeRegions = config.regionGroups.filter((group) => group.enabled !== false);
-  const activeGroups = config.proxyGroups.filter((group) => group.enabled !== false);
-  const regionNamesByGroup = ensureUniqueNames(activeRegions, (group) => group.name, "Region ");
-  const groupNamesByGroup = ensureUniqueNames(activeGroups, (group) => group.name, "Group ");
+  const activeRegions = config.regionGroups.filter(
+    (group) => group.enabled !== false,
+  );
+  const activeGroups = config.proxyGroups.filter(
+    (group) => group.enabled !== false,
+  );
+  const regionNamesByGroup = ensureUniqueNames(
+    activeRegions,
+    (group) => group.name,
+    "Region ",
+  );
+  const groupNamesByGroup = ensureUniqueNames(
+    activeGroups,
+    (group) => group.name,
+    "Group ",
+  );
   const groupNamesById = new Map<string, string>();
   activeRegions.forEach((group) => {
     const name = regionNamesByGroup.get(group);
@@ -504,7 +630,12 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
       const name = nodeNamesByNode.get(node);
       if (!name) return null;
       const sectionName = `wg_${index + 1}`;
-      const line = serializeProxyNode(node, name, wireGuardSections, sectionName);
+      const line = serializeProxyNode(
+        node,
+        name,
+        wireGuardSections,
+        sectionName,
+      );
       if (!line) {
         skippedNodes.push({
           name,
@@ -516,9 +647,16 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
     })
     .filter((line): line is string => Boolean(line));
 
-  const fallback = { testUrl: config.testUrl, testInterval: config.testInterval };
+  const fallback = {
+    testUrl: config.testUrl,
+    testInterval: config.testInterval,
+  };
   const regionGroupLines = activeRegions.map((group) =>
-    buildRegionGroupLine(group, regionNamesByGroup.get(group) || group.name, fallback)
+    buildRegionGroupLine(
+      group,
+      regionNamesByGroup.get(group) || group.name,
+      fallback,
+    ),
   );
   const proxyGroupLines = activeGroups.map((group) => {
     const generatedGroup =
@@ -528,11 +666,14 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
             policies: [
               ...activeRegions
                 .filter((region) => region.includeInProxy !== false)
-                .map((region): SurgePolicyRef => ({ kind: "group", id: region.id })),
+                .map((region): SurgePolicyRef => ({
+                  kind: "group",
+                  id: region.id,
+                })),
               ...group.policies.filter(
                 (policy) =>
                   policy.kind !== "group" ||
-                  !activeRegions.some((region) => region.id === policy.id)
+                  !activeRegions.some((region) => region.id === policy.id),
               ),
             ],
           }
@@ -542,16 +683,12 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
       groupNamesByGroup.get(group) || group.name,
       groupNamesById,
       nodeNamesByOriginal,
-      fallback
+      fallback,
     );
   });
   const ruleEntries: Array<{ key: string; line: string }> = [];
   for (const ruleSet of config.ruleSets) {
-    const line = buildRuleSetLine(
-      ruleSet,
-      groupNamesById,
-      nodeNamesByOriginal
-    );
+    const line = buildRuleSetLine(ruleSet, groupNamesById, nodeNamesByOriginal);
     if (line) ruleEntries.push({ key: `rule-set:${ruleSet.id}`, line });
   }
   const finalRuleLines: string[] = [];
@@ -562,7 +699,9 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
     else ruleEntries.push({ key: `rule:${rule.id}`, line });
   }
 
-  const ruleEntryByKey = new Map(ruleEntries.map((entry) => [entry.key, entry]));
+  const ruleEntryByKey = new Map(
+    ruleEntries.map((entry) => [entry.key, entry]),
+  );
   const emittedRuleKeys = new Set<string>();
   const ruleLines: string[] = [];
   for (const key of config.ruleOrder ?? []) {
@@ -579,27 +718,42 @@ export function generateSurgeProfile(options: GenerateSurgeOptions): SurgeGenera
   if (finalRuleLines.length > 0) {
     ruleLines.push(...finalRuleLines);
   } else {
-    const finalTarget = resolvePolicyName(config.finalTarget, groupNamesById, nodeNamesByOriginal) || "DIRECT";
+    const finalTarget =
+      resolvePolicyName(
+        config.finalTarget,
+        groupNamesById,
+        nodeNamesByOriginal,
+      ) || "DIRECT";
     ruleLines.push(`FINAL,${formatToken(finalTarget)}`);
   }
 
   const lines: string[] = [];
   if (config.managedConfigEnabled && stringValue(config.managedConfigUrl)) {
-    lines.push(`#!MANAGED-CONFIG ${stringValue(config.managedConfigUrl)} interval=86400 strict=false`, "");
+    lines.push(
+      `#!MANAGED-CONFIG ${stringValue(config.managedConfigUrl)} interval=86400 strict=false`,
+      "",
+    );
   }
   lines.push("[General]");
   lines.push(...normalizeGeneralLines(config.generalText));
   lines.push("", "[Proxy]");
   lines.push(...proxyLines);
   if (skippedNodes.length > 0) {
-    lines.push(`# SubBoost 已跳过 ${skippedNodes.length} 个 Surge 不支持或字段不完整的节点`);
+    lines.push(
+      `# SubBoost 已跳过 ${skippedNodes.length} 个 Surge 不支持或字段不完整的节点`,
+    );
   }
   lines.push("", "[Proxy Group]");
   lines.push(...proxyGroupLines, ...regionGroupLines);
   lines.push("", "[Rule]");
   lines.push(...ruleLines);
   if (wireGuardSections.length > 0) {
-    lines.push("", ...wireGuardSections.flatMap((section, index) => (index === 0 ? [section] : ["", section])));
+    lines.push(
+      "",
+      ...wireGuardSections.flatMap((section, index) =>
+        index === 0 ? [section] : ["", section],
+      ),
+    );
   }
 
   return {
