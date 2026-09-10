@@ -798,17 +798,43 @@ export function SurgeMode() {
                 />
               </div>
               {surgeConfig.managedConfigEnabled && (
-                <Input
-                  value={surgeConfig.managedConfigUrl || ""}
-                  onChange={(event) =>
-                    setSurgeConfig({
-                      ...surgeConfig,
-                      managedConfigUrl: event.target.value,
-                    })
-                  }
-                  placeholder="https://example.com/api/subscriptions/token/surge.conf"
-                  className="mt-2 h-8 text-xs"
-                />
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_11rem]">
+                  <div className="space-y-1">
+                    <span className="text-xs text-white/45">托管 URL</span>
+                    <Input
+                      value={surgeConfig.managedConfigUrl || ""}
+                      onChange={(event) =>
+                        setSurgeConfig({
+                          ...surgeConfig,
+                          managedConfigUrl: event.target.value,
+                        })
+                      }
+                      placeholder="https://example.com/api/subscriptions/token/surge.conf"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-white/45">
+                      更新间隔（秒）
+                    </span>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={surgeConfig.managedConfigInterval ?? 86400}
+                      onChange={(event) =>
+                        setSurgeConfig({
+                          ...surgeConfig,
+                          managedConfigInterval:
+                            Number(event.target.value) ||
+                            surgeConfig.managedConfigInterval ||
+                            86400,
+                        })
+                      }
+                      aria-label="MANAGED-CONFIG 更新间隔（秒）"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
               )}
             </div>
           </div>

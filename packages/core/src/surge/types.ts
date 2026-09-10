@@ -77,6 +77,7 @@ export interface SurgeConfig {
   testInterval: number;
   managedConfigEnabled?: boolean;
   managedConfigUrl?: string;
+  managedConfigInterval?: number;
 }
 
 export interface SurgeSkippedNode {

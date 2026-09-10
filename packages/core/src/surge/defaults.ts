@@ -31,6 +31,8 @@ export const DEFAULT_SURGE_GENERAL_TEXT = [
   "show-error-page-for-reject = true",
 ].join("\n");
 
+export const DEFAULT_SURGE_MANAGED_CONFIG_INTERVAL = 86400;
+
 export const SURGE_PROXY_GROUP_TYPES: SurgeProxyGroupType[] = [
   "select",
   "url-test",
@@ -369,6 +371,7 @@ export function createDefaultSurgeConfig(): SurgeConfig {
     testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,
     managedConfigEnabled: false,
     managedConfigUrl: "",
+    managedConfigInterval: DEFAULT_SURGE_MANAGED_CONFIG_INTERVAL,
   };
 }
 
@@ -389,6 +392,7 @@ export function createYoukoSurgeConfig(): SurgeConfig {
     testInterval: DEFAULT_SUBBOOST_CONFIG.testInterval,
     managedConfigEnabled: false,
     managedConfigUrl: "",
+    managedConfigInterval: DEFAULT_SURGE_MANAGED_CONFIG_INTERVAL,
   };
 }
 
@@ -617,5 +621,8 @@ export function normalizeSurgeConfig(value: unknown): SurgeConfig {
     testInterval: positiveInt(value.testInterval) ?? defaults.testInterval,
     managedConfigEnabled: bool(value.managedConfigEnabled) ?? false,
     managedConfigUrl: text(value.managedConfigUrl),
+    managedConfigInterval:
+      positiveInt(value.managedConfigInterval) ??
+      defaults.managedConfigInterval,
   };
 }

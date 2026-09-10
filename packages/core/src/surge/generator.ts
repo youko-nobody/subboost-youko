@@ -1,5 +1,8 @@
 import type { ParsedNode } from "@subboost/core/types/node";
-import { normalizeSurgeConfig } from "./defaults";
+import {
+  DEFAULT_SURGE_MANAGED_CONFIG_INTERVAL,
+  normalizeSurgeConfig,
+} from "./defaults";
 import type {
   SurgeConfig,
   SurgeGenerationResult,
@@ -729,8 +732,11 @@ export function generateSurgeProfile(
 
   const lines: string[] = [];
   if (config.managedConfigEnabled && stringValue(config.managedConfigUrl)) {
+    const managedConfigInterval =
+      numberValue(config.managedConfigInterval) ??
+      DEFAULT_SURGE_MANAGED_CONFIG_INTERVAL;
     lines.push(
-      `#!MANAGED-CONFIG ${stringValue(config.managedConfigUrl)} interval=86400 strict=false`,
+      `#!MANAGED-CONFIG ${stringValue(config.managedConfigUrl)} interval=${Math.max(1, Math.floor(managedConfigInterval))} strict=false`,
       "",
     );
   }

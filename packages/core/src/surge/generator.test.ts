@@ -89,6 +89,22 @@ describe("generateSurgeProfile", () => {
     );
   });
 
+  it("uses the custom managed config interval", () => {
+    const output = generateSurgeProfile({
+      nodes: [ssNode],
+      config: {
+        ...createDefaultSurgeConfig(),
+        managedConfigEnabled: true,
+        managedConfigUrl: "https://example.com/surge.conf",
+        managedConfigInterval: 7200,
+      },
+    });
+
+    expect(output.content).toContain(
+      "#!MANAGED-CONFIG https://example.com/surge.conf interval=7200 strict=false",
+    );
+  });
+
   it("filters non-node members from smart manual groups", () => {
     const output = generateSurgeProfile({
       nodes: [ssNode],
