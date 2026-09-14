@@ -52,6 +52,21 @@ describe("parseSS", () => {
     });
   });
 
+  it("removes provider tags appended to valid SS2022 keys", () => {
+    const link =
+      "ss://MjAyMi1ibGFrZTMtYWVzLTEyOC1nY206dXlXWFlZeFVueGFVZW50QXZTaUo1dz09Ok1UYzFNak0zTWpneE1WUjBTVXhtY1E9PSNCTEFDS1NUT05FQDE1MC4yNDIuODAuMTI5OjEwMTI3?uot=1#%F0%9F%87%AD%F0%9F%87%B0%20%F0%9F%84%B7%20SS%E9%99%90TF%E4%BD%BF%E7%94%A8";
+    const node = parseSS(link);
+
+    expect(node).toMatchObject({
+      name: "🇭🇰 🄷 SS限TF使用",
+      server: "150.242.80.129",
+      port: 10127,
+      cipher: "2022-blake3-aes-128-gcm",
+      password: "uyWXYYxUnxaUentAvSiJ5w==:MTc1MjM3MjgxMVR0SUxmcQ==",
+      "udp-over-tcp": true,
+    });
+  });
+
   it("parses empty bool query flags and ignores invalid v2ray-plugin JSON", () => {
     const boolFlags = parseSS("ss://aes-128-gcm:secret@bool.example.com:8388?uot=&tfo=#Bool");
     const invalidFlags = parseSS("ss://aes-128-gcm:secret@flags.example.com:8388?uot=maybe&tfo=0#Flags");

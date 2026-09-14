@@ -129,6 +129,52 @@ function parseV2rayPluginJsonParam(value: string): Record<string, unknown> | und
   return parseJsonObject(decoded) ?? undefined;
 }
 
+function isBase64Key(value: string, expectedBytes: 16 | 32): boolean {
+  const normalized = value.trim().replace(/-/g, "+").replace(/_/g, "/");
+  if (!normalized || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) return false;
+
+  const firstPadding = normalized.indexOf("=");
+  if (firstPadding !== -1 && /[^=]/.test(normalized.slice(firstPadding))) return false;
+
+  const unpaddedLength = normalized.replace(/=+$/, "").length;
+  return Math.floor((unpaddedLength * 6) / 8) === expectedBytes;
+}
+
+/**
+ * Some SS2022 providers append a plain-text tag after the Base64 key(s)
+ * inside the fully encoded payload, for example:
+ *   serverKey:userKey#PROVIDER
+ *
+ * That tag is not part of an SS2022 password and makes Surge reject the
+ * generated proxy. Strip it only after the part before `#` is proven to be
+ * a valid one- or two-key SS2022 password, leaving ordinary SS passwords
+ * untouched.
+ */
+function normalizeSs2022Password(cipher: string, password: string): string {
+  const normalizedCipher = cipher.trim().toLowerCase();
+  const expectedBytes =
+    normalizedCipher === "2022-blake3-aes-128-gcm"
+      ? 16
+      : normalizedCipher === "2022-blake3-aes-256-gcm"
+        ? 32
+        : undefined;
+  if (!expectedBytes) return password;
+
+  const hashIndex = password.lastIndexOf("#");
+  if (hashIndex <= 0 || hashIndex === password.length - 1) return password;
+
+  const candidate = password.slice(0, hashIndex);
+  const keyParts = candidate.split(":");
+  if (
+    (keyParts.length !== 1 && keyParts.length !== 2) ||
+    !keyParts.every((key) => isBase64Key(key, expectedBytes))
+  ) {
+    return password;
+  }
+
+  return candidate;
+}
+
 export function parseSS(uri: string): SSNode {
   if (!uri.startsWith("ss://")) {
     throw new Error("无效的 SS 链接");
@@ -268,6 +314,8 @@ export function parseSS(uri: string): SSNode {
     server = serverPort.slice(0, colonIndex);
     port = parseInt(serverPort.slice(colonIndex + 1), 10);
   }
+
+  password = normalizeSs2022Password(cipher, password);
 
   // 处理 IPv6 地址
   if (server.startsWith("[") && server.endsWith("]")) {

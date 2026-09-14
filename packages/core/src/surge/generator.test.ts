@@ -5,6 +5,7 @@ import {
   generateSurgeProfile,
   normalizeSurgeConfig,
 } from "@subboost/core/surge";
+import { parseSS } from "@subboost/core/parser/protocols/ss";
 import type { ParsedNode } from "@subboost/core/types/node";
 
 const ssNode: ParsedNode = {
@@ -103,6 +104,21 @@ describe("generateSurgeProfile", () => {
     expect(output.content).toContain(
       "#!MANAGED-CONFIG https://example.com/surge.conf interval=7200 strict=false",
     );
+  });
+
+  it("generates a valid Surge SS2022 line for provider-tagged links", () => {
+    const node = parseSS(
+      "ss://MjAyMi1ibGFrZTMtYWVzLTEyOC1nY206dXlXWFlZeFVueGFVZW50QXZTaUo1dz09Ok1UYzFNak0zTWpneE1WUjBTVXhtY1E9PSNCTEFDS1NUT05FQDE1MC4yNDIuODAuMTI5OjEwMTI3?uot=1#%F0%9F%87%AD%F0%9F%87%B0%20%F0%9F%84%B7%20SS%E9%99%90TF%E4%BD%BF%E7%94%A8",
+    );
+    const output = generateSurgeProfile({
+      nodes: [node],
+      config: createDefaultSurgeConfig(),
+    });
+
+    expect(output.content).toContain(
+      "encrypt-method=2022-blake3-aes-128-gcm, password=uyWXYYxUnxaUentAvSiJ5w==:MTc1MjM3MjgxMVR0SUxmcQ==, udp-relay=true",
+    );
+    expect(output.content).not.toContain("BLACKSTONE");
   });
 
   it("filters non-node members from smart manual groups", () => {
