@@ -172,7 +172,7 @@ function normalizeSs2022Password(cipher: string, password: string): string {
     return password;
   }
 
-  return candidate;
+  return keyParts.map((key) => key.trim()).join(":");
 }
 
 export function parseSS(uri: string): SSNode {

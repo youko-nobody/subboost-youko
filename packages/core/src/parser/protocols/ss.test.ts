@@ -67,6 +67,17 @@ describe("parseSS", () => {
     });
   });
 
+  it("normalizes whitespace around SS2022 identity keys", () => {
+    const link = `ss://${b64(
+      "2022-blake3-aes-128-gcm:uyWXYYxUnxaUentAvSiJ5w==: MTc1MjM3MjgxMVR0SUxmcQ==#BLACKSTONE@ss2022.example.com:10127"
+    )}#Whitespace`;
+
+    expect(parseSS(link)).toMatchObject({
+      name: "Whitespace",
+      password: "uyWXYYxUnxaUentAvSiJ5w==:MTc1MjM3MjgxMVR0SUxmcQ==",
+    });
+  });
+
   it("parses empty bool query flags and ignores invalid v2ray-plugin JSON", () => {
     const boolFlags = parseSS("ss://aes-128-gcm:secret@bool.example.com:8388?uot=&tfo=#Bool");
     const invalidFlags = parseSS("ss://aes-128-gcm:secret@flags.example.com:8388?uot=maybe&tfo=0#Flags");

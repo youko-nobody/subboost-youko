@@ -187,6 +187,22 @@ export function appendUniqueCustomRuleSets(
   return next;
 }
 
+export function prependUniqueCustomRuleSets(
+  existing: CustomRuleSet[],
+  drafts: RuleSetDraft[],
+  target: ProxyGroupRuleTarget
+): CustomRuleSet[] {
+  const seen = new Set(existing.map((item) => item.id));
+  const additions: CustomRuleSet[] = [];
+  for (const draft of drafts) {
+    const ruleSet = normalizeRuleSetDraft(draft);
+    if (!ruleSet || seen.has(ruleSet.id)) continue;
+    seen.add(ruleSet.id);
+    additions.push({ ...ruleSet, target });
+  }
+  return additions.length > 0 ? [...additions, ...existing] : existing;
+}
+
 export function ruleTargetMatchesContainer(
   target: ProxyGroupRuleTarget | undefined,
   container: RuleSetContainerTargetRef,

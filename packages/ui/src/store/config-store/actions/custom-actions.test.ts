@@ -47,22 +47,28 @@ describe("custom config-store actions", () => {
     expect(getState().customRules[0].id).toBeTruthy();
 
     const firstId = getState().customRules[0].id;
+    expect(getState().ruleOrder[0]).toBe(`custom-rule:${firstId}`);
     actions.addCustomRules([rule({ id: "provided", value: "two.example" }), rule({ value: "three.example" })]);
     expect(getState().customRules.map((item: CustomRule) => item.value)).toEqual([
-      "one.example",
       "two.example",
       "three.example",
+      "one.example",
     ]);
-    expect(getState().customRules[1].id).toBe("provided");
+    expect(getState().customRules[0].id).toBe("provided");
+    expect(getState().ruleOrder.slice(0, 3)).toEqual([
+      "custom-rule:provided",
+      `custom-rule:${getState().customRules[1].id}`,
+      `custom-rule:${firstId}`,
+    ]);
 
     actions.updateCustomRule(firstId, { target: "Proxy" });
-    expect(getState().customRules[0].target).toBe("Proxy");
+    expect(getState().customRules.find((item: CustomRule) => item.id === firstId)?.target).toBe("Proxy");
 
     actions.setRuleOrder(["custom-rule:provided"]);
     expect(getState().ruleOrder).toContain("custom-rule:provided");
 
     actions.removeCustomRule(1);
-    expect(getState().customRules.map((item: CustomRule) => item.value)).toEqual(["one.example", "three.example"]);
+    expect(getState().customRules.map((item: CustomRule) => item.value)).toEqual(["two.example", "one.example"]);
   });
 
   it("ignores empty bulk rule additions", () => {

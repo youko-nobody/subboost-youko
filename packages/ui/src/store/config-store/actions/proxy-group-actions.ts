@@ -3,6 +3,7 @@ import {
   type CustomRuleSet,
   type ProxyGroupRuleTarget,
 } from "@subboost/core/types/config";
+import { getCustomRuleSetOrderKey } from "@subboost/core/rules/custom-rule-utils";
 import { normalizeProxyGroupAdvancedConfig } from "@subboost/core/proxy-group-advanced";
 import { PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
 import { getModuleRuleOrderKey, isPresetModuleRule } from "@subboost/core/generator/module-rules";
@@ -10,10 +11,10 @@ import { resolveProxyGroupModuleName } from "@subboost/core/proxy-group-name";
 import type { ConfigActions, RuleSetDraft } from "../definitions";
 import type { GetState, SetAndGenerateConfig, SetState } from "../store-types";
 import {
-  appendUniqueCustomRuleSets,
   findBuiltinRuleEditKeyByTarget,
   normalizeRuleOrderForState,
   normalizeRuleSetDraft,
+  prependUniqueCustomRuleSets,
   resolveMoveTargetName,
   resolveRuleSetContainerTargetName,
   type RuleSetContainerTargetRef,
@@ -99,6 +100,16 @@ function toMoveRuleSetContainerTarget(target: {
   if (target.kind === "direct") return { kind: "direct", id: "DIRECT" };
   if (target.kind === "reject") return { kind: "reject", id: "REJECT" };
   return { kind: target.kind, id: target.id };
+}
+
+function prependRuleOrderKeys(ruleOrder: string[], keys: string[]): string[] {
+  const nextKeys = keys.map((key) => key.trim()).filter(Boolean);
+  if (nextKeys.length === 0) return ruleOrder;
+  const nextKeySet = new Set(nextKeys);
+  return [
+    ...nextKeys,
+    ...ruleOrder.filter((key) => !nextKeySet.has(key)),
+  ];
 }
 
 export function createProxyGroupActions(
@@ -228,7 +239,7 @@ export function createProxyGroupActions(
           }
           customDrafts.push(normalized);
         }
-        const nextCustomRuleSets = appendUniqueCustomRuleSets(
+        const nextCustomRuleSets = prependUniqueCustomRuleSets(
           state.customRuleSets,
           customDrafts,
           toRuleSetTargetValue(targetRef)
@@ -238,6 +249,10 @@ export function createProxyGroupActions(
           nextBuiltinRuleEdits === state.builtinRuleEdits
         ) return state;
 
+        const addedRuleSetKeys = nextCustomRuleSets
+          .slice(0, nextCustomRuleSets.length - state.customRuleSets.length)
+          .map((ruleSet) => getCustomRuleSetOrderKey(ruleSet.id));
+
         return {
           customRuleSets: nextCustomRuleSets,
           builtinRuleEdits: nextBuiltinRuleEdits,
@@ -245,6 +260,7 @@ export function createProxyGroupActions(
             ...state,
             customRuleSets: nextCustomRuleSets,
             builtinRuleEdits: nextBuiltinRuleEdits,
+            ruleOrder: prependRuleOrderKeys(state.ruleOrder, addedRuleSetKeys),
           }),
         };
       });

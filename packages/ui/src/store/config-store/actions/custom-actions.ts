@@ -2,6 +2,7 @@ import type { BuiltinRuleEdits, CustomProxyGroup, CustomRule } from "@subboost/c
 import {
   createCustomRuleId,
   ensureCustomRuleId,
+  getCustomRuleOrderKey,
 } from "@subboost/core/rules/custom-rule-utils";
 import { normalizePersistedRuleOrder } from "@subboost/core/generator/rules";
 import { normalizeProxyGroupAdvancedConfig } from "@subboost/core/proxy-group-advanced";
@@ -65,6 +66,16 @@ function retargetBuiltinRuleEdits(edits: BuiltinRuleEdits, from: string, to: str
   return changed ? next : edits;
 }
 
+function prependRuleOrderKeys(ruleOrder: string[], keys: string[]): string[] {
+  const nextKeys = keys.map((key) => key.trim()).filter(Boolean);
+  if (nextKeys.length === 0) return ruleOrder;
+  const nextKeySet = new Set(nextKeys);
+  return [
+    ...nextKeys,
+    ...ruleOrder.filter((key) => !nextKeySet.has(key)),
+  ];
+}
+
 export function createCustomActions(
   _set: SetState,
   _get: GetState,
@@ -73,16 +84,23 @@ export function createCustomActions(
   return {
     addCustomRule: (rule: CustomRule) => {
       setAndGenerateConfig((state) => {
+        const nextRule = ensureCustomRuleId(
+          { ...rule, id: rule.id || createCustomRuleId() },
+          0,
+        );
         const nextCustomRules = [
+          nextRule,
           ...state.customRules,
-          ensureCustomRuleId(
-            { ...rule, id: rule.id || createCustomRuleId() },
-            state.customRules.length,
-          ),
         ];
         return {
           customRules: nextCustomRules,
-          ruleOrder: normalizeRuleOrderForState({ ...state, customRules: nextCustomRules }),
+          ruleOrder: normalizeRuleOrderForState({
+            ...state,
+            customRules: nextCustomRules,
+            ruleOrder: prependRuleOrderKeys(state.ruleOrder, [
+              getCustomRuleOrderKey(nextRule.id),
+            ]),
+          }),
         };
       });
     },
@@ -94,13 +112,20 @@ export function createCustomActions(
         const nextRules = rules.map((rule, offset) =>
           ensureCustomRuleId(
             { ...rule, id: rule.id || createCustomRuleId() },
-            state.customRules.length + offset,
+            offset,
           ),
         );
-        const nextCustomRules = [...state.customRules, ...nextRules];
+        const nextCustomRules = [...nextRules, ...state.customRules];
         return {
           customRules: nextCustomRules,
-          ruleOrder: normalizeRuleOrderForState({ ...state, customRules: nextCustomRules }),
+          ruleOrder: normalizeRuleOrderForState({
+            ...state,
+            customRules: nextCustomRules,
+            ruleOrder: prependRuleOrderKeys(
+              state.ruleOrder,
+              nextRules.map((rule) => getCustomRuleOrderKey(rule.id)),
+            ),
+          }),
         };
       });
     },

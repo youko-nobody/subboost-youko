@@ -6,13 +6,14 @@
     <img src="https://img.shields.io/badge/platform-Linux%20%2B%20Docker-lightgrey.svg" alt="平台：Linux + Docker">
     <img src="https://img.shields.io/badge/version-2.7.0--youko-green.svg" alt="版本 2.7.0-youko">
     <img src="https://img.shields.io/badge/Clash%2FMihomo-%E8%AE%A2%E9%98%85%E8%BD%AC%E6%8D%A2-blue.svg" alt="Clash/Mihomo 订阅转换">
+    <img src="https://img.shields.io/badge/Surge-%E5%8E%9F%E7%94%9F%E9%85%8D%E7%BD%AE-purple.svg" alt="Surge 原生配置">
     <img src="https://img.shields.io/badge/rules-%E8%87%AA%E7%94%B1%E8%A7%84%E5%88%99%E9%9B%86-orange.svg" alt="自由规则集">
   </p>
   <p><strong>中文说明 | 基于 <a href="https://github.com/SubBoost/subboost">SubBoost/subboost</a> 二次修改</strong></p>
 </div>
 <!-- markdownlint-enable MD033 MD041 -->
 
-这是一个基于 SubBoost 的 Clash/Mihomo 订阅转换与配置生成工具二改版。这个版本重点增强了自定义分流、策略组图标、订阅后台管理、更新保护、健康检查和 VPS 自部署体验，适合想自己维护 Clash/Mihomo 配置的人使用。
+这是一个基于 SubBoost 的 Clash/Mihomo、Surge、V2Ray 订阅转换与配置生成工具二改版。这个版本重点增强了自定义分流、策略组图标、Surge 原生配置、订阅后台管理、更新保护、健康检查和 VPS 自部署体验，适合想自己维护多客户端订阅配置的人使用。
 
 ## 二改功能总览
 
@@ -24,8 +25,25 @@
 - **规则集属性可改**：规则集可配置名称、类型、格式、目标策略组、`DIRECT`、`REJECT` 和 `no-resolve`。
 - **规则目标更自由**：规则可以指向内置策略组、自定义策略组、`DIRECT`、`REJECT` 或其它自定义目标。
 - **规则顺序可调整**：自定义规则集、自定义规则和部分内置规则可以参与排序，方便控制优先级。
+- **新增规则默认置顶**：Clash/Mihomo 里新建远程规则集、本地规则和批量导入规则会默认进入规则列表最前面，批量内部顺序保持不乱。
 - **策略组成员可控**：策略组可以手动选择其它策略组、`DIRECT`、`REJECT` 和具体节点。
 - **远程规则集清理**：移除无用或失效规则集，让默认模板更干净，后续可以按需继续增删。
+
+### Surge 原生配置
+
+- **Clash / Surge 并列逻辑**：新增订阅时可以选择 Clash/Mihomo 或 Surge，不用把 Clash 配置硬转成 Surge。
+- **Surge Youko 分流模板**：按 `Youko分流模板` 的策略组和分流思路重写原生 Surge 模板，内置常用分流规则和 FINAL 兜底。
+- **Surge 远程规则集**：支持 `RULE-SET` 与 `DOMAIN-SET`，可自定义目标策略、直连、拒绝、`no-resolve` 和资源顺序。
+- **Rabbit-Spec 规则补充**：Surge 模板补充 Apple、Microsoft、Netflix、Disney、Spotify、Google、Facebook、Instagram、Meta 等规则，按模块插入到旧规则前面。
+- **Surge 策略组编辑**：支持手动策略组、地区策略组、`smart` 策略、地区策略组新增/删除、策略组与节点顺序调整。
+- **Surge 规则顺序编辑**：规则顺序支持拖拽和手动输入数字排序，新建远程规则集和本地规则默认放在最前面。
+- **MANAGED-CONFIG 可配置**：Surge 托管配置头和更新间隔 `interval` 可以在页面里自定义。
+
+### 协议与客户端兼容
+
+- **Mieru 协议识别**：支持导入 `mierus://` 节点，并在支持的 Clash Meta / Mihomo 客户端配置中输出。
+- **V2Ray 订阅输出**：保存订阅后可生成 V2Ray 常用客户端可直接导入的远程订阅链接。
+- **SS2022 链接兼容**：兼容部分机场在 SS2022 密钥后追加供应商标记、双密钥冒号后带空格的链接，生成时会规范为客户端可识别的密码格式。
 
 ### 策略组远程图标
 
@@ -65,6 +83,7 @@
 - 需要大量自定义远程规则集，并且想给每个规则集指定目标策略的人。
 - 需要把规则集指向代理、直连、拒绝或自定义策略组的人。
 - 想让策略组在 Clash/Mihomo 客户端里显示远程图标的人。
+- 想分别维护 Clash/Mihomo、Surge、V2Ray 输出，不希望所有客户端混在一个模板里的人。
 - 想把订阅服务长期部署在 VPS 上，并在后台管理、备份、检查和更新订阅的人。
 
 ## 使用入口
@@ -214,6 +233,8 @@ docker compose --env-file local/.env -f local/docker-compose.yml up -d --build
 ## 生成配置说明
 
 自定义远程规则集会生成到 Clash/Mihomo 的 `rule-providers`，规则会通过 `RULE-SET` 引用它们。策略组的远程图标会写入 `proxy-groups` 下对应组的 `icon:` 字段。
+
+Surge 订阅会生成原生 `.conf`，规则集会输出为 Surge 的 `RULE-SET` 或 `DOMAIN-SET`，策略组会输出到 `[Proxy Group]`，托管配置头可按需开启并自定义更新间隔。
 
 如果远程规则集使用 `.yaml/.yml`，请确认规则内容格式和 `behavior` 匹配；如果使用 `.mrs`，不能选择 `classical`。
 

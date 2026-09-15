@@ -433,6 +433,24 @@ describe("createProxyGroupActions", () => {
         noResolve: true,
       },
     ]);
+    expect(getState().ruleOrder[0]).toBe("custom-rule-set:telegram");
+
+    actions.addModuleRules("custom-1", [
+      { id: "manual-front", name: "Manual Front", behavior: "domain", path: "geosite/manual-front.mrs" },
+    ]);
+    expect(getState().customRuleSets.map((ruleSet) => ruleSet.id)).toEqual([
+      "manual-front",
+      "telegram",
+    ]);
+    expect(getState().ruleOrder.slice(0, 2)).toEqual([
+      "custom-rule-set:manual-front",
+      "custom-rule-set:telegram",
+    ]);
+    actions.removeModuleRule("custom-1", "manual-front");
+    expect(getState().customRuleSets.map((ruleSet) => ruleSet.id)).toEqual([
+      "telegram",
+    ]);
+    expect(getState().ruleOrder).not.toContain("custom-rule-set:manual-front");
 
     actions.updateModuleRule("custom-1", "telegram", {
       name: "Telegram Custom",
