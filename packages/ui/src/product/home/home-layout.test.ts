@@ -106,6 +106,10 @@ vi.mock("@subboost/ui/product/preview/visual-graph", () => ({
   VisualGraph: () => React.createElement("div", null, "visual-graph"),
 }));
 
+vi.mock("@subboost/ui/product/preview/surge-visual-graph", () => ({
+  SurgeVisualGraph: () => React.createElement("div", null, "surge-visual-graph"),
+}));
+
 vi.mock("@subboost/ui/product/preview/diff-highlight", () => ({
   YamlHighlight: (props: any) => {
     mocks.yamlHighlight = props;
@@ -314,5 +318,19 @@ describe("HomeLayout", () => {
     expect(html).toContain("基础和 DNS 配置有错误");
     expect(html).toContain("dns is invalid");
     expect(mocks.yamlHighlight).toBeUndefined();
+  });
+
+  it("keeps the visual preview available for Surge", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(HomeLayout, {
+        ...baseProps,
+        profileType: "surge",
+        generatedYaml: "[Proxy]\nNode = ss, example.com, 443",
+        hasValidSources: true,
+      }),
+    );
+
+    expect(html).toContain("surge-visual-graph");
+    expect(html).toContain('<button value="visual" class="text-xs px-3 h-6">可视化</button>');
   });
 });

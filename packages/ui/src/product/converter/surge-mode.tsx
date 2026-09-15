@@ -2,8 +2,11 @@
 
 import * as React from "react";
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
+  ExternalLink,
   FileCode2,
   Globe2,
   GripVertical,
@@ -11,10 +14,12 @@ import {
   Plus,
   Route,
   RotateCcw,
+  Search,
   Server,
   Settings2,
   Trash2,
   WandSparkles,
+  X,
 } from "lucide-react";
 import { Badge } from "@subboost/ui/components/ui/badge";
 import { Button } from "@subboost/ui/components/ui/button";
@@ -33,6 +38,7 @@ import { cn } from "@subboost/ui/lib/utils";
 import { useConfigStore } from "@subboost/ui/store/config-store";
 import {
   createYoukoSurgeConfig,
+  generateSurgeProfile,
   SURGE_PROXY_GROUP_TYPES,
   SURGE_RULE_SET_RESOURCE_TYPES,
   SURGE_RULE_TYPES,
@@ -410,6 +416,415 @@ function EmptyHint({ children }: { children: React.ReactNode }) {
   );
 }
 
+type SurgeVisualIssue = {
+  tone: "error" | "warning";
+  title: string;
+  detail?: string;
+};
+
+function isHttpUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function duplicateValues(values: string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const value of values) {
+    const normalized = value.trim();
+    if (!normalized) continue;
+    if (seen.has(normalized)) duplicates.add(normalized);
+    seen.add(normalized);
+  }
+  return [...duplicates];
+}
+
+function targetSearchText(
+  target: SurgePolicyRef | string,
+  groupNameById: Map<string, string>,
+): string {
+  if (typeof target === "string") return target;
+  if (target.kind === "direct") return "DIRECT direct";
+  if (target.kind === "reject") return "REJECT reject";
+  if (target.kind === "node") return target.name;
+  if (target.kind === "group")
+    return `${target.id} ${groupNameById.get(target.id) ?? ""}`;
+  return "";
+}
+
+function matchesTextFilter(parts: Array<string | undefined>, filter: string) {
+  if (!filter) return true;
+  return parts.join("\n").toLowerCase().includes(filter);
+}
+
+function matchesRuleSetFilter(
+  ruleSet: SurgeRuleSet,
+  filter: string,
+  groupNameById: Map<string, string>,
+): boolean {
+  return matchesTextFilter(
+    [
+      ruleSet.id,
+      ruleSet.name,
+      ruleSet.url,
+      ruleSetResourceType(ruleSet),
+      ruleSet.noResolve ? "no-resolve" : "",
+      targetSearchText(ruleSet.target, groupNameById),
+    ],
+    filter,
+  );
+}
+
+function matchesRuleFilter(
+  rule: SurgeRule,
+  filter: string,
+  groupNameById: Map<string, string>,
+): boolean {
+  return matchesTextFilter(
+    [
+      rule.id,
+      rule.type,
+      rule.value,
+      rule.noResolve ? "no-resolve" : "",
+      targetSearchText(rule.target, groupNameById),
+    ],
+    filter,
+  );
+}
+
+function describePolicyRef(
+  target: SurgePolicyRef | string,
+  groupNameById: Map<string, string>,
+): string {
+  return policyRefLabel(target, groupNameById);
+}
+
+function buildVisualIssues(params: {
+  config: SurgeConfig;
+  groupNameById: Map<string, string>;
+  nodeNames: string[];
+  skippedNodeNames: string[];
+  generatedError: string | null;
+  skippedNodes: number;
+}): SurgeVisualIssue[] {
+  const issues: SurgeVisualIssue[] = [];
+  if (params.generatedError) {
+    issues.push({
+      tone: "error",
+      title: "Surge 配置生成失败",
+      detail: params.generatedError,
+    });
+    return issues;
+  }
+
+  if (params.nodeNames.length === 0) {
+    issues.push({
+      tone: "warning",
+      title: "还没有可用节点",
+      detail: "导入订阅或手动添加节点后，右侧才能生成完整 Surge 配置。",
+    });
+  }
+
+  if (params.skippedNodes > 0) {
+    issues.push({
+      tone: "warning",
+      title: `${params.skippedNodes} 个节点暂未进入 Surge 配置`,
+      detail: "这些节点协议不支持 Surge，或缺少生成所需字段。",
+    });
+  }
+
+  const allGroups = [
+    ...params.config.regionGroups,
+    ...params.config.proxyGroups,
+  ];
+  const activeGroupIds = new Set(
+    allGroups
+      .filter((group) => group.enabled !== false)
+      .map((group) => group.id),
+  );
+  const skippedNodeNameSet = new Set(params.skippedNodeNames);
+  const availableNodeNames = new Set(
+    params.nodeNames.filter((name) => !skippedNodeNameSet.has(name)),
+  );
+
+  const invalidPolicyTarget = (
+    target: SurgePolicyRef | string,
+  ): string | null => {
+    if (typeof target === "string") return target.trim() ? null : "目标为空";
+    if (target.kind === "direct" || target.kind === "reject") return null;
+    if (target.kind === "group") {
+      return activeGroupIds.has(target.id)
+        ? null
+        : `策略组不存在或已停用：${params.groupNameById.get(target.id) ?? target.id}`;
+    }
+    if (target.kind === "node") {
+      return availableNodeNames.has(target.name)
+        ? null
+        : `节点不存在或未生成：${target.name}`;
+    }
+    return "目标类型无法识别";
+  };
+
+  const invalidTargets: string[] = [];
+  for (const ruleSet of params.config.ruleSets) {
+    if (ruleSet.enabled === false) continue;
+    const reason = invalidPolicyTarget(ruleSet.target);
+    if (reason) invalidTargets.push(`${ruleSet.name || ruleSet.id}：${reason}`);
+  }
+  for (const rule of params.config.rules) {
+    if (rule.enabled === false) continue;
+    const reason = invalidPolicyTarget(rule.target);
+    if (reason) invalidTargets.push(`${rule.type}：${reason}`);
+  }
+  const finalTargetReason = invalidPolicyTarget(params.config.finalTarget);
+  if (finalTargetReason) {
+    issues.push({
+      tone: "error",
+      title: "FINAL 兜底目标无效",
+      detail: finalTargetReason,
+    });
+  }
+  if (invalidTargets.length > 0) {
+    issues.push({
+      tone: "error",
+      title: `${invalidTargets.length} 条规则的目标策略无效`,
+      detail: invalidTargets.slice(0, 5).join("、"),
+    });
+  }
+
+  const emptySmartGroups = params.config.proxyGroups.filter((group) => {
+    if (group.enabled === false || group.type !== "smart") return false;
+    const hasExplicitNodes = group.policies.some(
+      (policy) =>
+        policy.kind === "node" && availableNodeNames.has(policy.name),
+    );
+    return !hasExplicitNodes && !group.includeAllNodes;
+  });
+  if (emptySmartGroups.length > 0) {
+    issues.push({
+      tone: "warning",
+      title: `${emptySmartGroups.length} 个 Smart 组没有可用节点`,
+      detail: emptySmartGroups
+        .slice(0, 5)
+        .map((group) => group.name)
+        .join("、"),
+    });
+  }
+
+  const emptyRegionGroups = params.config.regionGroups.filter(
+    (group) =>
+      group.enabled !== false &&
+      group.type === "smart" &&
+      group.keywords.length === 0,
+  );
+  if (emptyRegionGroups.length > 0) {
+    issues.push({
+      tone: "warning",
+      title: `${emptyRegionGroups.length} 个地区 Smart 组没有匹配关键词`,
+      detail: emptyRegionGroups
+        .slice(0, 5)
+        .map((group) => group.name)
+        .join("、"),
+    });
+  }
+
+  const duplicateGroupIds = duplicateValues(allGroups.map((group) => group.id));
+  if (duplicateGroupIds.length > 0) {
+    issues.push({
+      tone: "error",
+      title: "策略组 ID 重复",
+      detail: duplicateGroupIds.slice(0, 5).join("、"),
+    });
+  }
+
+  const duplicateGroupNames = duplicateValues(
+    allGroups.map((group) => group.name),
+  );
+  if (duplicateGroupNames.length > 0) {
+    issues.push({
+      tone: "warning",
+      title: "策略组名称重复",
+      detail: duplicateGroupNames.slice(0, 5).join("、"),
+    });
+  }
+
+  const emptyRuleSets = params.config.ruleSets.filter(
+    (ruleSet) => ruleSet.enabled !== false && !ruleSet.url.trim(),
+  );
+  if (emptyRuleSets.length > 0) {
+    issues.push({
+      tone: "warning",
+      title: `${emptyRuleSets.length} 个启用的远程规则集没有 URL`,
+      detail: emptyRuleSets
+        .slice(0, 4)
+        .map((ruleSet) => ruleSet.name || ruleSet.id)
+        .join("、"),
+    });
+  }
+
+  const invalidRuleSetUrls = params.config.ruleSets.filter(
+    (ruleSet) =>
+      ruleSet.enabled !== false &&
+      Boolean(ruleSet.url.trim()) &&
+      !isHttpUrl(ruleSet.url),
+  );
+  if (invalidRuleSetUrls.length > 0) {
+    issues.push({
+      tone: "warning",
+      title: `${invalidRuleSetUrls.length} 个远程规则集 URL 格式可能无效`,
+      detail: invalidRuleSetUrls
+        .slice(0, 4)
+        .map((ruleSet) => ruleSet.name || ruleSet.id)
+        .join("、"),
+    });
+  }
+
+  const emptyRules = params.config.rules.filter(
+    (rule) =>
+      rule.enabled !== false &&
+      rule.type !== "FINAL" &&
+      !(rule.value || "").trim(),
+  );
+  if (emptyRules.length > 0) {
+    issues.push({
+      tone: "warning",
+      title: `${emptyRules.length} 条启用的本地规则没有匹配内容`,
+      detail: emptyRules
+        .slice(0, 4)
+        .map((rule) => rule.type)
+        .join("、"),
+    });
+  }
+
+  if (params.config.managedConfigEnabled === true) {
+    const managedConfigUrl = (params.config.managedConfigUrl || "").trim();
+    const managedConfigInterval = params.config.managedConfigInterval ?? 0;
+    if (!managedConfigUrl) {
+      issues.push({
+        tone: "warning",
+        title: "MANAGED-CONFIG 已开启但 URL 为空",
+        detail: "生成结果不会写入托管配置头，请填写 Surge 配置地址。",
+      });
+    } else if (!isHttpUrl(managedConfigUrl)) {
+      issues.push({
+        tone: "warning",
+        title: "MANAGED-CONFIG URL 格式可能无效",
+        detail: "托管地址应使用 http:// 或 https://。",
+      });
+    }
+    if (
+      !Number.isInteger(managedConfigInterval) ||
+      managedConfigInterval < 1
+    ) {
+      issues.push({
+        tone: "warning",
+        title: "MANAGED-CONFIG 更新间隔无效",
+        detail: "更新间隔必须是大于 0 的整数秒。",
+      });
+    }
+  }
+
+  const groupIds = activeGroupIds;
+  const nodeNameSet = availableNodeNames;
+  const invalidMembers = params.config.proxyGroups.flatMap((group) =>
+    group.policies
+      .map((policy) => {
+        if (policy.kind === "group" && !groupIds.has(policy.id))
+          return `${group.name} -> ${policy.id}`;
+        if (policy.kind === "node" && !nodeNameSet.has(policy.name))
+          return `${group.name} -> ${policy.name}`;
+        if (group.type === "smart" && policy.kind !== "node")
+          return `${group.name} -> ${describePolicyRef(policy, params.groupNameById)}`;
+        return "";
+      })
+      .filter(Boolean),
+  );
+  if (invalidMembers.length > 0) {
+    issues.push({
+      tone: "warning",
+      title: "策略组成员需要检查",
+      detail: invalidMembers.slice(0, 5).join("、"),
+    });
+  }
+
+  return issues;
+}
+
+function SurgeMetric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+      <div className="text-[10px] text-white/40">{label}</div>
+      <div className="mt-1 text-lg font-semibold leading-none text-white/85">
+        {value}
+      </div>
+      <div className="mt-1 truncate text-[10px] text-white/35" title={hint}>
+        {hint}
+      </div>
+    </div>
+  );
+}
+
+function SurgeVisualIssueList({ issues }: { issues: SurgeVisualIssue[] }) {
+  if (issues.length === 0) {
+    return (
+      <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100/80">
+        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
+        <span>当前 Surge 可视化配置没有发现明显问题。</span>
+      </div>
+    );
+  }
+
+  const visibleIssues = issues.slice(0, 4);
+  const remainingCount = issues.length - visibleIssues.length;
+
+  return (
+    <div className="space-y-1.5">
+      {visibleIssues.map((issue) => (
+        <div
+          key={`${issue.tone}:${issue.title}:${issue.detail ?? ""}`}
+          className={cn(
+            "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
+            issue.tone === "error"
+              ? "border-rose-500/30 bg-rose-500/10 text-rose-100/85"
+              : "border-amber-500/25 bg-amber-500/10 text-amber-100/80",
+          )}
+        >
+          <AlertTriangle
+            className={cn(
+              "mt-0.5 h-3.5 w-3.5 shrink-0",
+              issue.tone === "error" ? "text-rose-300" : "text-amber-300",
+            )}
+          />
+          <span className="min-w-0">
+            <span className="font-medium">{issue.title}</span>
+            {issue.detail && (
+              <span className="ml-1 text-white/50">{issue.detail}</span>
+            )}
+          </span>
+        </div>
+      ))}
+      {remainingCount > 0 && (
+        <div className="px-3 text-[11px] text-white/40">
+          还有 {remainingCount} 项提醒，请继续检查当前编辑区域。
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SurgeMode() {
   const [expandedSections, setExpandedSections] = React.useState<
     Set<SectionKey>
@@ -427,12 +842,22 @@ export function SurgeMode() {
   const [memberDrafts, setMemberDrafts] = React.useState<
     Record<string, string>
   >({});
+  const [memberOrderDrafts, setMemberOrderDrafts] = React.useState<
+    Record<string, string>
+  >({});
+  const [regionOrderDrafts, setRegionOrderDrafts] = React.useState<
+    Record<string, string>
+  >({});
+  const [groupOrderDrafts, setGroupOrderDrafts] = React.useState<
+    Record<string, string>
+  >({});
   const [ruleOrderDrafts, setRuleOrderDrafts] = React.useState<
     Record<string, string>
   >({});
   const [draggingRuleKey, setDraggingRuleKey] = React.useState<string | null>(
     null,
   );
+  const [ruleFilter, setRuleFilter] = React.useState("");
 
   const nodeNames = React.useMemo(
     () =>
@@ -456,6 +881,52 @@ export function SurgeMode() {
     () => buildSurgeRuleOrderItems(surgeConfig),
     [surgeConfig],
   );
+  const rulePositionByKey = React.useMemo(
+    () => new Map(ruleOrderItems.map((item, index) => [item.key, index + 1])),
+    [ruleOrderItems],
+  );
+  const generatedSurgePreview = React.useMemo(() => {
+    try {
+      return {
+        error: null,
+        result: generateSurgeProfile({ nodes, config: surgeConfig }),
+      };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : "Surge 配置生成失败",
+        result: null,
+      };
+    }
+  }, [nodes, surgeConfig]);
+  const visualIssues = React.useMemo(
+    () =>
+      buildVisualIssues({
+        config: surgeConfig,
+        groupNameById,
+        nodeNames,
+        skippedNodeNames:
+          generatedSurgePreview.result?.skippedNodes.map((node) => node.name) ??
+          [],
+        generatedError: generatedSurgePreview.error,
+        skippedNodes: generatedSurgePreview.result?.skippedNodes.length ?? 0,
+      }),
+    [generatedSurgePreview, groupNameById, nodeNames, surgeConfig],
+  );
+  const normalizedRuleFilter = ruleFilter.trim().toLowerCase();
+  const visibleRuleSets = React.useMemo(
+    () =>
+      surgeConfig.ruleSets.filter((ruleSet) =>
+        matchesRuleSetFilter(ruleSet, normalizedRuleFilter, groupNameById),
+      ),
+    [groupNameById, normalizedRuleFilter, surgeConfig.ruleSets],
+  );
+  const visibleRules = React.useMemo(
+    () =>
+      surgeConfig.rules.filter((rule) =>
+        matchesRuleFilter(rule, normalizedRuleFilter, groupNameById),
+      ),
+    [groupNameById, normalizedRuleFilter, surgeConfig.rules],
+  );
 
   const toggleSection = (section: SectionKey) => {
     setExpandedSections((prev) => {
@@ -464,6 +935,93 @@ export function SurgeMode() {
       else next.add(section);
       return next;
     });
+  };
+
+  const clearRegionOrderDraft = (id: string) => {
+    setRegionOrderDrafts((prev) => {
+      const { [id]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const moveRegionToPosition = (id: string, position: number) => {
+    const index = surgeConfig.regionGroups.findIndex((group) => group.id === id);
+    if (index < 0 || !Number.isFinite(position)) return;
+    setSurgeConfig({
+      ...surgeConfig,
+      regionGroups: moveArrayItemToIndex(
+        surgeConfig.regionGroups,
+        index,
+        position - 1,
+      ),
+    });
+  };
+
+  const commitRegionOrderDraft = (id: string) => {
+    const value = Number.parseInt(regionOrderDrafts[id] ?? "", 10);
+    if (Number.isFinite(value)) moveRegionToPosition(id, value);
+    clearRegionOrderDraft(id);
+  };
+
+  const clearGroupOrderDraft = (id: string) => {
+    setGroupOrderDrafts((prev) => {
+      const { [id]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const moveGroupToPosition = (id: string, position: number) => {
+    const index = surgeConfig.proxyGroups.findIndex((group) => group.id === id);
+    if (index < 0 || !Number.isFinite(position)) return;
+    setSurgeConfig({
+      ...surgeConfig,
+      proxyGroups: moveArrayItemToIndex(
+        surgeConfig.proxyGroups,
+        index,
+        position - 1,
+      ),
+    });
+  };
+
+  const commitGroupOrderDraft = (id: string) => {
+    const value = Number.parseInt(groupOrderDrafts[id] ?? "", 10);
+    if (Number.isFinite(value)) moveGroupToPosition(id, value);
+    clearGroupOrderDraft(id);
+  };
+
+  const memberOrderDraftKey = (groupId: string, index: number) =>
+    `${groupId}:${index}`;
+
+  const clearMemberOrderDraftsForGroup = (groupId: string) => {
+    setMemberOrderDrafts((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (key.startsWith(`${groupId}:`)) delete next[key];
+      }
+      return next;
+    });
+  };
+
+  const moveMemberToPosition = (
+    group: SurgeProxyGroup,
+    index: number,
+    position: number,
+  ) => {
+    if (!Number.isFinite(position)) return;
+    setSurgeConfig({
+      ...surgeConfig,
+      proxyGroups: updateArrayItem(surgeConfig.proxyGroups, group.id, {
+        policies: moveArrayItemToIndex(group.policies, index, position - 1),
+      }),
+    });
+    clearMemberOrderDraftsForGroup(group.id);
+  };
+
+  const commitMemberOrderDraft = (group: SurgeProxyGroup, index: number) => {
+    const key = memberOrderDraftKey(group.id, index);
+    const value = Number.parseInt(memberOrderDrafts[key] ?? "", 10);
+    if (Number.isFinite(value)) moveMemberToPosition(group, index, value);
+    else clearMemberOrderDraftsForGroup(group.id);
   };
 
   const updateRegion = (id: string, patch: Partial<SurgeRegionPolicyGroup>) => {
@@ -478,6 +1036,7 @@ export function SurgeMode() {
       ...surgeConfig,
       regionGroups: moveArrayItemById(surgeConfig.regionGroups, id, direction),
     });
+    clearRegionOrderDraft(id);
   };
 
   const removeRegion = (id: string) => {
@@ -549,6 +1108,7 @@ export function SurgeMode() {
       ...surgeConfig,
       proxyGroups: moveArrayItemById(surgeConfig.proxyGroups, id, direction),
     });
+    clearGroupOrderDraft(id);
   };
 
   const addGroup = () => {
@@ -602,6 +1162,7 @@ export function SurgeMode() {
     updateGroup(group.id, {
       policies: group.policies.filter((_, i) => i !== index),
     });
+    clearMemberOrderDraftsForGroup(group.id);
   };
 
   const moveMember = (
@@ -612,6 +1173,21 @@ export function SurgeMode() {
     updateGroup(group.id, {
       policies: moveArrayItem(group.policies, index, direction),
     });
+    clearMemberOrderDraftsForGroup(group.id);
+  };
+
+  const addAllNodesToGroup = (group: SurgeProxyGroup) => {
+    const existing = new Set(group.policies.map(encodePolicyRef));
+    const additions = nodeNames
+      .map((name): SurgePolicyRef => ({ kind: "node", name }))
+      .filter((policy) => !existing.has(encodePolicyRef(policy)));
+    if (additions.length === 0) return;
+    updateGroup(group.id, { policies: [...group.policies, ...additions] });
+  };
+
+  const clearGroupMembers = (group: SurgeProxyGroup) => {
+    updateGroup(group.id, { policies: [] });
+    clearMemberOrderDraftsForGroup(group.id);
   };
 
   const addRuleSet = () => {
@@ -782,6 +1358,55 @@ export function SurgeMode() {
         isExpanded={expandedSections.has("nodes")}
         onToggle={() => toggleSection("nodes")}
       />
+
+      <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-xs font-medium text-white/75">
+              Surge 可视化总览
+            </div>
+            <div className="mt-1 text-xs text-white/40">
+              这里按当前编辑内容预估最终 .conf 输出。
+            </div>
+          </div>
+          <Badge
+            variant="outline"
+            className={cn(
+              "w-fit border-white/10 bg-white/5 text-white/60",
+              visualIssues.some((issue) => issue.tone === "error") &&
+                "border-rose-500/30 bg-rose-500/10 text-rose-100",
+              visualIssues.length > 0 &&
+                !visualIssues.some((issue) => issue.tone === "error") &&
+                "border-amber-500/30 bg-amber-500/10 text-amber-100",
+            )}
+          >
+            {visualIssues.length === 0 ? "状态正常" : `${visualIssues.length} 项提醒`}
+          </Badge>
+        </div>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <SurgeMetric
+            label="Surge 节点"
+            value={generatedSurgePreview.result?.proxyCount ?? 0}
+            hint={`来源节点 ${nodeNames.length} 个`}
+          />
+          <SurgeMetric
+            label="策略组"
+            value={generatedSurgePreview.result?.policyGroupCount ?? 0}
+            hint={`手动 ${surgeConfig.proxyGroups.length} / 地区 ${surgeConfig.regionGroups.length}`}
+          />
+          <SurgeMetric
+            label="分流规则"
+            value={generatedSurgePreview.result?.ruleCount ?? 0}
+            hint={`远程 ${surgeConfig.ruleSets.length} / 本地 ${surgeConfig.rules.length}`}
+          />
+          <SurgeMetric
+            label="跳过节点"
+            value={generatedSurgePreview.result?.skippedNodes.length ?? 0}
+            hint="不支持或字段不完整"
+          />
+        </div>
+        <SurgeVisualIssueList issues={visualIssues} />
+      </div>
 
       <div>
         <SectionHeader
@@ -958,7 +1583,7 @@ export function SurgeMode() {
                 key={group.id}
                 className="rounded-lg border border-white/10 bg-white/5 p-3"
               >
-                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_9rem_8rem_auto_auto] lg:items-center">
+                <div className="grid grid-cols-1 gap-2 2xl:grid-cols-[auto_auto_minmax(9rem,1fr)_9rem_8rem_auto_auto] 2xl:items-center">
                   <div className="flex items-center gap-2 text-xs text-white/70">
                     <Switch
                       checked={group.enabled !== false}
@@ -969,6 +1594,36 @@ export function SurgeMode() {
                     />
                     启用
                   </div>
+                  <Input
+                    value={
+                      Object.prototype.hasOwnProperty.call(
+                        regionOrderDrafts,
+                        group.id,
+                      )
+                        ? regionOrderDrafts[group.id]
+                        : String(index + 1)
+                    }
+                    onChange={(event) =>
+                      setRegionOrderDrafts((prev) => ({
+                        ...prev,
+                        [group.id]: event.target.value,
+                      }))
+                    }
+                    onBlur={() => commitRegionOrderDraft(group.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        clearRegionOrderDraft(group.id);
+                        return;
+                      }
+                      if (event.key === "Enter") {
+                        commitRegionOrderDraft(group.id);
+                      }
+                    }}
+                    inputMode="numeric"
+                    title="地区策略组顺序（1=最前）"
+                    aria-label={`地区策略组顺序 ${group.name}`}
+                    className="h-8 w-14 shrink-0 rounded-md border-white/10 bg-white/10 px-1 text-center text-[11px] tabular-nums"
+                  />
                   <Input
                     value={group.name}
                     onChange={(event) =>
@@ -1080,12 +1735,18 @@ export function SurgeMode() {
               });
               const selectedDraft =
                 memberDrafts[group.id] || options[0]?.value || "";
+              const existingMemberKeys = new Set(
+                group.policies.map(encodePolicyRef),
+              );
+              const canAddAllNodes = nodeNames.some(
+                (name) => !existingMemberKeys.has(`node:${name}`),
+              );
               return (
                 <div
                   key={group.id}
                   className="rounded-lg border border-white/10 bg-white/5 p-3"
                 >
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_9rem_auto_auto] lg:items-center">
+                  <div className="grid grid-cols-1 gap-2 2xl:grid-cols-[auto_auto_minmax(9rem,1fr)_9rem_auto_auto] 2xl:items-center">
                     <div className="flex items-center gap-2 text-xs text-white/70">
                       <Switch
                         checked={group.enabled !== false}
@@ -1096,6 +1757,36 @@ export function SurgeMode() {
                       />
                       启用
                     </div>
+                    <Input
+                      value={
+                        Object.prototype.hasOwnProperty.call(
+                          groupOrderDrafts,
+                          group.id,
+                        )
+                          ? groupOrderDrafts[group.id]
+                          : String(index + 1)
+                      }
+                      onChange={(event) =>
+                        setGroupOrderDrafts((prev) => ({
+                          ...prev,
+                          [group.id]: event.target.value,
+                        }))
+                      }
+                      onBlur={() => commitGroupOrderDraft(group.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          clearGroupOrderDraft(group.id);
+                          return;
+                        }
+                        if (event.key === "Enter") {
+                          commitGroupOrderDraft(group.id);
+                        }
+                      }}
+                      inputMode="numeric"
+                      title="策略组顺序（1=最前）"
+                      aria-label={`策略组顺序 ${group.name}`}
+                      className="h-8 w-14 shrink-0 rounded-md border-white/10 bg-white/10 px-1 text-center text-[11px] tabular-nums"
+                    />
                     <Input
                       value={group.name}
                       onChange={(event) =>
@@ -1184,11 +1875,49 @@ export function SurgeMode() {
                     displayName={group.name}
                     className="mt-2"
                   />
-                  {group.includeAllNodes && (
-                    <div className="mt-2 text-xs leading-5 text-cyan-100/65">
-                      自动包含当前所有节点，订阅更新后新增节点也会自动加入此策略组。
+                  <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-white/70">
+                          包含所有节点
+                        </div>
+                        <div className="mt-0.5 truncate text-[10px] text-white/35">
+                          订阅更新后新增节点也会自动进入此组
+                        </div>
+                      </div>
+                      <Switch
+                        checked={group.includeAllNodes === true}
+                        onCheckedChange={(checked) =>
+                          updateGroup(group.id, {
+                            includeAllNodes: checked || undefined,
+                          })
+                        }
+                        aria-label={`包含所有节点：${group.name}`}
+                      />
                     </div>
-                  )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1.5"
+                        onClick={() => addAllNodesToGroup(group)}
+                        disabled={!canAddAllNodes}
+                      >
+                        <ListPlus className="h-3.5 w-3.5" />
+                        添加全部节点
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1.5 border-white/10 text-white/55 hover:text-red-200"
+                        onClick={() => clearGroupMembers(group)}
+                        disabled={group.policies.length === 0}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        清空成员
+                      </Button>
+                    </div>
+                  </div>
                   {group.type === "smart" && (
                     <div className="mt-2 space-y-2">
                       <Input
@@ -1212,51 +1941,90 @@ export function SurgeMode() {
                     {group.policies.length === 0 ? (
                       <span className="text-xs text-white/40">暂无成员</span>
                     ) : (
-                      group.policies.map((policy, index) => (
-                        <div
-                          key={`${encodePolicyRef(policy)}-${index}`}
-                          className="flex min-w-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
-                        >
-                          <span className="min-w-0 flex-1 truncate text-xs text-white/70">
-                            {policyRefLabel(policy, groupNameById)}
-                          </span>
-                          <IconButton
-                            label={`上移成员 ${policyRefLabel(policy, groupNameById)}`}
-                            variant="ghost"
-                            onClick={() => moveMember(group, index, -1)}
-                            disabled={index <= 0}
-                            className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      group.policies.map((policy, index) => {
+                        const label = policyRefLabel(policy, groupNameById);
+                        const draftKey = memberOrderDraftKey(group.id, index);
+                        return (
+                          <div
+                            key={`${encodePolicyRef(policy)}-${index}`}
+                            className="flex min-w-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
                           >
-                            <ChevronUp
-                              className="h-3.5 w-3.5"
-                              aria-hidden="true"
+                            <span
+                              className="min-w-0 flex-1 truncate text-xs text-white/70"
+                              title={label}
+                            >
+                              {label}
+                            </span>
+                            <Input
+                              value={
+                                Object.prototype.hasOwnProperty.call(
+                                  memberOrderDrafts,
+                                  draftKey,
+                                )
+                                  ? memberOrderDrafts[draftKey]
+                                  : String(index + 1)
+                              }
+                              onChange={(event) =>
+                                setMemberOrderDrafts((prev) => ({
+                                  ...prev,
+                                  [draftKey]: event.target.value,
+                                }))
+                              }
+                              onBlur={() =>
+                                commitMemberOrderDraft(group, index)
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Escape") {
+                                  clearMemberOrderDraftsForGroup(group.id);
+                                  return;
+                                }
+                                if (event.key === "Enter") {
+                                  commitMemberOrderDraft(group, index);
+                                }
+                              }}
+                              inputMode="numeric"
+                              title="成员顺序（1=最前）"
+                              aria-label={`成员顺序 ${label}`}
+                              className="h-6 w-12 shrink-0 rounded-md border-white/10 bg-white/10 px-1 text-center text-[10px] tabular-nums"
                             />
-                          </IconButton>
-                          <IconButton
-                            label={`下移成员 ${policyRefLabel(policy, groupNameById)}`}
-                            variant="ghost"
-                            onClick={() => moveMember(group, index, 1)}
-                            disabled={index >= group.policies.length - 1}
-                            className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
-                          >
-                            <ChevronDown
-                              className="h-3.5 w-3.5"
-                              aria-hidden="true"
-                            />
-                          </IconButton>
-                          <IconButton
-                            label={`删除成员 ${policyRefLabel(policy, groupNameById)}`}
-                            variant="ghost"
-                            onClick={() => removeMember(group, index)}
-                            className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-red-300"
-                          >
-                            <Trash2
-                              className="h-3.5 w-3.5"
-                              aria-hidden="true"
-                            />
-                          </IconButton>
-                        </div>
-                      ))
+                            <IconButton
+                              label={`上移成员 ${label}`}
+                              variant="ghost"
+                              onClick={() => moveMember(group, index, -1)}
+                              disabled={index <= 0}
+                              className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                            >
+                              <ChevronUp
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            </IconButton>
+                            <IconButton
+                              label={`下移成员 ${label}`}
+                              variant="ghost"
+                              onClick={() => moveMember(group, index, 1)}
+                              disabled={index >= group.policies.length - 1}
+                              className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                            >
+                              <ChevronDown
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            </IconButton>
+                            <IconButton
+                              label={`删除成员 ${label}`}
+                              variant="ghost"
+                              onClick={() => removeMember(group, index)}
+                              className="h-6 w-6 shrink-0 rounded-md text-white/35 hover:text-red-300"
+                            >
+                              <Trash2
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            </IconButton>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                   <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
@@ -1340,6 +2108,37 @@ export function SurgeMode() {
         />
         {expandedSections.has("rules") && (
           <div className="mt-2 space-y-3 pl-6">
+            <div className="grid grid-cols-1 gap-2 rounded-lg border border-white/10 bg-white/5 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/35" />
+                <Input
+                  value={ruleFilter}
+                  onChange={(event) => setRuleFilter(event.target.value)}
+                  placeholder="搜索规则名称、URL、类型、目标策略"
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                {normalizedRuleFilter && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 text-white/45 hover:text-white"
+                    onClick={() => setRuleFilter("")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    清空
+                  </Button>
+                )}
+                <Badge
+                  variant="outline"
+                  className="w-fit border-white/10 bg-white/5 text-white/55"
+                >
+                  显示 {visibleRuleSets.length + visibleRules.length} /{" "}
+                  {surgeConfig.ruleSets.length + surgeConfig.rules.length}
+                </Badge>
+              </div>
+            </div>
             <div className="rounded-lg border border-white/10 bg-white/5 p-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -1545,15 +2344,36 @@ export function SurgeMode() {
             </div>
             {surgeConfig.ruleSets.length === 0 ? (
               <EmptyHint>还没有远程规则集。</EmptyHint>
+            ) : visibleRuleSets.length === 0 ? (
+              <EmptyHint>没有匹配当前搜索的远程规则集。</EmptyHint>
             ) : (
-              surgeConfig.ruleSets.map((ruleSet) => {
+              visibleRuleSets.map((ruleSet) => {
                 const resourceType = ruleSetResourceType(ruleSet);
+                const position =
+                  rulePositionByKey.get(ruleSetOrderKey(ruleSet.id)) ?? "-";
+                const canOpenRuleSet = isHttpUrl(ruleSet.url);
                 return (
                   <div
                     key={ruleSet.id}
                     className="rounded-lg border border-white/10 bg-white/5 p-3"
                   >
-                    <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_minmax(8rem,1fr)_minmax(14rem,2fr)_9rem_10rem_auto_auto] lg:items-center">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <Badge
+                        variant="outline"
+                        className="border-cyan-500/25 bg-cyan-500/10 text-cyan-100"
+                      >
+                        顺序 #{position}
+                      </Badge>
+                      {!ruleSet.url.trim() && ruleSet.enabled !== false && (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/30 bg-amber-500/10 text-amber-100"
+                        >
+                          URL 为空
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 2xl:grid-cols-[auto_minmax(8rem,1fr)_minmax(14rem,2fr)_9rem_10rem_auto_auto] 2xl:items-center">
                       <Switch
                         checked={ruleSet.enabled !== false}
                         onCheckedChange={(checked) =>
@@ -1571,14 +2391,42 @@ export function SurgeMode() {
                         placeholder="名称"
                         className="h-8 text-xs"
                       />
-                      <Input
-                        value={ruleSet.url}
-                        onChange={(event) =>
-                          updateRuleSet(ruleSet.id, { url: event.target.value })
-                        }
-                        placeholder="https://example.com/rules.list"
-                        className="h-8 text-xs"
-                      />
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-1">
+                        <Input
+                          value={ruleSet.url}
+                          onChange={(event) =>
+                            updateRuleSet(ruleSet.id, {
+                              url: event.target.value,
+                            })
+                          }
+                          placeholder="https://example.com/rules.list"
+                          className="h-8 text-xs"
+                        />
+                        <IconButton
+                          label="打开远程规则集"
+                          variant="ghost"
+                          onClick={() =>
+                            window.open(
+                              ruleSet.url,
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
+                          disabled={!canOpenRuleSet}
+                          className="h-8 w-8 rounded-lg text-white/45 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </IconButton>
+                        <IconButton
+                          label="清空远程规则集 URL"
+                          variant="ghost"
+                          onClick={() => updateRuleSet(ruleSet.id, { url: "" })}
+                          disabled={!ruleSet.url}
+                          className="h-8 w-8 rounded-lg text-white/45 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <X className="h-4 w-4" />
+                        </IconButton>
+                      </div>
                       <Select
                         value={resourceType}
                         onValueChange={(next) =>
@@ -1657,79 +2505,104 @@ export function SurgeMode() {
               <EmptyHint>
                 还没有本地规则。未添加 FINAL 时会自动使用下方兜底策略。
               </EmptyHint>
+            ) : visibleRules.length === 0 ? (
+              <EmptyHint>没有匹配当前搜索的本地规则。</EmptyHint>
             ) : (
-              surgeConfig.rules.map((rule) => (
-                <div
-                  key={rule.id}
-                  className="rounded-lg border border-white/10 bg-white/5 p-3"
-                >
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-[auto_10rem_1fr_10rem_auto_auto] lg:items-center">
-                    <Switch
-                      checked={rule.enabled !== false}
-                      onCheckedChange={(checked) =>
-                        updateRule(rule.id, { enabled: checked })
-                      }
-                      aria-label={`启用规则 ${rule.value || rule.id}`}
-                    />
-                    <Select
-                      value={rule.type}
-                      onValueChange={(type) =>
-                        updateRule(rule.id, { type: type as SurgeRuleType })
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(rule.type === "FINAL"
-                          ? SURGE_RULE_TYPES
-                          : SURGE_EDITABLE_RULE_TYPES
-                        ).map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={rule.value || ""}
-                      onChange={(event) =>
-                        updateRule(rule.id, { value: event.target.value })
-                      }
-                      placeholder={
-                        rule.type === "FINAL"
-                          ? "FINAL 不需要匹配内容"
-                          : "example.com / 1.1.1.0/24"
-                      }
-                      disabled={rule.type === "FINAL"}
-                      className="h-8 text-xs"
-                    />
-                    <PolicyTargetSelect
-                      value={rule.target}
-                      options={targetOptions}
-                      onChange={(target) => updateRule(rule.id, { target })}
-                    />
-                    <div className="flex items-center gap-1 text-xs text-white/55">
-                      <Switch
-                        checked={rule.noResolve === true}
-                        onCheckedChange={(checked) =>
-                          updateRule(rule.id, { noResolve: checked })
-                        }
-                        aria-label={`规则 ${rule.value || rule.id} 使用 no-resolve`}
-                      />
-                      no-resolve
+              visibleRules.map((rule) => {
+                const position = rulePositionByKey.get(ruleOrderKey(rule.id));
+                return (
+                  <div
+                    key={rule.id}
+                    className="rounded-lg border border-white/10 bg-white/5 p-3"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <Badge
+                        variant="outline"
+                        className="border-indigo-500/25 bg-indigo-500/10 text-indigo-100"
+                      >
+                        {rule.type === "FINAL"
+                          ? "FINAL 固定底部"
+                          : `顺序 #${position ?? "-"}`}
+                      </Badge>
+                      {rule.enabled !== false &&
+                        rule.type !== "FINAL" &&
+                        !(rule.value || "").trim() && (
+                          <Badge
+                            variant="outline"
+                            className="border-amber-500/30 bg-amber-500/10 text-amber-100"
+                          >
+                            匹配内容为空
+                          </Badge>
+                        )}
                     </div>
-                    <IconButton
-                      label="删除本地规则"
-                      variant="ghost"
-                      onClick={() => removeRule(rule.id)}
-                      className="h-8 w-8 rounded-lg text-white/45 hover:text-red-300"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </IconButton>
+                    <div className="grid grid-cols-1 gap-2 2xl:grid-cols-[auto_10rem_1fr_10rem_auto_auto] 2xl:items-center">
+                      <Switch
+                        checked={rule.enabled !== false}
+                        onCheckedChange={(checked) =>
+                          updateRule(rule.id, { enabled: checked })
+                        }
+                        aria-label={`启用规则 ${rule.value || rule.id}`}
+                      />
+                      <Select
+                        value={rule.type}
+                        onValueChange={(type) =>
+                          updateRule(rule.id, { type: type as SurgeRuleType })
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(rule.type === "FINAL"
+                            ? SURGE_RULE_TYPES
+                            : SURGE_EDITABLE_RULE_TYPES
+                          ).map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={rule.value || ""}
+                        onChange={(event) =>
+                          updateRule(rule.id, { value: event.target.value })
+                        }
+                        placeholder={
+                          rule.type === "FINAL"
+                            ? "FINAL 不需要匹配内容"
+                            : "example.com / 1.1.1.0/24"
+                        }
+                        disabled={rule.type === "FINAL"}
+                        className="h-8 text-xs"
+                      />
+                      <PolicyTargetSelect
+                        value={rule.target}
+                        options={targetOptions}
+                        onChange={(target) => updateRule(rule.id, { target })}
+                      />
+                      <div className="flex items-center gap-1 text-xs text-white/55">
+                        <Switch
+                          checked={rule.noResolve === true}
+                          onCheckedChange={(checked) =>
+                            updateRule(rule.id, { noResolve: checked })
+                          }
+                          aria-label={`规则 ${rule.value || rule.id} 使用 no-resolve`}
+                        />
+                        no-resolve
+                      </div>
+                      <IconButton
+                        label="删除本地规则"
+                        variant="ghost"
+                        onClick={() => removeRule(rule.id)}
+                        className="h-8 w-8 rounded-lg text-white/45 hover:text-red-300"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </IconButton>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
 
             <div className="rounded-lg border border-white/10 bg-white/5 p-3">

@@ -22,6 +22,7 @@ import { AdvancedMode } from "@subboost/ui/product/converter/advanced-mode";
 import { SurgeMode } from "@subboost/ui/product/converter/surge-mode";
 import { UnsavedPrompt } from "@subboost/ui/product/home/unsaved-prompt";
 import { VisualGraph } from "@subboost/ui/product/preview/visual-graph";
+import { SurgeVisualGraph } from "@subboost/ui/product/preview/surge-visual-graph";
 import { YamlHighlight } from "@subboost/ui/product/preview/diff-highlight";
 import { SubscriptionLinkDialog } from "@subboost/ui/product/home/subscription-link-dialog";
 import { artisticTabsIconClassName, artisticTabsListClassName, artisticTabsTriggerClassName } from "@subboost/ui/components/ui/artistic-nav";
@@ -310,7 +311,7 @@ export function HomeLayout({
                     <TabsTrigger value="config" className="text-xs px-3 h-6">
                       {isSurgeMode ? "CONF" : "YAML"}
                     </TabsTrigger>
-                    <TabsTrigger value="visual" disabled={isSurgeMode} className="text-xs px-3 h-6">
+                    <TabsTrigger value="visual" className="text-xs px-3 h-6">
                       可视化
                     </TabsTrigger>
                   </TabsList>
@@ -369,7 +370,7 @@ export function HomeLayout({
                 </TabsContent>
                 <TabsContent value="visual" className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0">
                   <div className="h-[clamp(420px,70vh,820px)] lg:h-full rounded-xl bg-white/5 border border-white/10 overflow-hidden">
-                    <VisualGraph />
+                    {isSurgeMode ? <SurgeVisualGraph /> : <VisualGraph />}
                   </div>
                 </TabsContent>
               </CardContent>
