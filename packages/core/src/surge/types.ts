@@ -28,6 +28,7 @@ export interface SurgeRegionPolicyGroup {
   type: SurgeProxyGroupType;
   keywords: string[];
   includeInProxy: boolean;
+  icon?: string;
   policyPriority?: string;
 }
 

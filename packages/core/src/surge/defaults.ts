@@ -714,6 +714,7 @@ function normalizeRegionGroups(
       type: normalizeGroupType(item.type, "smart"),
       keywords: normalizeStringList(item.keywords),
       includeInProxy: item.includeInProxy !== false,
+      ...(text(item.icon) ? { icon: text(item.icon) } : {}),
       ...(text(item.policyPriority)
         ? { policyPriority: text(item.policyPriority) }
         : {}),

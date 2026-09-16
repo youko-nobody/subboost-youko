@@ -492,6 +492,7 @@ function buildRegionGroupLine(
     {
       type: group.type,
       interval: fallback.testInterval,
+      icon: group.icon,
       policyPriority: group.policyPriority,
     },
     fallback,

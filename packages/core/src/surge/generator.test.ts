@@ -200,6 +200,33 @@ describe("generateSurgeProfile", () => {
     expect(output.content).not.toContain("policy-priority");
   });
 
+  it("preserves and emits icon URLs for region policy groups", () => {
+    const config = normalizeSurgeConfig({
+      ...createDefaultSurgeConfig(),
+      regionGroups: [
+        {
+          id: "region-hk-custom",
+          name: "香港 Smart",
+          enabled: true,
+          type: "smart",
+          keywords: ["香港", "HK"],
+          includeInProxy: true,
+          icon: " https://icons.example.com/hk.png ",
+        },
+      ],
+      proxyGroups: [],
+    });
+
+    const output = generateSurgeProfile({ nodes: [ssNode], config });
+
+    expect(config.regionGroups[0]?.icon).toBe(
+      "https://icons.example.com/hk.png",
+    );
+    expect(output.content).toContain(
+      "香港 Smart = smart, include-all-proxies=true, policy-regex-filter=(?i)(香港|HK), icon-url=https://icons.example.com/hk.png",
+    );
+  });
+
   it("keeps empty rule drafts for the editor but skips them in generated output", () => {
     const config = normalizeSurgeConfig({
       ...createDefaultSurgeConfig(),

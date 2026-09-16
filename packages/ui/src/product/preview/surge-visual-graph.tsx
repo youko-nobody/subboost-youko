@@ -271,7 +271,7 @@ function ProxyGroupCard({
   const hasDetails = view.kind === "region"
     ? view.group.keywords.length > 0
     : memberRefs.length > 0;
-  const icon = view.kind === "proxy" ? view.group.icon : undefined;
+  const icon = view.group.icon;
 
   return (
     <div className={cn("rounded-lg border transition-colors", getGroupColor(view.kind))}>

@@ -1703,6 +1703,12 @@ export function SurgeMode() {
                     />
                   )}
                 </div>
+                <ProxyGroupIconUrlEditor
+                  value={group.icon || ""}
+                  onChange={(icon) => updateRegion(group.id, { icon })}
+                  displayName={group.name}
+                  className="mt-2"
+                />
               </div>
             ))}
           </div>
