@@ -39,6 +39,8 @@ export interface SurgeProxyGroup {
   policies: SurgePolicyRef[];
   icon?: string;
   includeAllNodes?: boolean;
+  includeRegex?: string;
+  excludeRegex?: string;
   enabled?: boolean;
   url?: string;
   interval?: number;

@@ -17,6 +17,18 @@ const ssNode: ParsedNode = {
   password: "secret",
 };
 
+const usNode: ParsedNode = {
+  ...ssNode,
+  name: "美国 02",
+  server: "us.example.com",
+};
+
+const testNode: ParsedNode = {
+  ...ssNode,
+  name: "香港 测试 03",
+  server: "test.example.com",
+};
+
 describe("generateSurgeProfile", () => {
   it("generates proxies, region smart groups, manual groups, rule sets, and final rule", () => {
     const config = createDefaultSurgeConfig();
@@ -146,6 +158,35 @@ describe("generateSurgeProfile", () => {
     expect(output.content).toContain("手动 Smart = smart, 香港 01");
     expect(output.content).not.toContain("手动 Smart = smart, 香港 01, DIRECT");
     expect(output.content).toContain("FINAL,手动 Smart");
+  });
+
+  it("auto-adds Surge proxy group nodes by include and exclude regex", () => {
+    const config = normalizeSurgeConfig({
+      ...createDefaultSurgeConfig(),
+      proxyGroups: [
+        {
+          id: "regex-group",
+          name: "香港精选",
+          type: "select",
+          policies: [{ kind: "direct" }],
+          includeRegex: " 香港 ",
+          excludeRegex: " 测试 ",
+        },
+      ],
+    });
+
+    const output = generateSurgeProfile({
+      nodes: [ssNode, usNode, testNode],
+      config,
+    });
+
+    expect(config.proxyGroups[0]?.includeRegex).toBe("香港");
+    expect(config.proxyGroups[0]?.excludeRegex).toBe("测试");
+    expect(output.content).toContain("香港精选 = select, DIRECT, 香港 01");
+    expect(output.content).not.toContain("香港精选 = select, DIRECT, 香港 01, 美国 02");
+    expect(output.content).not.toContain(
+      "香港精选 = select, DIRECT, 香港 01, 香港 测试 03",
+    );
   });
 
   it("does not emit url-test parameters for smart groups", () => {

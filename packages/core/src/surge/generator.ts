@@ -443,6 +443,32 @@ function regionRegex(keywords: string[]): string {
   return escaped.length > 0 ? `(?i)(${escaped.join("|")})` : "(?!)";
 }
 
+function compileOptionalRegex(pattern?: string): RegExp | null {
+  const raw = stringValue(pattern);
+  if (!raw) return null;
+  try {
+    return new RegExp(raw, "i");
+  } catch {
+    return null;
+  }
+}
+
+function buildDynamicNodePolicies(
+  group: SurgeProxyGroup,
+  nodeNamesByOriginal: Map<string, string>,
+): string[] {
+  const includeRe = compileOptionalRegex(group.includeRegex);
+  const excludeRe = compileOptionalRegex(group.excludeRegex);
+  if (!group.includeAllNodes && !includeRe) return [];
+  const out: string[] = [];
+  for (const [originalName, finalName] of nodeNamesByOriginal) {
+    if (includeRe && !includeRe.test(originalName)) continue;
+    if (excludeRe && excludeRe.test(originalName)) continue;
+    out.push(finalName);
+  }
+  return out;
+}
+
 function appendPolicyGroupCommonParams(
   parts: string[],
   group: Pick<
@@ -513,9 +539,7 @@ function buildProxyGroupLine(
       return resolvePolicyName(policy, groupNamesById, nodeNamesByOriginal);
     })
     .filter((policy): policy is string => Boolean(policy));
-  const allNodePolicies = group.includeAllNodes
-    ? Array.from(nodeNamesByOriginal.values())
-    : [];
+  const allNodePolicies = buildDynamicNodePolicies(group, nodeNamesByOriginal);
   const uniquePolicies = Array.from(
     new Set([...resolvedPolicies, ...allNodePolicies]),
   );

@@ -471,7 +471,9 @@ function mapYoukoProxyGroup(group: CustomProxyGroup): SurgeProxyGroup {
   const configuredMembers =
     group.advanced?.memberOrder ?? group.advanced?.extraMembers ?? [];
   const policies = configuredMembers.map(mapYoukoMember);
-  const includeAllNodes = group.advanced?.includeRegex !== "(?!)";
+  const includeRegex = group.advanced?.includeRegex?.trim() ?? "";
+  const excludeRegex = group.advanced?.excludeRegex?.trim() ?? "";
+  const includeAllNodes = !includeRegex;
   return {
     id: group.id,
     name: group.name,
@@ -479,6 +481,8 @@ function mapYoukoProxyGroup(group: CustomProxyGroup): SurgeProxyGroup {
     policies,
     ...(group.icon?.trim() ? { icon: group.icon.trim() } : {}),
     ...(includeAllNodes ? { includeAllNodes: true } : {}),
+    ...(includeRegex && includeRegex !== "(?!)" ? { includeRegex } : {}),
+    ...(excludeRegex ? { excludeRegex } : {}),
     ...(group.enabled === false ? { enabled: false } : {}),
   };
 }
@@ -742,6 +746,8 @@ function normalizeProxyGroups(
       policies: normalizePolicyRefs(item.policies),
       ...(text(item.icon) ? { icon: text(item.icon) } : {}),
       ...(item.includeAllNodes === true ? { includeAllNodes: true } : {}),
+      ...(text(item.includeRegex) ? { includeRegex: text(item.includeRegex) } : {}),
+      ...(text(item.excludeRegex) ? { excludeRegex: text(item.excludeRegex) } : {}),
       ...(item.enabled === false ? { enabled: false } : {}),
       ...(text(item.url) ? { url: text(item.url) } : {}),
       ...(positiveInt(item.interval)

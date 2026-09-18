@@ -1881,6 +1881,40 @@ export function SurgeMode() {
                     displayName={group.name}
                     className="mt-2"
                   />
+                  <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-medium text-white/50">
+                        包含正则（可选）
+                      </div>
+                      <Input
+                        value={group.includeRegex || ""}
+                        aria-label={`${group.name} 包含正则`}
+                        onChange={(event) =>
+                          updateGroup(group.id, {
+                            includeRegex: event.target.value,
+                          })
+                        }
+                        placeholder="例如: 香港|HK|Hong Kong"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-medium text-white/50">
+                        排除正则（可选）
+                      </div>
+                      <Input
+                        value={group.excludeRegex || ""}
+                        aria-label={`${group.name} 排除正则`}
+                        onChange={(event) =>
+                          updateGroup(group.id, {
+                            excludeRegex: event.target.value,
+                          })
+                        }
+                        placeholder="例如: 测试|过期|倍率"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
                   <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
                       <div className="min-w-0">

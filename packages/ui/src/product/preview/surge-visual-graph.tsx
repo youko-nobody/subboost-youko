@@ -107,6 +107,32 @@ function getValidIconSrc(value: string | undefined): string | undefined {
   return /^https?:\/\//i.test(trimmed) ? trimmed : undefined;
 }
 
+function compileOptionalRegex(pattern?: string): RegExp | null {
+  const trimmed = pattern?.trim() ?? "";
+  if (!trimmed) return null;
+  try {
+    return new RegExp(trimmed, "i");
+  } catch {
+    return null;
+  }
+}
+
+function dynamicNodeRefs(
+  group: SurgeProxyGroup,
+  nodes: Array<{ name: string }>,
+): SurgePolicyRef[] {
+  const includeRe = compileOptionalRegex(group.includeRegex);
+  const excludeRe = compileOptionalRegex(group.excludeRegex);
+  if (!group.includeAllNodes && !includeRe) return [];
+  return nodes
+    .filter((node) => {
+      if (includeRe && !includeRe.test(node.name)) return false;
+      if (excludeRe && excludeRe.test(node.name)) return false;
+      return true;
+    })
+    .map((node) => ({ kind: "node", name: node.name }));
+}
+
 function policyRefLabel(
   ref: SurgePolicyRef | string,
   groupNameById: Map<string, string>,
@@ -469,11 +495,7 @@ export function SurgeVisualGraph() {
         if (policy.kind === "group" && activeRegionIds.has(policy.id)) continue;
         policies.push(policy);
       }
-      if (group.includeAllNodes) {
-        for (const node of effectiveNodes) {
-          policies.push({ kind: "node", name: node.name });
-        }
-      }
+      policies.push(...dynamicNodeRefs(group, effectiveNodes));
       const seen = new Set<string>();
       result.set(
         group.id,
