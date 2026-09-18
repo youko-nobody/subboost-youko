@@ -74,7 +74,7 @@ describe("editing subscription node source helpers", () => {
     expect(result[2]).toBe(untouched);
   });
 
-  it("adds inline source ids by matching parsed origin, server, and port", () => {
+  it("adds inline source ids and restores missing nodes from saved static content", () => {
     const alpha = node("Alpha", { server: "alpha.example.com", port: 8443 });
     const alreadyTagged = node("Beta", {
       server: "beta.example.com",
@@ -98,7 +98,66 @@ describe("editing subscription node source helpers", () => {
 
     expect(mocks.parseSubscription).toHaveBeenCalledWith("ss://nodes");
     expect(getNodeSourceIds(result[0])).toEqual(["inline"]);
-    expect(result[1]).toBe(alreadyTagged);
+    expect(result[1]).toMatchObject({
+      name: "Beta",
+      server: "beta.example.com",
+      port: 9443,
+      _sourceIds: ["inline"],
+    });
+    expect(result[2]).toMatchObject({
+      name: "Miss",
+      server: "miss.example.com",
+      port: 443,
+      _sourceIds: ["inline"],
+    });
+  });
+
+  it("hydrates static sources with the saved tag and node naming template", () => {
+    mocks.parseSubscription.mockReturnValueOnce({
+      nodes: [
+        node("Alpha", { server: "alpha.example.com", port: 8443 }),
+        node("Beta", { server: "beta.example.com", port: 9443 }),
+      ],
+      errors: [],
+      totalParsed: 2,
+      totalFailed: 0,
+    });
+
+    const result = ensureNodesHaveValidSourceIds(
+      [
+        node("[newFly]Alpha", {
+          _originName: "Alpha",
+          _sourceIds: ["inline"],
+          server: "old-alpha.example.com",
+          port: 8443,
+        }),
+      ],
+      [
+        source({
+          id: "inline",
+          type: "nodes",
+          content: "ss://nodes",
+          tag: "newFly",
+          nameTemplate: "[{tag}]{name}",
+          lastParsedTag: "newFly",
+          lastParsedNameTemplate: "[{tag}]{name}",
+        }),
+      ]
+    );
+
+    expect(result.map((item) => item.name)).toEqual(["[newFly]Alpha", "[newFly]Beta"]);
+    expect(result).toEqual([
+      expect.objectContaining({
+        server: "alpha.example.com",
+        _originName: "Alpha",
+        _sourceIds: ["inline"],
+      }),
+      expect.objectContaining({
+        server: "beta.example.com",
+        _originName: "Beta",
+        _sourceIds: ["inline"],
+      }),
+    ]);
   });
 
   it("ignores empty and unparseable inline sources", () => {
@@ -114,6 +173,22 @@ describe("editing subscription node source helpers", () => {
 
     expect(mocks.parseSubscription).toHaveBeenCalledTimes(1);
     expect(result[0]).toBe(original);
+  });
+
+  it("keeps saved static-source nodes when reparsing yields no nodes", () => {
+    const saved = node("Alpha", { _sourceIds: ["inline"], _originName: "Alpha" });
+    mocks.parseSubscription.mockReturnValueOnce({
+      nodes: [],
+      errors: ["empty"],
+      totalParsed: 0,
+      totalFailed: 1,
+    });
+
+    const result = ensureNodesHaveValidSourceIds([saved], [
+      source({ id: "inline", type: "nodes", content: "empty" }),
+    ]);
+
+    expect(result).toEqual([saved]);
   });
 
   it("falls back to the only url source when a node has no source id", () => {

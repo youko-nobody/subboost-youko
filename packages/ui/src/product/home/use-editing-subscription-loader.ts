@@ -377,6 +377,8 @@ export function useEditingSubscriptionLoader({
         })();
 
         const hydratedNodes = ensureNodesHaveValidSourceIds(filteredLoadedNodes, rebuiltSources, {
+          deletedNodeNames: deletedNodeNamesMerged,
+          deletedNodes: deletedNodesFromCfg,
           onMissingMultiUrlSourceIds: () => {
             toast({
               title: "节点来源信息缺失",
