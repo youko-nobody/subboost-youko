@@ -127,8 +127,22 @@ describe("default config builders", () => {
       groupType: "reject-first",
       includeProxyProviders: false,
     });
-    expect(config.customRuleSets).toHaveLength(44);
-    expect(config.customRuleSets[0]).toMatchObject({
+    expect(config.customRuleSets).toHaveLength(46);
+    expect(config.customRuleSets.slice(0, 2)).toEqual([
+      expect.objectContaining({
+        id: "EMBY_DIRECT",
+        behavior: "classical",
+        format: "yaml",
+        target: "DIRECT",
+      }),
+      expect.objectContaining({
+        id: "EMBY_PROXY",
+        behavior: "classical",
+        format: "yaml",
+        target: { kind: "custom", id: "my-emby" },
+      }),
+    ]);
+    expect(config.customRuleSets[2]).toMatchObject({
       id: "BM_ADVERTISING_LITE",
       behavior: "classical",
       format: "yaml",
@@ -138,7 +152,7 @@ describe("default config builders", () => {
       },
     });
     expect(config.customRules).toHaveLength(25);
-    expect(config.ruleOrder).toHaveLength(69);
+    expect(config.ruleOrder).toHaveLength(71);
     expect(config.dnsYaml).toContain("enhanced-mode: fake-ip");
 
     const ipRuleSetIds = [

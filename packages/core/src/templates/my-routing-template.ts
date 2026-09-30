@@ -310,6 +310,25 @@ export const MY_ROUTING_CUSTOM_PROXY_GROUPS: CustomProxyGroup[] = [
 
 export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
   {
+    "id": "EMBY_DIRECT",
+    "name": "Emby直连",
+    "behavior": "classical",
+    "format": "yaml",
+    "path": "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/clash/emby-direct.yaml",
+    "target": "DIRECT"
+  },
+  {
+    "id": "EMBY_PROXY",
+    "name": "Emby代理",
+    "behavior": "classical",
+    "format": "yaml",
+    "path": "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/clash/emby-proxy.yaml",
+    "target": {
+      "kind": "custom",
+      "id": "my-emby"
+    }
+  },
+  {
     "id": "BM_ADVERTISING_LITE",
     "name": "BM_ADVERTISING_LITE",
     "behavior": "classical",
@@ -944,6 +963,8 @@ export const MY_ROUTING_CUSTOM_RULES: CustomRule[] = [
 ];
 
 export const MY_ROUTING_RULE_ORDER: string[] = [
+  "custom-rule-set:EMBY_DIRECT",
+  "custom-rule-set:EMBY_PROXY",
   "custom-rule:my-routing-rule-01",
   "custom-rule:my-routing-rule-02",
   "custom-rule:my-routing-rule-03",

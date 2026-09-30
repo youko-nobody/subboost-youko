@@ -106,10 +106,25 @@ describe("generateClashConfig", () => {
       url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AdvertisingLite/AdvertisingLite.yaml",
       path: "./ruleset/BM_ADVERTISING_LITE.yaml",
     });
-    expect(config.rules?.slice(0, 3)).toEqual([
+    expect(config["rule-providers"]?.EMBY_DIRECT).toMatchObject({
+      type: "http",
+      behavior: "classical",
+      format: "yaml",
+      url: "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/clash/emby-direct.yaml",
+      path: "./ruleset/EMBY_DIRECT.yaml",
+    });
+    expect(config["rule-providers"]?.EMBY_PROXY).toMatchObject({
+      type: "http",
+      behavior: "classical",
+      format: "yaml",
+      url: "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/clash/emby-proxy.yaml",
+      path: "./ruleset/EMBY_PROXY.yaml",
+    });
+    expect(config.rules?.slice(0, 4)).toEqual([
+      "RULE-SET,EMBY_DIRECT,DIRECT",
+      "RULE-SET,EMBY_PROXY,Emby代理",
       "DOMAIN-SUFFIX,emby.fan,Emby代理",
       "DOMAIN-SUFFIX,111848.xyz,Emby代理",
-      "DOMAIN-SUFFIX,xueshan.liminalnet.com,Emby代理",
     ]);
     expect(config.rules).toContain("RULE-SET,BM_OPENAI,AI");
     expect(config.rules).toEqual(

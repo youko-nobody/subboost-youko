@@ -419,6 +419,18 @@ describe("generateSurgeProfile", () => {
         target: { kind: "group", id: "my-apple" },
       }),
     );
+    expect(ruleSetById.get("EMBY_DIRECT")).toEqual(
+      expect.objectContaining({
+        url: "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/surge/emby-direct.list",
+        target: { kind: "direct" },
+      }),
+    );
+    expect(ruleSetById.get("EMBY_PROXY")).toEqual(
+      expect.objectContaining({
+        url: "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/surge/emby-proxy.list",
+        target: { kind: "group", id: "my-emby" },
+      }),
+    );
     for (const id of [
       "RABBIT_MICROSOFT",
       "RABBIT_NETFLIX",
@@ -441,6 +453,12 @@ describe("generateSurgeProfile", () => {
       expect(index).toBeGreaterThanOrEqual(0);
       return index;
     };
+    expect(orderIndex("rule-set:EMBY_DIRECT")).toBeLessThan(
+      orderIndex("rule:my-routing-rule-01"),
+    );
+    expect(orderIndex("rule-set:EMBY_PROXY")).toBeLessThan(
+      orderIndex("rule:my-routing-rule-01"),
+    );
     expect(orderIndex("rule-set:RABBIT_AIGC")).toBeLessThan(
       orderIndex("rule-set:GEMINI_DOMAIN"),
     );
@@ -524,6 +542,18 @@ describe("generateSurgeProfile", () => {
     expect(output.content).toContain(
       `RULE-SET,${rabbitRulesBase}/Apple.list,APPLE`,
     );
+    const embyDirectIndex = output.content.indexOf(
+      "RULE-SET,https://raw.githubusercontent.com/youko-nobody/rules/main/rules/surge/emby-direct.list,DIRECT",
+    );
+    const embyProxyIndex = output.content.indexOf(
+      "RULE-SET,https://raw.githubusercontent.com/youko-nobody/rules/main/rules/surge/emby-proxy.list,Emby代理",
+    );
+    const existingEmbyRuleIndex = output.content.indexOf(
+      "DOMAIN-SUFFIX,emby.fan,Emby代理",
+    );
+    expect(embyDirectIndex).toBeGreaterThanOrEqual(0);
+    expect(embyProxyIndex).toBeGreaterThan(embyDirectIndex);
+    expect(existingEmbyRuleIndex).toBeGreaterThan(embyProxyIndex);
     for (const fileName of [
       "Microsoft",
       "Netflix",
@@ -577,9 +607,12 @@ describe("generateSurgeProfile", () => {
     const localRuleIndex = output.content.indexOf(
       "DOMAIN-SUFFIX,emby.fan,Emby代理",
     );
-    const remoteRuleIndex = output.content.indexOf("RULE-SET,");
+    const embyDirectRuleIndex = output.content.indexOf(
+      "RULE-SET,https://raw.githubusercontent.com/youko-nobody/rules/main/rules/surge/emby-direct.list,DIRECT",
+    );
     expect(localRuleIndex).toBeGreaterThan(output.content.indexOf("[Rule]"));
-    expect(remoteRuleIndex).toBeGreaterThan(localRuleIndex);
+    expect(embyDirectRuleIndex).toBeGreaterThan(output.content.indexOf("[Rule]"));
+    expect(embyDirectRuleIndex).toBeLessThan(localRuleIndex);
   });
 
   it("skips unsupported protocols instead of emitting invalid Surge proxy lines", () => {

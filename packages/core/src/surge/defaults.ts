@@ -302,6 +302,10 @@ function surgeRuleSetOrderKey(id: string): string {
   return `rule-set:${id}`;
 }
 
+function surgeRuleOrderKey(id: string): string {
+  return `rule:${id}`;
+}
+
 const RABBIT_YOUKO_SURGE_RULE_SETS: SurgeRuleSet[] = [
   rabbitSurgeRuleSet("AIGC", "AIGC", "AIGC", surgeGroupTarget("my-ai")),
   rabbitSurgeRuleSet(
@@ -399,7 +403,33 @@ const RABBIT_YOUKO_SURGE_RULE_SETS: SurgeRuleSet[] = [
   ),
 ];
 
+const YOUKO_EMBY_SURGE_RULE_SETS: SurgeRuleSet[] = [
+  {
+    id: "EMBY_DIRECT",
+    name: "Emby直连",
+    url: "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/surge/emby-direct.list",
+    target: surgeDirectTarget(),
+    enabled: true,
+  },
+  {
+    id: "EMBY_PROXY",
+    name: "Emby代理",
+    url: "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/surge/emby-proxy.list",
+    target: surgeGroupTarget("my-emby"),
+    enabled: true,
+  },
+];
+
+const YOUKO_SURGE_RULE_SETS: SurgeRuleSet[] = [
+  ...RABBIT_YOUKO_SURGE_RULE_SETS,
+  ...YOUKO_EMBY_SURGE_RULE_SETS,
+];
+
 const RABBIT_YOUKO_SURGE_RULE_ORDER_INSERTS: Record<string, string[]> = {
+  [surgeRuleOrderKey("my-routing-rule-01")]: [
+    surgeRuleOrderKey("EMBY_DIRECT"),
+    surgeRuleOrderKey("EMBY_PROXY"),
+  ],
   [surgeRuleSetOrderKey("GEMINI_DOMAIN")]: [
     surgeRuleSetOrderKey("RABBIT_AIGC"),
   ],
@@ -534,7 +564,7 @@ function createYoukoSurgeRuleOrder(): string[] {
     order.push(key);
   }
 
-  for (const ruleSet of RABBIT_YOUKO_SURGE_RULE_SETS) {
+  for (const ruleSet of YOUKO_SURGE_RULE_SETS) {
     const key = surgeRuleSetOrderKey(ruleSet.id);
     if (insertedRabbitKeys.has(key)) continue;
     insertedRabbitKeys.add(key);
@@ -587,7 +617,7 @@ export function createYoukoSurgeConfig(): SurgeConfig {
     ...MY_ROUTING_CUSTOM_RULE_SETS.map(mapYoukoRuleSet).filter((ruleSet) =>
       Boolean(ruleSet.url),
     ),
-    ...RABBIT_YOUKO_SURGE_RULE_SETS,
+    ...YOUKO_SURGE_RULE_SETS,
   ];
   const ruleOrder = createYoukoSurgeRuleOrder();
   return {
