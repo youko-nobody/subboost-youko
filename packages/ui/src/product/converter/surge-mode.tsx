@@ -508,9 +508,8 @@ function buildVisualIssues(params: {
   config: SurgeConfig;
   groupNameById: Map<string, string>;
   nodeNames: string[];
-  skippedNodeNames: string[];
+  skippedNodes: Array<{ name: string; reason: string }>;
   generatedError: string | null;
-  skippedNodes: number;
 }): SurgeVisualIssue[] {
   const issues: SurgeVisualIssue[] = [];
   if (params.generatedError) {
@@ -530,11 +529,14 @@ function buildVisualIssues(params: {
     });
   }
 
-  if (params.skippedNodes > 0) {
+  if (params.skippedNodes.length > 0) {
     issues.push({
       tone: "warning",
-      title: `${params.skippedNodes} 个节点暂未进入 Surge 配置`,
-      detail: "这些节点协议不支持 Surge，或缺少生成所需字段。",
+      title: `${params.skippedNodes.length} 个节点暂未进入 Surge 配置`,
+      detail: params.skippedNodes
+        .slice(0, 3)
+        .map(({ name, reason }) => `${name}：${reason}`)
+        .join("；"),
     });
   }
 
@@ -547,7 +549,9 @@ function buildVisualIssues(params: {
       .filter((group) => group.enabled !== false)
       .map((group) => group.id),
   );
-  const skippedNodeNameSet = new Set(params.skippedNodeNames);
+  const skippedNodeNameSet = new Set(
+    params.skippedNodes.map((node) => node.name),
+  );
   const availableNodeNames = new Set(
     params.nodeNames.filter((name) => !skippedNodeNameSet.has(name)),
   );
@@ -904,11 +908,8 @@ export function SurgeMode() {
         config: surgeConfig,
         groupNameById,
         nodeNames,
-        skippedNodeNames:
-          generatedSurgePreview.result?.skippedNodes.map((node) => node.name) ??
-          [],
+        skippedNodes: generatedSurgePreview.result?.skippedNodes ?? [],
         generatedError: generatedSurgePreview.error,
-        skippedNodes: generatedSurgePreview.result?.skippedNodes.length ?? 0,
       }),
     [generatedSurgePreview, groupNameById, nodeNames, surgeConfig],
   );

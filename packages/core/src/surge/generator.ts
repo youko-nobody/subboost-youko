@@ -192,8 +192,9 @@ function serializeVmess(name: string, record: NodeRecord): string | null {
   const parts = baseProxyParts(name, "vmess", record);
   const uuid = stringValue(record.uuid);
   if (!parts || !uuid) return null;
-  appendParam(parts, "username", uuid);
   const cipher = stringValue(record.cipher);
+  if (cipher.toLowerCase() === "none") return null;
+  appendParam(parts, "username", uuid);
   if (cipher) appendParam(parts, "encrypt-method", cipher);
   appendParam(parts, "vmess-aead", numberValue(record.alterId) === 0);
   if (record.tls !== undefined)
@@ -411,6 +412,17 @@ function serializeProxyNode(
 
 function getNodeType(node: ParsedNode): string {
   return stringValue((node as unknown as NodeRecord).type) || "unknown";
+}
+
+function getNodeSkipReason(node: ParsedNode): string {
+  const record = node as unknown as NodeRecord;
+  if (
+    getNodeType(node).toLowerCase() === "vmess" &&
+    stringValue(record.cipher).toLowerCase() === "none"
+  ) {
+    return "Surge 不支持 VMess cipher=none；省略 encrypt-method 会默认使用 aes-128-gcm，无法保持源节点的加密设置";
+  }
+  return "缺少 Surge 生成所需字段";
 }
 
 function isSupportedNode(node: ParsedNode): boolean {
@@ -668,7 +680,7 @@ export function generateSurgeProfile(
         skippedNodes.push({
           name,
           type: getNodeType(node),
-          reason: "缺少 Surge 生成所需字段",
+          reason: getNodeSkipReason(node),
         });
       }
       return line;

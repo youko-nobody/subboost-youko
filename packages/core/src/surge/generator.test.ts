@@ -133,6 +133,54 @@ describe("generateSurgeProfile", () => {
     expect(output.content).not.toContain("BLACKSTONE");
   });
 
+  it("skips VMess nodes with cipher none instead of silently changing encryption", () => {
+    const unsupportedVmessNode: ParsedNode = {
+      name: "DMIT",
+      type: "vmess",
+      server: "179.253.251.112",
+      port: 443,
+      uuid: "6335a295-efd4-48ee-92fa-4e997ac3bc31",
+      alterId: 0,
+      cipher: "none",
+      tls: true,
+      network: "ws",
+      "ws-opts": {
+        path: "/vmess-ws",
+        headers: { Host: "us-dedirock-la2.youko.us.ci" },
+      },
+      servername: "us-dedirock-la2.youko.us.ci",
+      udp: true,
+    };
+    const supportedVmessNode: ParsedNode = {
+      ...unsupportedVmessNode,
+      name: "DMIT AES",
+      cipher: "aes-128-gcm",
+    };
+    const output = generateSurgeProfile({
+      nodes: [unsupportedVmessNode, supportedVmessNode],
+      config: createDefaultSurgeConfig(),
+    });
+    const supportedProxyLine = output.content
+      .split("\n")
+      .find((line) => line.startsWith("DMIT AES = vmess,"));
+
+    expect(output.proxyCount).toBe(1);
+    expect(output.skippedNodes).toEqual([
+      {
+        name: "DMIT",
+        type: "vmess",
+        reason: expect.stringContaining("Surge 不支持 VMess cipher=none"),
+      },
+    ]);
+    expect(output.content).not.toContain("DMIT = vmess,");
+    expect(supportedProxyLine).toContain("encrypt-method=aes-128-gcm");
+    expect(supportedProxyLine).toContain("vmess-aead=true");
+    expect(supportedProxyLine).toContain("ws=true");
+    expect(supportedProxyLine).toContain("ws-path=/vmess-ws");
+    expect(supportedProxyLine).toContain("sni=us-dedirock-la2.youko.us.ci");
+    expect(supportedProxyLine).toContain("udp-relay=true");
+  });
+
   it("filters non-node members from smart manual groups", () => {
     const output = generateSurgeProfile({
       nodes: [ssNode],
