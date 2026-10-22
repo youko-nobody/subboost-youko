@@ -45,6 +45,7 @@ const CUSTOM_RULE_TYPE_LABELS: Record<CustomRule["type"], string> = {
   "DOMAIN-KEYWORD": "域名关键词 (DOMAIN-KEYWORD)",
   "IP-CIDR": "IP 段 (IP-CIDR)",
   "IP-CIDR6": "IPv6 段 (IP-CIDR6)",
+  "IP-ASN": "ASN (IP-ASN)",
   GEOIP: "GeoIP (GEOIP)",
   GEOSITE: "GeoSite (GEOSITE)",
   "PROCESS-NAME": "进程名 (PROCESS-NAME)",
@@ -58,6 +59,7 @@ const CUSTOM_RULE_TYPE_SHORT_LABELS: Record<CustomRule["type"], string> = {
   "DOMAIN-KEYWORD": "域名关键词",
   "IP-CIDR": "IP 段",
   "IP-CIDR6": "IPv6 段",
+  "IP-ASN": "ASN",
   GEOIP: "GeoIP",
   GEOSITE: "GeoSite",
   "PROCESS-NAME": "进程名",
@@ -72,15 +74,15 @@ const CUSTOM_RULE_TYPE_OPTIONS = CUSTOM_RULE_TYPES.map((value) => ({
 
 function getProductRuleKind(type: CustomRule["type"]): ProductRuleKind {
   if (type.startsWith("DOMAIN")) return "domain";
-  if (type.startsWith("IP-CIDR")) return "ipcidr";
+  if (type.startsWith("IP-CIDR") || type === "IP-ASN") return "ipcidr";
   if (type === "GEOIP" || type === "GEOSITE") return "geo";
   if (type === "PROCESS-NAME") return "process";
   if (type === "DST-PORT" || type === "SRC-PORT") return "port";
   return "unknown";
 }
 
-function isIpCidrRuleType(type: CustomRule["type"]): boolean {
-  return type === "IP-CIDR" || type === "IP-CIDR6";
+function isIpRuleType(type: CustomRule["type"]): boolean {
+  return type === "IP-CIDR" || type === "IP-CIDR6" || type === "IP-ASN";
 }
 
 function getTargetOptions(enabledGroupNames: string[], selected?: string) {
@@ -197,13 +199,13 @@ export function ProxyGroupsCustomRules() {
       kind: getProductRuleKind(addedRuleType),
     });
     setNewRuleValue("");
-    setNewRuleNoResolve(isIpCidrRuleType(addedRuleType));
+    setNewRuleNoResolve(isIpRuleType(addedRuleType));
   };
 
   const handleNewRuleTypeChange = (value: string) => {
     const nextType = value as CustomRule["type"];
     setNewRuleType(nextType);
-    setNewRuleNoResolve(isIpCidrRuleType(nextType));
+    setNewRuleNoResolve(isIpRuleType(nextType));
   };
 
   const startEditingRule = (rule: CustomRule) => {
@@ -297,7 +299,11 @@ export function ProxyGroupsCustomRules() {
             <Input
               value={newRuleValue}
               onChange={(e) => setNewRuleValue(e.target.value)}
-              placeholder="值 (如: google.com)"
+              placeholder={
+                newRuleType === "IP-ASN"
+                  ? "ASN 号码 (如: 4134)"
+                  : "值 (如: google.com)"
+              }
               className="h-7 min-w-0 flex-[1_1_4.5rem] text-xs"
             />
           </div>
@@ -367,7 +373,11 @@ export function ProxyGroupsCustomRules() {
                         onValueChange={(v) =>
                           setEditingRuleDraft((prev) =>
                             prev
-                              ? { ...prev, type: v as CustomRule["type"] }
+                              ? {
+                                  ...prev,
+                                  type: v as CustomRule["type"],
+                                  noResolve: isIpRuleType(v as CustomRule["type"]),
+                                }
                               : prev,
                           )
                         }

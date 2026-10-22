@@ -73,6 +73,26 @@ describe("generateSurgeProfile", () => {
     expect(output.policyGroupCount).toBeGreaterThan(1);
   });
 
+  it("generates single ASN rules with no-resolve", () => {
+    const output = generateSurgeProfile({
+      nodes: [ssNode],
+      config: {
+        ...createDefaultSurgeConfig(),
+        rules: [
+          {
+            id: "asn-rule",
+            type: "IP-ASN",
+            value: "4134",
+            target: { kind: "direct" },
+            noResolve: true,
+          },
+        ],
+      },
+    });
+
+    expect(output.content).toContain("IP-ASN,4134,DIRECT,no-resolve");
+  });
+
   it("emits domain-set remote resources with DOMAIN-SET", () => {
     const output = generateSurgeProfile({
       nodes: [ssNode],
@@ -459,6 +479,13 @@ describe("generateSurgeProfile", () => {
       config.ruleSets.map((ruleSet) => [ruleSet.id, ruleSet]),
     );
     expect(ruleSetById.has("RABBIT_CHINA_ASN")).toBe(false);
+    expect(ruleSetById.get("CN_ASN")).toEqual(
+      expect.objectContaining({
+        url: "https://raw.githubusercontent.com/missuo/ASN-China/main/ASN.China.list",
+        target: { kind: "direct" },
+        noResolve: true,
+      }),
+    );
     expect(ruleSetById.get("RABBIT_APPLE")).toEqual(
       expect.objectContaining({
         url: expect.stringContaining(
@@ -626,6 +653,9 @@ describe("generateSurgeProfile", () => {
     }
     expect(output.content).toContain(
       `RULE-SET,${rabbitRulesBase}/ChinaCIDR.list,DIRECT,no-resolve`,
+    );
+    expect(output.content).toContain(
+      "RULE-SET,https://raw.githubusercontent.com/missuo/ASN-China/main/ASN.China.list,DIRECT,no-resolve",
     );
     expect(output.content).not.toContain(`${rabbitRulesBase}/ChinaASN.list`);
     expect(

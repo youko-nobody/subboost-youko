@@ -88,6 +88,10 @@ const SURGE_EDITABLE_RULE_TYPES = SURGE_RULE_TYPES.filter(
   (type) => type !== "FINAL",
 );
 
+function isSurgeIpRuleType(type: SurgeRuleType): boolean {
+  return type === "IP-CIDR" || type === "IP-CIDR6" || type === "IP-ASN";
+}
+
 function makeId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -1252,14 +1256,18 @@ export function SurgeMode() {
   };
 
   const updateRule = (id: string, patch: Partial<SurgeRule>) => {
+    const normalizedPatch =
+      patch.type === "FINAL"
+        ? { ...patch, value: "", noResolve: false }
+        : patch.type && patch.noResolve === undefined
+          ? { ...patch, noResolve: isSurgeIpRuleType(patch.type) }
+          : patch;
     const nextConfig = {
       ...surgeConfig,
       rules: updateArrayItem(
         surgeConfig.rules,
         id,
-        patch.type === "FINAL"
-          ? { ...patch, value: "", noResolve: false }
-          : patch,
+        normalizedPatch,
       ),
     };
     setSurgeConfig({
@@ -2612,6 +2620,8 @@ export function SurgeMode() {
                         placeholder={
                           rule.type === "FINAL"
                             ? "FINAL 不需要匹配内容"
+                            : rule.type === "IP-ASN"
+                              ? "ASN 号码 (如: 4134)"
                             : "example.com / 1.1.1.0/24"
                         }
                         disabled={rule.type === "FINAL"}

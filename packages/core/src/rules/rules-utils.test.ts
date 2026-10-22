@@ -30,6 +30,7 @@ describe("custom rule helpers", () => {
     });
 
     expect(isCustomRuleType("DOMAIN-SUFFIX")).toBe(true);
+    expect(isCustomRuleType("IP-ASN")).toBe(true);
     expect(isCustomRuleType("BAD")).toBe(false);
     expect(rule.id).toBe("custom-rule-domain-suffix-example-com-direct-3");
     expect(existing.id).toBe("custom-id");

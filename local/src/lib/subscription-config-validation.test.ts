@@ -46,6 +46,13 @@ describe("local subscription config validation", () => {
             value: "example.cn",
             target: "DIRECT",
           },
+          {
+            id: "cn-asn",
+            type: "IP-ASN",
+            value: "4134",
+            target: "DIRECT",
+            noResolve: true,
+          },
         ],
       },
     });

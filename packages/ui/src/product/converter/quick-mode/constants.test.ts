@@ -19,7 +19,7 @@ describe("quick mode constants", () => {
     expect(templates[0]).toMatchObject({ groups: 0, rules: 0 });
     expect(templates[1].groups).toBeLessThan(templates[3].groups);
     expect(templates[1].rules).toBeLessThan(templates[3].rules);
-    expect(templates[4]).toMatchObject({ groups: 10, rules: 69 });
+    expect(templates[4]).toMatchObject({ groups: 10, rules: 72 });
     const currentCounts = new Map(
       getTemplateList().map((template) => [template.id, [template.groupCount, template.ruleCount]])
     );

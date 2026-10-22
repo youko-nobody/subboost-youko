@@ -155,6 +155,7 @@ describe("custom rule id and order helpers", () => {
     );
     expect(ensureCustomRulesHaveIds("bad" as never)).toEqual([]);
     expect(isCustomRuleType("DOMAIN")).toBe(true);
+    expect(isCustomRuleType("IP-ASN")).toBe(true);
     expect(isCustomRuleType("BAD")).toBe(false);
 
     const customRules = [ruleWithoutId];
@@ -184,6 +185,27 @@ describe("custom rule id and order helpers", () => {
 });
 
 describe("custom rule batch import", () => {
+  it("imports single ASN rules", () => {
+    const result = parseCustomRuleBatchImport({
+      text: "IP-ASN,4134,DIRECT,no-resolve",
+      defaultType: "DOMAIN",
+      defaultTarget: "DIRECT",
+      defaultNoResolve: false,
+      targetOptions: ["DIRECT"],
+      existingRules: [],
+    });
+
+    expect(result.canImport).toBe(true);
+    expect(result.rules).toEqual([
+      expect.objectContaining({
+        type: "IP-ASN",
+        value: "4134",
+        target: "DIRECT",
+        noResolve: true,
+      }),
+    ]);
+  });
+
   it("previews ready, skipped, error, and duplicate rows", () => {
     const existingRules: CustomRule[] = [
       { id: "existing", type: "DOMAIN", value: "existing.com", target: "PROXY", noResolve: false },

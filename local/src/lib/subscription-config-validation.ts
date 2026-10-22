@@ -227,6 +227,7 @@ function validateCustomRules(
     "DOMAIN-KEYWORD",
     "IP-CIDR",
     "IP-CIDR6",
+    "IP-ASN",
     "GEOIP",
     "GEOSITE",
     "PROCESS-NAME",

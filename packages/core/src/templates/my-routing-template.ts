@@ -776,6 +776,15 @@ export const MY_ROUTING_CUSTOM_RULE_SETS: CustomRuleSet[] = [
     "format": "yaml",
     "path": "https://raw.githubusercontent.com/Accademia/Additional_Rule_For_Clash/main/ChinaMax/ChinaMax_Domain.yaml",
     "target": "DIRECT"
+  },
+  {
+    "id": "CN_ASN",
+    "name": "中国 ASN",
+    "behavior": "classical",
+    "format": "yaml",
+    "path": "https://raw.githubusercontent.com/Kwisma/ASN-List/refs/heads/main/country/CN/CN_ASN.yaml",
+    "target": "DIRECT",
+    "noResolve": true
   }
 ];
 
@@ -1033,6 +1042,7 @@ export const MY_ROUTING_RULE_ORDER: string[] = [
   "custom-rule-set:WEIYUN_IP",
   "custom-rule-set:AQARA_GLOBAL_IP",
   "custom-rule-set:GEO_ROUTING_ASIA_CHINA_GEOIP",
+  "custom-rule-set:CN_ASN",
   "custom-rule:my-routing-rule-25"
 ];
 

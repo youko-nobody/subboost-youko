@@ -357,6 +357,12 @@ describe("subscription config utils", () => {
             target: { kind: "custom", id: " media " },
             noResolve: true,
           },
+          {
+            type: "IP-ASN",
+            value: "4134",
+            target: "DIRECT",
+            noResolve: true,
+          },
         ],
         customProxyGroups: [
           {
@@ -394,6 +400,12 @@ describe("subscription config utils", () => {
     expect(options.userConfig?.customRules?.[0]).toMatchObject({
       type: "IP-CIDR6",
       target: { kind: "custom", id: "media" },
+      noResolve: true,
+    });
+    expect(options.userConfig?.customRules?.[1]).toMatchObject({
+      type: "IP-ASN",
+      value: "4134",
+      target: "DIRECT",
       noResolve: true,
     });
     expect(options.userConfig?.listenerPorts).toEqual({ http: 1 });

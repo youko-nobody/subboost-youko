@@ -9,6 +9,7 @@ export type SurgeRuleType =
   | "DOMAIN-KEYWORD"
   | "IP-CIDR"
   | "IP-CIDR6"
+  | "IP-ASN"
   | "GEOIP"
   | "PROCESS-NAME"
   | "DST-PORT"

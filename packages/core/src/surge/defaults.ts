@@ -47,6 +47,7 @@ export const SURGE_RULE_TYPES: SurgeRuleType[] = [
   "DOMAIN-KEYWORD",
   "IP-CIDR",
   "IP-CIDR6",
+  "IP-ASN",
   "GEOIP",
   "PROCESS-NAME",
   "DST-PORT",
@@ -270,6 +271,9 @@ const YOUKO_SURGE_RULE_SET_URLS: Record<string, YoukoSurgeRuleSetSource> = {
   ),
   CHINA_MAX_DOMAIN: surgeDomainSet(
     `${SURGE_RULE_SET_BASE_URL}/ChinaMax/ChinaMax_Domain.list`,
+  ),
+  CN_ASN: surgeRuleSet(
+    "https://raw.githubusercontent.com/missuo/ASN-China/main/ASN.China.list",
   ),
 };
 

@@ -82,6 +82,7 @@ function normalizeCustomRules(value: unknown): CustomRule[] | undefined {
     "DOMAIN-KEYWORD",
     "IP-CIDR",
     "IP-CIDR6",
+    "IP-ASN",
     "GEOIP",
     "GEOSITE",
     "PROCESS-NAME",

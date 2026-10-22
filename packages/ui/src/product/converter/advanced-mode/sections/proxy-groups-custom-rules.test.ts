@@ -123,6 +123,7 @@ vi.mock("@subboost/core/rules/custom-rule-utils", () => ({
     "DOMAIN-KEYWORD",
     "IP-CIDR",
     "IP-CIDR6",
+    "IP-ASN",
     "GEOIP",
     "GEOSITE",
     "PROCESS-NAME",
@@ -229,6 +230,7 @@ describe("ProxyGroupsCustomRules", () => {
       "DOMAIN",
     );
     expect(html).toContain("域名 (DOMAIN)");
+    expect(html).toContain("ASN (IP-ASN)");
     expect(mocks.captures.selectTriggers[0].className).toContain("w-[112px]");
     expect(RULE_TARGET_SELECT_TRIGGER_CLASS).toContain("w-[120px]");
     expect(RULE_EDIT_ROW_CLASS).toContain(
@@ -306,6 +308,7 @@ describe("ProxyGroupsCustomRules", () => {
     ["DOMAIN", "domain"],
     ["IP-CIDR", "ipcidr"],
     ["IP-CIDR6", "ipcidr"],
+    ["IP-ASN", "ipcidr"],
     ["GEOIP", "geo"],
     ["PROCESS-NAME", "process"],
     ["DST-PORT", "port"],
@@ -329,7 +332,9 @@ describe("ProxyGroupsCustomRules", () => {
         source: "manual",
         kind,
       });
-      expect(setters[3]).toHaveBeenCalledWith(type.startsWith("IP-CIDR"));
+      expect(setters[3]).toHaveBeenCalledWith(
+        type.startsWith("IP-CIDR") || type === "IP-ASN",
+      );
     },
   );
 
@@ -385,7 +390,7 @@ describe("ProxyGroupsCustomRules", () => {
     expect(mocks.captures.selects[2].value).toBe("DOMAIN");
     mocks.captures.selects[2].onValueChange("DOMAIN-SUFFIX");
     expect((setters[6] as any).lastValue).toEqual(
-      expect.objectContaining({ type: "DOMAIN-SUFFIX" }),
+      expect.objectContaining({ type: "DOMAIN-SUFFIX", noResolve: false }),
     );
     mocks.captures.inputs[1].onChange({ target: { value: "next.com" } });
     expect((setters[6] as any).lastValue).toEqual(

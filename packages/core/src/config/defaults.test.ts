@@ -127,7 +127,7 @@ describe("default config builders", () => {
       groupType: "reject-first",
       includeProxyProviders: false,
     });
-    expect(config.customRuleSets).toHaveLength(46);
+    expect(config.customRuleSets).toHaveLength(47);
     expect(config.customRuleSets.slice(0, 2)).toEqual([
       expect.objectContaining({
         id: "EMBY_DIRECT",
@@ -152,7 +152,7 @@ describe("default config builders", () => {
       },
     });
     expect(config.customRules).toHaveLength(25);
-    expect(config.ruleOrder).toHaveLength(71);
+    expect(config.ruleOrder).toHaveLength(72);
     expect(config.dnsYaml).toContain("enhanced-mode: fake-ip");
 
     const ipRuleSetIds = [
@@ -163,6 +163,7 @@ describe("default config builders", () => {
       "WEIYUN_IP",
       "AQARA_GLOBAL_IP",
       "GEO_ROUTING_ASIA_CHINA_GEOIP",
+      "CN_ASN",
     ];
     expect(config.customRuleSets.filter((ruleSet) => ipRuleSetIds.includes(ruleSet.id))).toEqual(
       expect.arrayContaining(ipRuleSetIds.map((id) => expect.objectContaining({ id, noResolve: true })))

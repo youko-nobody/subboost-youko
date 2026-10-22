@@ -81,6 +81,27 @@ describe("rule generator", () => {
     expect(texts.find((text) => text.startsWith("RULE-SET,cn-ip,"))).toBe("RULE-SET,cn-ip,🔒 CN Direct");
   });
 
+  it("generates single ASN rules with no-resolve", () => {
+    const entries = buildGeneratedRuleEntries({
+      enabledModules: ["final"],
+      customRules: [
+        {
+          id: "asn-rule",
+          type: "IP-ASN",
+          value: "4134",
+          target: "DIRECT",
+          noResolve: true,
+        },
+      ],
+      customRuleSets: [],
+      fallbackPolicyTarget: "DIRECT",
+    });
+
+    expect(entries.map((entry) => entry.text)).toContain(
+      "IP-ASN,4134,DIRECT,no-resolve",
+    );
+  });
+
   it("removes deleted preset module rules from generated rules and providers", () => {
     const enabledModules = PROXY_GROUP_MODULES.map((proxyModule) => proxyModule.id);
     const allPresetRuleIds = PROXY_GROUP_MODULES.flatMap((proxyModule) => proxyModule.rules.map((rule) => rule.id));

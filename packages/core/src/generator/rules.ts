@@ -179,7 +179,9 @@ function buildCustomRuleEntry(
   customProxyGroups: CustomProxyGroup[] = [],
   resolvePolicyTarget: (target: string) => string = (target) => target
 ): GeneratedRuleEntry {
-  const noResolve = Boolean(rule.noResolve) && (rule.type === "IP-CIDR" || rule.type === "IP-CIDR6");
+  const noResolve =
+    Boolean(rule.noResolve) &&
+    (rule.type === "IP-CIDR" || rule.type === "IP-CIDR6" || rule.type === "IP-ASN");
   const target = resolvePolicyTarget(resolveProxyGroupTargetName(rule.target, { moduleNames, customProxyGroups }));
   let text = `${rule.type},${rule.value},${target}`;
   if (noResolve) text += ",no-resolve";

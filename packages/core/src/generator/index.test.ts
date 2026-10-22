@@ -120,6 +120,13 @@ describe("generateClashConfig", () => {
       url: "https://raw.githubusercontent.com/youko-nobody/rules/main/rules/clash/emby-proxy.yaml",
       path: "./ruleset/EMBY_PROXY.yaml",
     });
+    expect(config["rule-providers"]?.CN_ASN).toMatchObject({
+      type: "http",
+      behavior: "classical",
+      format: "yaml",
+      url: "https://raw.githubusercontent.com/Kwisma/ASN-List/refs/heads/main/country/CN/CN_ASN.yaml",
+      path: "./ruleset/CN_ASN.yaml",
+    });
     expect(config.rules?.slice(0, 4)).toEqual([
       "RULE-SET,EMBY_DIRECT,DIRECT",
       "RULE-SET,EMBY_PROXY,Emby代理",
@@ -136,12 +143,13 @@ describe("generateClashConfig", () => {
         "RULE-SET,WEIYUN_IP,DIRECT,no-resolve",
         "RULE-SET,AQARA_GLOBAL_IP,PROXY,no-resolve",
         "RULE-SET,GEO_ROUTING_ASIA_CHINA_GEOIP,DIRECT,no-resolve",
+        "RULE-SET,CN_ASN,DIRECT,no-resolve",
       ])
     );
     const remoteRuleSetIds = (config.rules ?? [])
       .filter((rule) => rule.startsWith("RULE-SET,"))
       .map((rule) => rule.split(",")[1]);
-    expect(remoteRuleSetIds.slice(-7)).toEqual([
+    expect(remoteRuleSetIds.slice(-8)).toEqual([
       "CHINA_DNS_IP",
       "WAYBACK_MACHINE_IP",
       "GLOBAL_DNS_IP",
@@ -149,6 +157,7 @@ describe("generateClashConfig", () => {
       "WEIYUN_IP",
       "AQARA_GLOBAL_IP",
       "GEO_ROUTING_ASIA_CHINA_GEOIP",
+      "CN_ASN",
     ]);
     expect(config.rules?.slice(-2)).toEqual(["GEOIP,CN,DIRECT", "MATCH,FINAL"]);
   });

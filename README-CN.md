@@ -21,6 +21,8 @@
 
 - **空配置模式**：可以从更干净的配置开始，不必被默认内置分流和策略组绑住。
 - **Youko 分流模板**：新增 `Youko分流模板`，内置按实际使用整理过的策略组、远程 YAML 规则集和 FINAL 兜底规则。
+- **中国 ASN 分流**：Youko 分流模板内置 Clash/Mihomo 与 Surge 对应的中国 ASN 远程规则集，默认直连并使用 `no-resolve`。
+- **手动 ASN 规则**：在 Clash/Mihomo 和 Surge 的本地规则中可选择 `IP-ASN`，填写 ASN 号码并指定 `DIRECT`、`REJECT` 或策略组，默认使用 `no-resolve`。
 - **自定义远程规则集**：支持手动添加远程规则集，路径可以是完整 `http/https` URL，也可以是规则路径。
 - **规则集属性可改**：规则集可配置名称、类型、格式、目标策略组、`DIRECT`、`REJECT` 和 `no-resolve`。
 - **规则目标更自由**：规则可以指向内置策略组、自定义策略组、`DIRECT`、`REJECT` 或其它自定义目标。

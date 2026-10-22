@@ -165,6 +165,7 @@ export function ProxyGroupsCustomRulesBatchDialog({
               placeholder={[
                 "DOMAIN-SUFFIX,example.com,🚀 节点选择",
                 "IP-CIDR,1.1.1.0/24,DIRECT,no-resolve",
+                "IP-ASN,4134,DIRECT,no-resolve",
                 "GEOSITE,google",
                 "github.com",
               ].join("\n")}

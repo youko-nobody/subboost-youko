@@ -6,6 +6,7 @@ export const CUSTOM_RULE_TYPES = [
   "DOMAIN-KEYWORD",
   "IP-CIDR",
   "IP-CIDR6",
+  "IP-ASN",
   "GEOIP",
   "GEOSITE",
   "PROCESS-NAME",
