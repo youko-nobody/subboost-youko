@@ -21,7 +21,6 @@ import {
 import {
   CATEGORY_INFO,
   PROXY_GROUP_MODULES,
-  generateProxyGroups,
 } from "@subboost/core/generator/proxy-groups";
 import type { HiddenPresetRuleIds } from "@subboost/core/generator/module-rules";
 import { resolveProxyGroupModuleName } from "@subboost/core/proxy-group-name";
@@ -39,6 +38,7 @@ import { ProxyGroupAdvancedPanel } from "./proxy-group-advanced-panel";
 import { ProxyGroupsModuleCard } from "./proxy-groups-module-card";
 import { GroupAdvancedSettingsDialog } from "./group-advanced-settings-dialog";
 import { findGroupListenerBinding } from "./group-listener-settings";
+import { getGeneratedProxyGroupNodeCounts } from "./generated-proxy-groups";
 
 const PROXY_GROUP_SECTION_LABEL_ROW_CLASS = "flex min-h-7 items-center gap-2";
 const PROXY_GROUP_SECTION_LABEL_CLASS = "text-xs text-white/50";
@@ -52,11 +52,10 @@ function toConfigRuleTarget(target: ProxyGroupRuleTargetOption) {
 
 export function ProxyGroupsCategories() {
   const {
+    generatedYaml = "",
     ruleProviderBaseUrl,
     nodes = [],
     nodeNameFilter,
-    testUrl,
-    testInterval,
     cnIpNoResolve,
     setCnIpNoResolve,
     experimentalCnUseCnRuleSet,
@@ -106,9 +105,6 @@ export function ProxyGroupsCategories() {
     null,
   );
   const [editingModuleName, setEditingModuleName] = React.useState("");
-  const [expandedModuleRules, setExpandedModuleRules] = React.useState<
-    Set<string>
-  >(new Set());
   const [settingsModuleId, setSettingsModuleId] = React.useState<string | null>(null);
   const listenerConflictState = React.useMemo(
     () => ({ dnsYaml, mixedPort, listenerPorts, groupListeners }),
@@ -130,17 +126,6 @@ export function ProxyGroupsCategories() {
       const next = new Set(prev);
       if (next.has(category)) next.delete(category);
       else next.add(category);
-      return next;
-    });
-  };
-
-  const toggleModuleRules = (moduleId: string) => {
-    const id = (moduleId || "").trim();
-    if (!id) return;
-    setExpandedModuleRules((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
       return next;
     });
   };
@@ -185,44 +170,9 @@ export function ProxyGroupsCategories() {
   }, [hiddenProxyGroups]);
   const generatedProxyGroupNodeCounts = React.useMemo(() => {
     if (effectiveNodes.length === 0) return new Map<string, number>();
-    const generated = generateProxyGroups({
-      nodes: effectiveNodes,
-      enabledModules: enabledProxyGroups,
-      ruleProviderBaseUrl,
-      testUrl,
-      testInterval,
-      customProxyGroups,
-      customRuleSets,
-      proxyGroupAdvanced,
-      builtinRuleEdits,
-      proxyGroupNameOverrides,
-    });
     const nodeNameSet = new Set(effectiveNodes.map((node) => node.name));
-    return new Map(
-      generated.map((group) => [
-        group.name,
-        // 生成后的成员里除了真实节点，还会掺入策略组引用与 DIRECT/REJECT 兜底，
-        // 节点数只统计真实节点，避免把兜底策略和引用组算进来导致数字虚高。
-        Array.isArray(group.proxies)
-          ? group.proxies.filter(
-              (proxyName): proxyName is string =>
-                typeof proxyName === "string" && nodeNameSet.has(proxyName),
-            ).length
-          : 0,
-      ]),
-    );
-  }, [
-    effectiveNodes,
-    enabledProxyGroups,
-    ruleProviderBaseUrl,
-    testUrl,
-    testInterval,
-    customProxyGroups,
-    customRuleSets,
-    proxyGroupAdvanced,
-    builtinRuleEdits,
-    proxyGroupNameOverrides,
-  ]);
+    return getGeneratedProxyGroupNodeCounts(generatedYaml, nodeNameSet);
+  }, [effectiveNodes, generatedYaml]);
   const targetRuleView = React.useMemo(() => {
     const ruleSetsByTarget: Record<string, RuleSetDraft[]> = {};
     const hiddenPresetRuleIds: HiddenPresetRuleIds = {};
@@ -454,9 +404,6 @@ export function ProxyGroupsCategories() {
                               customProxyGroups,
                             },
                           );
-                          const isRulesExpanded = expandedModuleRules.has(
-                            module.id,
-                          );
                           const advancedConfig = proxyGroupAdvanced[module.id] || {};
                           const effectiveGroupType = advancedConfig.groupType ?? module.groupType;
 
@@ -494,11 +441,6 @@ export function ProxyGroupsCategories() {
                             );
                             if (!ok) return;
                             hideProxyGroup(module.id);
-                            setExpandedModuleRules((prev) => {
-                              const next = new Set(prev);
-                              next.delete(module.id);
-                              return next;
-                            });
                           };
 
                           const commitRename = () => {
@@ -595,10 +537,6 @@ export function ProxyGroupsCategories() {
                               }
                               acceptModuleRuleEditWarning={
                                 acceptModuleRuleEditWarning
-                              }
-                              isRulesExpanded={isRulesExpanded}
-                              onToggleRulesExpanded={() =>
-                                toggleModuleRules(module.id)
                               }
                               onAddRules={(rules) =>
                                 addModuleRules(module.id, rules)

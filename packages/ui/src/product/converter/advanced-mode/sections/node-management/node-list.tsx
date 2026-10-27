@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { Check, ChevronDown, ChevronUp, Pencil, RotateCcw, Trash2, X } from "lucide-react";
 import { Badge } from "@subboost/ui/components/ui/badge";
 import { IconButton } from "@subboost/ui/components/ui/icon-button";
@@ -22,35 +23,10 @@ type DeletedMarkedNode = { originName: string; name: string };
 
 const ORIGIN_NAME_KEY = "_originName";
 const NODE_LIST_HEIGHT_CLASS = "space-y-1 max-h-96 overflow-y-auto custom-scrollbar pr-1";
+const NODE_ROW_ESTIMATED_HEIGHT = 40;
+const NODE_LIST_OVERSCAN = 8;
 
-export function NodeManagementNodeList({
-  nodes,
-  deletedMarkedNodes,
-  visibleNodes,
-  visibleDeletedMarkedNodes,
-  nodeSearchKeyword,
-  resolveNodeNameParts,
-  editingNodeName,
-  setEditingNodeName,
-  editNodeValue,
-  setEditNodeValue,
-  renameNode,
-  restoreNodeName,
-  listenerPortDrafts,
-  setListenerPortDrafts,
-  listenerPorts,
-  listenerPortErrors,
-  setListenerPortErrors,
-  commitListenerPort,
-  orderDrafts,
-  setOrderDrafts,
-  nodeIndexByName,
-  setNodeOrder,
-  moveNode,
-  isListenerPortVisible,
-  removeNode,
-  restoreDeletedNode,
-}: {
+type NodeListProps = {
   nodes: ParsedNode[];
   deletedMarkedNodes: DeletedMarkedNode[];
   visibleNodes: ParsedNode[];
@@ -77,7 +53,86 @@ export function NodeManagementNodeList({
   isListenerPortVisible: boolean;
   removeNode: (nodeName: string) => void;
   restoreDeletedNode: (originName: string) => void;
+};
+
+type VirtualRow = Pick<VirtualItem, "index" | "start" | "size" | "key">;
+
+export function NodeManagementNodeList(props: NodeListProps) {
+  const scrollElementRef = React.useRef<HTMLDivElement>(null);
+  const previousSearchRef = React.useRef(props.nodeSearchKeyword);
+  React.useEffect(() => {
+    if (previousSearchRef.current === props.nodeSearchKeyword) return;
+    previousSearchRef.current = props.nodeSearchKeyword;
+    if (scrollElementRef.current) scrollElementRef.current.scrollTop = 0;
+  }, [props.nodeSearchKeyword]);
+
+  // TanStack Virtual needs its mutable instance for measuring and updating scroll ranges.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: props.visibleNodes.length,
+    getScrollElement: () => scrollElementRef.current,
+    estimateSize: () => NODE_ROW_ESTIMATED_HEIGHT,
+    getItemKey: (index) => props.visibleNodes[index]?.name ?? index,
+    overscan: NODE_LIST_OVERSCAN,
+    initialRect: { width: 0, height: 384 },
+  });
+
+  return (
+    <NodeManagementNodeListContent
+      {...props}
+      scrollElementRef={scrollElementRef}
+      virtualRows={virtualizer.getVirtualItems()}
+      virtualTotalSize={virtualizer.getTotalSize()}
+      measureVirtualRow={virtualizer.measureElement}
+    />
+  );
+}
+
+export function NodeManagementNodeListContent({
+  nodes,
+  deletedMarkedNodes,
+  visibleNodes,
+  visibleDeletedMarkedNodes,
+  nodeSearchKeyword,
+  resolveNodeNameParts,
+  editingNodeName,
+  setEditingNodeName,
+  editNodeValue,
+  setEditNodeValue,
+  renameNode,
+  restoreNodeName,
+  listenerPortDrafts,
+  setListenerPortDrafts,
+  listenerPorts,
+  listenerPortErrors,
+  setListenerPortErrors,
+  commitListenerPort,
+  orderDrafts,
+  setOrderDrafts,
+  nodeIndexByName,
+  setNodeOrder,
+  moveNode,
+  isListenerPortVisible,
+  removeNode,
+  restoreDeletedNode,
+  scrollElementRef,
+  virtualRows,
+  virtualTotalSize,
+  measureVirtualRow,
+}: NodeListProps & {
+  scrollElementRef?: React.RefObject<HTMLDivElement | null>;
+  virtualRows?: VirtualRow[];
+  virtualTotalSize?: number;
+  measureVirtualRow?: (element: HTMLDivElement | null) => void;
 }) {
+  const rows = virtualRows ?? visibleNodes.map((node, index) => ({
+    key: node.name,
+    index,
+    start: index * NODE_ROW_ESTIMATED_HEIGHT,
+    size: NODE_ROW_ESTIMATED_HEIGHT,
+  }));
+  const totalSize = virtualTotalSize ?? visibleNodes.length * NODE_ROW_ESTIMATED_HEIGHT;
+
   return (
     <>
           {nodes.length === 0 && deletedMarkedNodes.length === 0 ? (
@@ -85,8 +140,11 @@ export function NodeManagementNodeList({
           ) : nodeSearchKeyword.trim() && visibleNodes.length === 0 && visibleDeletedMarkedNodes.length === 0 ? (
             <div className="text-xs text-white/40 py-4 text-center">未找到匹配节点</div>
           ) : (
-            <div className={NODE_LIST_HEIGHT_CLASS}>
-              {visibleNodes.map((node) => {
+            <div ref={scrollElementRef} className={NODE_LIST_HEIGHT_CLASS}>
+              <div style={{ height: totalSize, position: "relative", width: "100%" }}>
+              {rows.map((virtualRow) => {
+                const node = visibleNodes[virtualRow.index];
+                if (!node) return null;
                 const parts = resolveNodeNameParts(node);
                 const primaryTag = parts.canEditBase ? parts.tag : "";
                 const record = node as unknown as Record<string, unknown>;
@@ -117,9 +175,13 @@ export function NodeManagementNodeList({
 
                 return (
                   <div
-                    key={node.name}
-                    className="flex items-center gap-2 text-xs bg-white/5 rounded px-2 py-1.5 group"
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={measureVirtualRow}
+                    className="absolute left-0 top-0 w-full"
+                    style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}
                   >
+                  <div className="flex h-9 items-center gap-2 rounded bg-white/5 px-2 text-xs group">
                     {editingNodeName === node.name ? (
                       <>
                         <ProtocolBadge type={node.type} />
@@ -326,8 +388,10 @@ export function NodeManagementNodeList({
                       </>
                     )}
                   </div>
+                  </div>
                 );
               })}
+              </div>
 
               {visibleDeletedMarkedNodes.length > 0 && (
                 <div

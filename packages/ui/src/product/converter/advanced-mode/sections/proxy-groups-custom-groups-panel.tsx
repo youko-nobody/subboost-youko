@@ -77,7 +77,7 @@ export function ProxyGroupsCustomGroupsPanel({
     listenerPorts = {},
   } = useConfigStore();
 
-  const [expandedCustomGroups, setExpandedCustomGroups] = React.useState<Set<string>>(new Set());
+  const [initiallyExpandedGroups] = React.useState<Set<string>>(new Set());
   const [newCustomGroupDraft, setNewCustomGroupDraft] = React.useState<ProxyGroupNameDraft>(() => ({
     emoji: "",
     name: "",
@@ -301,7 +301,6 @@ export function ProxyGroupsCustomGroupsPanel({
       ) : (
         <div className="space-y-1">
           {customProxyGroups.map((group) => {
-            const isExpanded = expandedCustomGroups.has(group.id);
             const isEditing = editingCustomGroupId === group.id;
             const manualRules = listCustomRulesForTarget(customRules, group.name, {
               moduleNames,
@@ -330,15 +329,6 @@ export function ProxyGroupsCustomGroupsPanel({
             const totalRules = groupRuleSets.length + movedBuiltinRules.length + manualRules.length;
             const description = group.description?.trim() || "自定义代理组";
             const nodeCount = nodeCounts?.get(group.name) ?? 0;
-
-            const toggleExpand = () => {
-              setExpandedCustomGroups((prev) => {
-                const next = new Set(prev);
-                if (next.has(group.id)) next.delete(group.id);
-                else next.add(group.id);
-                return next;
-              });
-            };
 
             const commitCustomRename = () => {
               const draft = parseProxyGroupNameDraft(editingCustomGroupName, group.emoji || "");
@@ -536,8 +526,6 @@ export function ProxyGroupsCustomGroupsPanel({
                 proxyGroupNameOverrides={proxyGroupNameOverrides}
                 moduleRuleEditWarningAccepted
                 acceptModuleRuleEditWarning={() => undefined}
-                isRulesExpanded={isExpanded}
-                onToggleRulesExpanded={toggleExpand}
                 onAddRules={() => undefined}
                 onAddRulesToModule={() => undefined}
                 onAddRuleToCustomGroup={() => undefined}
@@ -561,6 +549,7 @@ export function ProxyGroupsCustomGroupsPanel({
                   group.groupType !== "select" ||
                   Boolean(findGroupListenerBinding(groupListeners, { kind: "custom", id: group.id }))
                 }
+                defaultRulesExpanded={initiallyExpandedGroups.has(group.id)}
                 rulesContentOverride={
                   totalRules === 0 ? (
                     <p className="px-2 py-3 text-center text-[11px] text-white/40">

@@ -275,8 +275,41 @@ describe("ProxyGroupAdvancedPanel", () => {
 
     expect(html).toContain("US Source");
     expect(html).toContain("Japan Source");
-    expect(html).toContain("max-h-52 space-y-3 overflow-y-auto pr-1 custom-scrollbar");
+    expect(html).toContain('data-member-list="included"');
     expect(html).not.toContain("暂无已启用成员");
+  });
+
+  it("virtualizes included and excluded node members for large subscriptions", () => {
+    const nodes = Array.from({ length: 1000 }, (_, index) => node(`Node ${index}`));
+    const excludedMembers = nodes.slice(0, 500).map((item) => ({ kind: "node" as const, name: item.name }));
+    mocks.store = {
+      ...mocks.store,
+      nodes,
+      customProxyGroups: [
+        {
+          id: "media",
+          name: "Media",
+          emoji: "",
+          groupType: "select",
+          advanced: { excludedMembers },
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      React.createElement(ProxyGroupAdvancedPanel, {
+        target: { kind: "custom", id: "media", name: "Media" },
+        advanced: { excludedMembers },
+        onChange: vi.fn(),
+        rulesCount: 0,
+        rulesContent: null,
+      }),
+    );
+
+    expect(html).toContain('data-member-list="included"');
+    expect(html).toContain('data-member-list="excluded-nodes"');
+    expect((html.match(/data-member-index=/g) ?? []).length).toBeLessThan(50);
+    expect(html).toContain("Node 0");
   });
 
   it("previews enabled members for a disabled custom proxy group", () => {
@@ -315,12 +348,18 @@ describe("ProxyGroupAdvancedPanel", () => {
     const nodeMember = buildMemberFromName("US Source", options);
     const moduleMember = buildMemberFromName("Auto", options);
     const customMember = buildMemberFromName("Media", options);
+    const indexedNodeMember = buildMemberFromName("US Source", {
+      ...options,
+      nodes: [],
+      nodeNameSet: new Set(["US Source"]),
+    });
 
     expect(buildMemberFromName(" ", options)).toBeNull();
     expect(buildMemberFromName("Missing", options)).toBeNull();
     expect(direct).toMatchObject({ key: "direct:DIRECT", kind: "direct", name: "DIRECT" });
     expect(reject).toMatchObject({ key: "reject:REJECT", kind: "reject", name: "REJECT" });
     expect(nodeMember).toMatchObject({ key: "node:US Source", kind: "node", name: "US Source" });
+    expect(indexedNodeMember).toMatchObject({ key: "node:US Source", kind: "node", name: "US Source" });
     expect(moduleMember).toMatchObject({ key: "module:auto", kind: "module", name: "Auto" });
     expect(customMember).toMatchObject({ key: "custom:media", kind: "custom", name: "Media" });
     expect(memberLabel(direct as ResolvedMember)).toBe("DIRECT");

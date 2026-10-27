@@ -130,6 +130,7 @@ export function ProxyGroupsModuleCard({
   acceptModuleRuleEditWarning,
   isRulesExpanded,
   onToggleRulesExpanded,
+  defaultRulesExpanded,
   onAddRules,
   onAddRulesToModule,
   onAddRuleToCustomGroup,
@@ -182,8 +183,9 @@ export function ProxyGroupsModuleCard({
   proxyGroupNameOverrides: Record<string, string>;
   moduleRuleEditWarningAccepted: boolean;
   acceptModuleRuleEditWarning: () => void;
-  isRulesExpanded: boolean;
-  onToggleRulesExpanded: () => void;
+  isRulesExpanded?: boolean;
+  onToggleRulesExpanded?: () => void;
+  defaultRulesExpanded?: boolean;
   onAddRules: (rules: RuleSetDraft[]) => void;
   onAddRulesToModule: (moduleId: string, rules: RuleSetDraft[]) => void;
   onAddRuleToCustomGroup: (groupId: string, rule: RuleSetDraft) => void;
@@ -208,6 +210,16 @@ export function ProxyGroupsModuleCard({
   nodeCount?: number;
   renderAdvancedContent?: (rulesContent: React.ReactNode, rulesCount: number) => React.ReactNode;
 }) {
+  const [localRulesExpanded, setLocalRulesExpanded] = React.useState(defaultRulesExpanded ?? false);
+  const isRulesExpansionControlled = isRulesExpanded !== undefined && onToggleRulesExpanded !== undefined;
+  const rulesExpanded = isRulesExpansionControlled ? isRulesExpanded : localRulesExpanded;
+  const toggleRulesExpanded = () => {
+    if (isRulesExpansionControlled) {
+      onToggleRulesExpanded?.();
+      return;
+    }
+    setLocalRulesExpanded((expanded) => !expanded);
+  };
   const effectiveRules = getEffectiveModuleRuleItems(module, ruleSetsByTarget, hiddenPresetRuleIds);
   const excludedRuleIds = getExcludedModuleRuleIds(module.id, hiddenPresetRuleIds);
   const excludedRules = module.rules.filter((rule) => rule?.id && excludedRuleIds.has(rule.id));
@@ -277,14 +289,14 @@ export function ProxyGroupsModuleCard({
           <button
             type="button"
             className="absolute inset-0 z-0 cursor-pointer rounded-none transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/60"
-            aria-label={isRulesExpanded ? `收起 ${display.full}` : `展开 ${display.full}`}
-            aria-expanded={isRulesExpanded}
-            onClick={onToggleRulesExpanded}
-            title={isRulesExpanded ? "收起" : "展开"}
+            aria-label={rulesExpanded ? `收起 ${display.full}` : `展开 ${display.full}`}
+            aria-expanded={rulesExpanded}
+            onClick={toggleRulesExpanded}
+            title={rulesExpanded ? "收起" : "展开"}
           />
         )}
         {!isEditing && (hasExpandedContent ? (
-          isRulesExpanded ? (
+          rulesExpanded ? (
             <ChevronDown className="pointer-events-none relative z-10 h-4 w-4 shrink-0 text-white/50" aria-hidden="true" />
           ) : (
             <ChevronRight className="pointer-events-none relative z-10 h-4 w-4 shrink-0 text-white/50" aria-hidden="true" />
@@ -464,7 +476,7 @@ export function ProxyGroupsModuleCard({
         )}
       </div>
 
-      {isRulesExpanded &&
+      {rulesExpanded &&
         (advancedMode && renderAdvancedContent
           ? renderAdvancedContent(rulesContent, totalRules)
           : rulesContent)}

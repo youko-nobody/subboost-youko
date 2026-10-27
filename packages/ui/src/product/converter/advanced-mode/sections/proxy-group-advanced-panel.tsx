@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Plus, X } from "lucide-react";
 import { Badge } from "@subboost/ui/components/ui/badge";
 import { Button } from "@subboost/ui/components/ui/button";
@@ -39,6 +40,7 @@ import {
   type ResolvedMember,
 } from "./proxy-group-member-bulk";
 import { ProxyGroupMemberSectionHeader } from "./proxy-group-member-section-header";
+import { getGeneratedProxyGroupsFromYaml } from "./generated-proxy-groups";
 
 export {
   insertMemberAfterProtected,
@@ -83,6 +85,9 @@ export function buildMemberFromName(
     nodes: ParsedNode[];
     moduleNames: Record<string, string>;
     customProxyGroups: CustomProxyGroup[];
+    nodeNameSet?: ReadonlySet<string>;
+    moduleIdByName?: ReadonlyMap<string, string>;
+    customGroupIdByName?: ReadonlyMap<string, string>;
   },
 ): ResolvedMember | null {
   const trimmed = name.trim();
@@ -91,10 +96,18 @@ export function buildMemberFromName(
   let ref: ProxyGroupMemberRef | null = null;
   if (trimmed === "DIRECT") ref = { kind: "direct" };
   else if (trimmed === "REJECT") ref = { kind: "reject" };
-  else if (options.nodes.some((node) => node.name === trimmed)) ref = { kind: "node", name: trimmed };
+  else if (
+    (options.nodeNameSet ?? new Set(options.nodes.map((node) => node.name))).has(trimmed)
+  ) ref = { kind: "node", name: trimmed };
   else {
-    const moduleEntry = Object.entries(options.moduleNames).find(([, moduleName]) => moduleName === trimmed);
-    const customEntry = options.customProxyGroups.find((group) => group.name === trimmed);
+    const moduleId = options.moduleIdByName?.get(trimmed);
+    const moduleEntry = moduleId
+      ? [moduleId, trimmed] as const
+      : Object.entries(options.moduleNames).find(([, moduleName]) => moduleName === trimmed);
+    const customId = options.customGroupIdByName?.get(trimmed);
+    const customEntry = customId
+      ? { id: customId }
+      : options.customProxyGroups.find((group) => group.name === trimmed);
     if (moduleEntry) ref = { kind: "module", id: moduleEntry[0] };
     else if (customEntry) ref = { kind: "custom", id: customEntry.id };
   }
@@ -126,6 +139,154 @@ function DragHandle() {
 
 const ADVANCED_PANEL_TITLE_CLASS = "mb-2 block text-[11px] font-medium text-white/50";
 const ADVANCED_PANEL_TITLE_ROW_CLASS = "mb-2 flex min-h-5 items-center gap-2";
+const MEMBER_LIST_VIEWPORT = 208;
+const INCLUDED_MEMBER_ROW_HEIGHT = 40;
+const EXCLUDED_NODE_ROW_HEIGHT = 28;
+const MEMBER_LIST_OVERSCAN = 6;
+
+function IncludedMembersList({
+  members,
+  onMove,
+  onDisable,
+}: {
+  members: ResolvedMember[];
+  onMove: (fromKey: string, toKey: string) => void;
+  onDisable: (member: ResolvedMember) => void;
+}) {
+  const scrollElementRef = React.useRef<HTMLDivElement>(null);
+  const [draggingKey, setDraggingKey] = React.useState<string | null>(null);
+  // TanStack Virtual needs its mutable instance for measuring and updating scroll ranges.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: members.length,
+    getScrollElement: () => scrollElementRef.current,
+    estimateSize: () => INCLUDED_MEMBER_ROW_HEIGHT,
+    getItemKey: (index) => members[index]?.key ?? index,
+    overscan: MEMBER_LIST_OVERSCAN,
+    initialRect: { width: 0, height: MEMBER_LIST_VIEWPORT },
+  });
+
+  return (
+    <div
+      ref={scrollElementRef}
+      role="list"
+      data-member-list="included"
+      className="max-h-52 overflow-y-auto pr-1 custom-scrollbar"
+    >
+      <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const member = members[virtualRow.index];
+          if (!member) return null;
+          return (
+            <div
+              key={virtualRow.key}
+              data-member-index={virtualRow.index}
+              role="listitem"
+              draggable
+              onDragStart={() => setDraggingKey(member.key)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => {
+                if (draggingKey) onMove(draggingKey, member.key);
+                setDraggingKey(null);
+              }}
+              onDragEnd={() => setDraggingKey(null)}
+              className="absolute left-0 top-0 w-full px-px"
+              style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}
+            >
+              <div
+                className={cn(
+                  "grid h-9 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border border-white/10 bg-white/[0.04] px-2 text-xs",
+                  draggingKey === member.key && "opacity-50",
+                )}
+              >
+                <span className="flex h-5 w-4 cursor-grab items-center justify-center">
+                  <DragHandle />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-white/75" title={memberLabel(member)}>
+                    {memberLabel(member)}
+                  </div>
+                  <div className="text-[10px] text-white/35">{memberKindLabel(member)}</div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-white/35 hover:text-red-300"
+                  title="排除"
+                  onClick={() => onDisable(member)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ExcludedNodesList({
+  members,
+  blockedKeys,
+  onEnable,
+}: {
+  members: ResolvedMember[];
+  blockedKeys: Set<string>;
+  onEnable: (member: ResolvedMember) => void;
+}) {
+  const scrollElementRef = React.useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: members.length,
+    getScrollElement: () => scrollElementRef.current,
+    estimateSize: () => EXCLUDED_NODE_ROW_HEIGHT,
+    getItemKey: (index) => members[index]?.key ?? index,
+    overscan: MEMBER_LIST_OVERSCAN,
+    initialRect: { width: 0, height: MEMBER_LIST_VIEWPORT },
+  });
+
+  return (
+    <div
+      ref={scrollElementRef}
+      data-member-list="excluded-nodes"
+      className="max-h-52 overflow-y-auto pr-1 custom-scrollbar"
+    >
+      <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const member = members[virtualRow.index];
+          if (!member) return null;
+          const blockedByCycle = blockedKeys.has(member.key);
+          return (
+            <div
+              key={virtualRow.key}
+              data-member-index={virtualRow.index}
+              className="absolute left-0 top-0 w-full px-px"
+              style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={blockedByCycle}
+                className={cn(
+                  "h-6 w-full justify-start gap-1 overflow-hidden rounded px-2 text-[10px] text-white/55 hover:border-emerald-400/30 hover:bg-emerald-500/10 hover:text-emerald-100",
+                  blockedByCycle && "cursor-not-allowed opacity-40 hover:border-white/10 hover:bg-transparent hover:text-white/55",
+                )}
+                title={blockedByCycle ? `${memberLabel(member)} 会形成策略组循环` : memberLabel(member)}
+                onClick={() => onEnable(member)}
+              >
+                <Plus className="h-3 w-3 shrink-0" />
+                <span className="truncate">{memberLabel(member)}</span>
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function ProxyGroupAdvancedPanel({
   target,
@@ -141,6 +302,7 @@ export function ProxyGroupAdvancedPanel({
   rulesContent: React.ReactNode;
 }) {
   const {
+    generatedYaml = "",
     nodes,
     nodeNameFilter,
     sources,
@@ -154,7 +316,6 @@ export function ProxyGroupAdvancedPanel({
     testInterval,
     ruleProviderBaseUrl,
   } = useConfigStore();
-  const [draggingKey, setDraggingKey] = React.useState<string | null>(null);
   const effectiveNodes = React.useMemo(
     () => resolveNodeNameFilter(nodes, nodeNameFilter).effectiveNodes,
     [nodeNameFilter, nodes],
@@ -210,8 +371,23 @@ export function ProxyGroupAdvancedPanel({
       ),
     [proxyGroupNameOverrides],
   );
+  const activeNodeNameSet = React.useMemo(
+    () => new Set(activeNodes.map((node) => node.name)),
+    [activeNodes],
+  );
+  const moduleIdByName = React.useMemo(
+    () => new Map(Object.entries(moduleNames).map(([id, name]) => [name, id] as const)),
+    [moduleNames],
+  );
+  const customGroupIdByName = React.useMemo(
+    () => new Map(activeCustomProxyGroups.map((group) => [group.name, group.id] as const)),
+    [activeCustomProxyGroups],
+  );
 
   const generatedProxyGroups = React.useMemo(() => {
+    const groupsFromYaml = getGeneratedProxyGroupsFromYaml(generatedYaml);
+    if (groupsFromYaml.some((group) => group.name === target.name)) return groupsFromYaml;
+
     return generateProxyGroups({
       nodes: effectiveNodes,
       enabledModules: previewEnabledProxyGroups,
@@ -225,6 +401,8 @@ export function ProxyGroupAdvancedPanel({
       proxyGroupNameOverrides,
     });
   }, [
+    generatedYaml,
+    target.name,
     effectiveNodes,
     previewEnabledProxyGroups,
     ruleProviderBaseUrl,
@@ -252,26 +430,58 @@ export function ProxyGroupAdvancedPanel({
     const seen = new Set<string>();
     for (const rawName of rawNames) {
       if (typeof rawName !== "string" || !rawName.trim()) continue;
-      const member = buildMemberFromName(rawName, { nodes: activeNodes, moduleNames, customProxyGroups: activeCustomProxyGroups });
+      const member = buildMemberFromName(rawName, {
+        nodes: activeNodes,
+        moduleNames,
+        customProxyGroups: activeCustomProxyGroups,
+        nodeNameSet: activeNodeNameSet,
+        moduleIdByName,
+        customGroupIdByName,
+      });
       if (!member || seen.has(member.key)) continue;
       if (member.key === `${target.kind}:${target.id}`) continue;
       seen.add(member.key);
       out.push(member);
     }
     return out;
-  }, [activeCustomProxyGroups, activeNodes, enabledProxyGroups, moduleNames, target.id, target.kind]);
+  }, [
+    activeCustomProxyGroups,
+    activeNodeNameSet,
+    activeNodes,
+    customGroupIdByName,
+    enabledProxyGroups,
+    moduleIdByName,
+    moduleNames,
+    target.id,
+    target.kind,
+  ]);
 
   const includedMembers = React.useMemo(() => {
     const out: ResolvedMember[] = [];
     const seen = new Set<string>();
     for (const name of generatedProxyNames) {
-      const member = buildMemberFromName(name, { nodes: activeNodes, moduleNames, customProxyGroups: activeCustomProxyGroups });
+      const member = buildMemberFromName(name, {
+        nodes: activeNodes,
+        moduleNames,
+        customProxyGroups: activeCustomProxyGroups,
+        nodeNameSet: activeNodeNameSet,
+        moduleIdByName,
+        customGroupIdByName,
+      });
       if (!member || seen.has(member.key)) continue;
       seen.add(member.key);
       out.push(member);
     }
     return out;
-  }, [activeCustomProxyGroups, activeNodes, generatedProxyNames, moduleNames]);
+  }, [
+    activeCustomProxyGroups,
+    activeNodeNameSet,
+    activeNodes,
+    customGroupIdByName,
+    generatedProxyNames,
+    moduleIdByName,
+    moduleNames,
+  ]);
 
   const excludedMembers = React.useMemo(() => {
     const included = new Set(includedMembers.map((member) => member.key));
@@ -602,46 +812,11 @@ export function ProxyGroupAdvancedPanel({
             暂无已启用成员
           </div>
         ) : (
-          <div role="list" className="max-h-52 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
-            {includedMembers.map((member) => (
-              <div
-                key={member.key}
-                role="listitem"
-                draggable
-                onDragStart={() => setDraggingKey(member.key)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => {
-                  if (draggingKey) moveMember(draggingKey, member.key);
-                  setDraggingKey(null);
-                }}
-                onDragEnd={() => setDraggingKey(null)}
-                className={cn(
-                  "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs",
-                  draggingKey === member.key && "opacity-50",
-                )}
-              >
-                <span className="flex h-5 w-4 cursor-grab items-center justify-center">
-                  <DragHandle />
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-white/75" title={memberLabel(member)}>
-                    {memberLabel(member)}
-                  </div>
-                  <div className="text-[10px] text-white/35">{memberKindLabel(member)}</div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-white/35 hover:text-red-300"
-                  title="排除"
-                  onClick={() => disableMember(member)}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
+          <IncludedMembersList
+            members={includedMembers}
+            onMove={moveMember}
+            onDisable={disableMember}
+          />
         )}
 
         <div className="mt-3">
@@ -657,7 +832,7 @@ export function ProxyGroupAdvancedPanel({
           {excludedMembers.length === 0 ? (
             <div className="text-[11px] text-white/35">暂无未启用成员</div>
           ) : (
-            <div className="max-h-52 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <div className="text-[10px] font-medium text-white/40">
                   基础策略
@@ -674,7 +849,15 @@ export function ProxyGroupAdvancedPanel({
                 <div className="text-[10px] font-medium text-white/40">
                   节点
                 </div>
-                {renderExcludedMembers(excludedNodeMembers)}
+                {excludedNodeMembers.length === 0 ? (
+                  <div className="text-[11px] text-white/30">暂无可添加项</div>
+                ) : (
+                  <ExcludedNodesList
+                    members={excludedNodeMembers}
+                    blockedKeys={cycleCreatingProxyGroupKeys}
+                    onEnable={enableMember}
+                  />
+                )}
               </div>
             </div>
           )}

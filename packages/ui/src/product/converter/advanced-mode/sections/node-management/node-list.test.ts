@@ -31,7 +31,7 @@ vi.mock("@subboost/core/node-name-template", () => ({
 }));
 vi.mock("@subboost/ui/lib/utils", () => ({ cn: (...parts: unknown[]) => parts.filter(Boolean).join(" ") }));
 
-import { NodeManagementNodeList } from "./node-list";
+import { NodeManagementNodeList, NodeManagementNodeListContent } from "./node-list";
 
 const alpha = {
   name: "[HK] Alpha",
@@ -117,7 +117,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof NodeManagement
 }
 
 function renderTree(props: React.ComponentProps<typeof NodeManagementNodeList>) {
-  return NodeManagementNodeList(props);
+  return NodeManagementNodeListContent(props);
 }
 
 beforeEach(() => {
@@ -165,6 +165,25 @@ describe("NodeManagementNodeList", () => {
     expect(html).toContain("顺序:");
     expect(html).toContain("已删除节点");
     expect(html).toContain("源名: Deleted");
+  });
+
+  it("renders only the visible window when the node list is large", () => {
+    const largeNodes = Array.from({ length: 1000 }, (_, index) => ({
+      ...alpha,
+      name: `Node ${index + 1}`,
+    }));
+    const props = makeProps({
+      nodes: largeNodes,
+      visibleNodes: largeNodes,
+      deletedMarkedNodes: [],
+      visibleDeletedMarkedNodes: [],
+    });
+    const html = renderToStaticMarkup(React.createElement(NodeManagementNodeList, props));
+    const renderedRows = html.match(/data-index=/g) ?? [];
+
+    expect(renderedRows.length).toBeGreaterThan(0);
+    expect(renderedRows.length).toBeLessThan(30);
+    expect(html).toContain('data-index="0"');
   });
 
   it("handles list actions for rename, listener ports, ordering, delete, and restore", () => {

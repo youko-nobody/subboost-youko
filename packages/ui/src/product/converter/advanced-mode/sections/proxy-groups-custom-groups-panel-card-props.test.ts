@@ -173,7 +173,8 @@ describe("ProxyGroupsCustomGroupsPanel card props", () => {
     card.onCommitEditing();
     card.onHide();
     card.acceptModuleRuleEditWarning();
-    card.onToggleRulesExpanded();
+    expect(card.isRulesExpanded).toBeUndefined();
+    expect(card.onToggleRulesExpanded).toBeUndefined();
     card.onAddRules();
     card.onAddRulesToModule();
     card.onAddRuleToCustomGroup();

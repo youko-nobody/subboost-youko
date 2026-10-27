@@ -19,6 +19,7 @@ vi.mock("react", async (importOriginal) => {
     ...actual,
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
+    useRef: (initial: unknown) => ({ current: initial }),
     useState: (initial: unknown) => {
       const value = initial === null ? mocks.draggingKey : initial;
       const setter = vi.fn();
@@ -27,6 +28,18 @@ vi.mock("react", async (importOriginal) => {
     },
   };
 });
+
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: (options: { count: number; estimateSize: () => number; getItemKey: (index: number) => unknown }) => ({
+    getVirtualItems: () => Array.from({ length: options.count }, (_, index) => ({
+      index,
+      start: index * options.estimateSize(),
+      size: options.estimateSize(),
+      key: options.getItemKey(index),
+    })),
+    getTotalSize: () => options.count * options.estimateSize(),
+  }),
+}));
 
 vi.mock("lucide-react", () => ({
   Plus: () => React.createElement("span", null, "plus-icon"),
