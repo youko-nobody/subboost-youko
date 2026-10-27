@@ -12,6 +12,8 @@
     "./generator/*": "./src/generator/*.ts",
     "./generator/yaml-semantics": "./src/generator/yaml-semantics.ts",
     "./json": "./src/json.ts",
+    "./loon": "./src/loon/index.ts",
+    "./loon/*": "./src/loon/*.ts",
     "./mihomo/*": "./src/mihomo/*.ts",
     "./node-name-template": "./src/node-name-template.ts",
     "./node-identity": "./src/node-identity.ts",

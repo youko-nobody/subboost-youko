@@ -191,6 +191,14 @@ describe("NodeManagementSection", () => {
     expect(mocks.captures.nodeList.nodeIndexByName.get("Beta")).toBe(1);
   });
 
+  it("hides Clash-only listener port controls when rendered for Loon", () => {
+    renderSection({}, { isExpanded: true, onToggle: vi.fn(), showListenerPorts: false });
+
+    expect(mocks.captures.switch).toBeUndefined();
+    expect(mocks.captures.bulkDialog.listenerPortEnabled).toBe(false);
+    expect(mocks.captures.nodeList.isListenerPortVisible).toBe(false);
+  });
+
   it("resolves source tags, base names, duplicates, and deleted origin rows", () => {
     renderSection();
 

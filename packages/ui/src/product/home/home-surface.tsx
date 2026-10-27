@@ -87,6 +87,7 @@ function HomeSurfaceInner({ adapter }: Props) {
     exposeSubscriptionUserInfo,
     setExposeSubscriptionUserInfo,
     surgeConfig,
+    loonConfig,
   } = useConfigStore();
   const { user, fetchUser, clearUser } = useUserStore();
   const userId = user?.id ?? null;
@@ -135,6 +136,7 @@ function HomeSurfaceInner({ adapter }: Props) {
     cnIpNoResolve,
     experimentalCnUseCnRuleSet,
     surgeConfig,
+    loonConfig,
   });
   const { setSubscriptionName, setSubscriptionUrl, setCopied } = subscription;
 

@@ -54,6 +54,7 @@ vi.mock("lucide-react", () => ({
   Eye: () => React.createElement("span", null, "eye-icon"),
   Link2: () => React.createElement("span", null, "link2-icon"),
   Loader2: () => React.createElement("span", null, "loader-icon"),
+  Moon: () => React.createElement("span", null, "moon-icon"),
   Orbit: () => React.createElement("span", null, "orbit-icon"),
   Server: () => React.createElement("span", null, "server-icon"),
   Settings2: () => React.createElement("span", null, "settings-icon"),
@@ -96,6 +97,10 @@ vi.mock("@subboost/ui/product/converter/advanced-mode", () => ({
 
 vi.mock("@subboost/ui/product/converter/surge-mode", () => ({
   SurgeMode: () => React.createElement("div", null, "surge-mode"),
+}));
+
+vi.mock("@subboost/ui/product/converter/loon-mode", () => ({
+  LoonMode: () => React.createElement("div", null, "loon-mode"),
 }));
 
 vi.mock("@subboost/ui/product/home/unsaved-prompt", () => ({

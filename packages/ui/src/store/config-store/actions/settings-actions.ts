@@ -7,11 +7,13 @@ import {
   normalizeSurgeConfig,
 } from "@subboost/core/surge";
 import type { GetState, SetAndGenerateConfig, SetState } from "../store-types";
+import { createDefaultLoonConfig, createYoukoLoonConfig, normalizeLoonConfig } from "@subboost/core/loon";
 
 type SettingsActions = Pick<
   ConfigActions,
   | "setProfileType"
   | "setSurgeConfig"
+  | "setLoonConfig"
   | "setDnsYaml"
   | "setMixedPort"
   | "setAllowLan"
@@ -33,6 +35,13 @@ function isUnmodifiedDefaultSurgeConfig(value: unknown): boolean {
   );
 }
 
+function isUnmodifiedDefaultLoonConfig(value: unknown): boolean {
+  return (
+    JSON.stringify(normalizeLoonConfig(value)) ===
+    JSON.stringify(normalizeLoonConfig(createDefaultLoonConfig()))
+  );
+}
+
 export function createSettingsActions(
   _set: SetState,
   _get: GetState,
@@ -46,6 +55,9 @@ export function createSettingsActions(
         ...(normalizedProfileType === "surge" && isUnmodifiedDefaultSurgeConfig(state.surgeConfig)
           ? { surgeConfig: createYoukoSurgeConfig() }
           : {}),
+        ...(normalizedProfileType === "loon" && isUnmodifiedDefaultLoonConfig(state.loonConfig)
+          ? { loonConfig: createYoukoLoonConfig() }
+          : {}),
       }));
     },
 
@@ -53,6 +65,15 @@ export function createSettingsActions(
       setAndGenerateConfig((state) => ({
         surgeConfig: normalizeSurgeConfig({
           ...state.surgeConfig,
+          ...(config && typeof config === "object" ? config : {}),
+        }),
+      }));
+    },
+
+    setLoonConfig: (config) => {
+      setAndGenerateConfig((state) => ({
+        loonConfig: normalizeLoonConfig({
+          ...state.loonConfig,
           ...(config && typeof config === "object" ? config : {}),
         }),
       }));

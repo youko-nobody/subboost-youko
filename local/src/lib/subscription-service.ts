@@ -4,6 +4,7 @@ import { buildNodeContentKey } from "@subboost/core/node-identity";
 import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboost/core/subscription/config-utils";
 import {
   buildSurgeSubscriptionUrl,
+  buildLoonSubscriptionUrl,
   normalizeSubscriptionProfileType,
   type SubscriptionProfileType,
 } from "@subboost/core/subscription/profile-type";
@@ -12,6 +13,7 @@ import { resolveNodeNameFilter } from "@subboost/core/subscription/node-name-fil
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
 import { buildV2RaySubscriptionContent } from "@subboost/core/subscription/v2ray-subscription";
 import { generateSurgeProfile, normalizeSurgeConfig } from "@subboost/core/surge";
+import { generateLoonProfile, normalizeLoonConfig } from "@subboost/core/loon";
 import type { SubscriptionResponseInfo } from "@subboost/core/subscription/subscription-response-info";
 import type { ParsedNode } from "@subboost/core/types/node";
 import {
@@ -79,6 +81,7 @@ export type SubscriptionSummary = {
   sourceCount: number;
   yamlUrl: string;
   surgeUrl: string;
+  loonUrl: string;
   isPrimary: boolean;
   autoUpdateInterval: number | null;
   smartNodeMatchingEnabled: boolean;
@@ -126,6 +129,17 @@ export type GeneratedV2RaySubscription = {
 };
 
 export type GeneratedSurgeSubscription = {
+  content: string;
+  name: string;
+  subscriptionInfo: SubscriptionResponseInfo;
+  cacheExpirySeconds: number;
+  autoUpdateIntervalSeconds: number | null;
+  isAdmin: boolean;
+  nodeCount: number;
+  skippedNodeCount: number;
+};
+
+export type GeneratedLoonSubscription = {
   content: string;
   name: string;
   subscriptionInfo: SubscriptionResponseInfo;
@@ -202,7 +216,9 @@ function buildLocalSubscriptionUrl(
 ): string {
   const baseUrl = (appUrl?.trim() || getAppUrl()).replace(/\/+$/, "");
   const yamlUrl = `${baseUrl}/api/subscriptions/${token}/config.yaml`;
-  return profileType === "surge" ? buildSurgeSubscriptionUrl(yamlUrl) : yamlUrl;
+  if (profileType === "surge") return buildSurgeSubscriptionUrl(yamlUrl);
+  if (profileType === "loon") return buildLoonSubscriptionUrl(yamlUrl);
+  return yamlUrl;
 }
 
 function buildLocalSubscriptionConfig(
@@ -248,6 +264,12 @@ function assertNodeNameFilterKeepsOutput(
     if (resolveNodeNameFilter(nodes, config.nodeNameFilter).effectiveCount === 0) {
       throw new Error("过滤后没有可用节点");
     }
+    return;
+  }
+  if (normalizeSubscriptionProfileType(config.profileType) === "loon") {
+    const filteredNodes = resolveNodeNameFilter(nodes, config.nodeNameFilter).effectiveNodes;
+    const output = generateLoonProfile({ nodes: filteredNodes, config: normalizeLoonConfig(config.loonConfig) });
+    if (output.proxyCount === 0) throw new Error("过滤或协议适配后没有可用的 Loon 节点");
     return;
   }
   const options = buildGenerateOptionsFromConfig(config, { nodes });
@@ -437,10 +459,12 @@ export function formatSubscription(
   const subscriptionUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, profileType);
   const yamlUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "clash");
   const surgeUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "surge");
+  const loonUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "loon");
   return serializeSubscriptionSummaryData(row, secrets, {
     subscriptionUrl,
     yamlUrl,
     surgeUrl,
+    loonUrl,
     dateMode: "iso",
     includeCounts: true,
     includeFailureSourceState: false,
@@ -457,10 +481,12 @@ export function formatSubscriptionDetail(
   const subscriptionUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, profileType);
   const yamlUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "clash");
   const surgeUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "surge");
+  const loonUrl = buildLocalSubscriptionUrl(row.token, options.appUrl, "loon");
   return serializeSubscriptionDetailData(row, secrets, {
     subscriptionUrl,
     yamlUrl,
     surgeUrl,
+    loonUrl,
     dateMode: "iso",
     includeCounts: true,
     includeFailureSourceState: false,
@@ -815,6 +841,33 @@ export async function generateSurgeSubscription(token: string): Promise<Generate
   const output = generateSurgeProfile({
     nodes: secrets.nodes,
     config: normalizeSurgeConfig(secrets.config.surgeConfig),
+  });
+  if (output.proxyCount === 0) return null;
+
+  await prisma.subscription.update({ where: { id: row.id }, data: { lastAccessedAt: new Date() } });
+  return {
+    content: output.content,
+    name: row.name,
+    subscriptionInfo: secrets.config.exposeSubscriptionUserInfo !== false ? secrets.subscriptionInfo : {},
+    cacheExpirySeconds: CACHE_TTL_SECONDS,
+    autoUpdateIntervalSeconds: row.autoUpdateInterval,
+    isAdmin: true,
+    nodeCount: output.proxyCount,
+    skippedNodeCount: output.skippedNodes.length,
+  };
+}
+
+export async function generateLoonSubscription(token: string): Promise<GeneratedLoonSubscription | null> {
+  const row = await prisma.subscription.findUnique({ where: { token }, include: { autoUpdateState: true } });
+  if (!row) return null;
+
+  const secrets = readSubscriptionSecrets(row);
+  if (normalizeSubscriptionProfileType(secrets.config.profileType) !== "loon") return null;
+  if (secrets.nodes.length === 0) return null;
+
+  const output = generateLoonProfile({
+    nodes: resolveNodeNameFilter(secrets.nodes, secrets.config.nodeNameFilter).effectiveNodes,
+    config: normalizeLoonConfig(secrets.config.loonConfig),
   });
   if (output.proxyCount === 0) return null;
 

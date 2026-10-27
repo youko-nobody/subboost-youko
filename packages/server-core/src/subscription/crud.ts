@@ -3,9 +3,11 @@ import { parseNodeNameFilterConfig } from "@subboost/core/subscription/node-name
 import {
   buildClashSubscriptionUrl,
   buildSurgeSubscriptionUrl,
+  buildLoonSubscriptionUrl,
   normalizeSubscriptionProfileType,
 } from "@subboost/core/subscription/profile-type";
 import { normalizeSurgeConfig } from "@subboost/core/surge";
+import { normalizeLoonConfig } from "@subboost/core/loon";
 import { normalizeSubscriptionResponseInfo } from "@subboost/core/subscription/subscription-response-info";
 import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/url-input";
 import type { ParsedNode } from "@subboost/core/types/node";
@@ -52,6 +54,7 @@ export type SerializeSubscriptionOptions = {
   dateMode?: "preserve" | "iso";
   yamlUrl?: string;
   surgeUrl?: string;
+  loonUrl?: string;
   includeCounts?: boolean;
   includeFailureSourceState?: boolean;
   includeLastAttemptedAt?: boolean;
@@ -195,13 +198,19 @@ export function normalizeSubscriptionConfigForPersistence(
 
   const hasProfileType = Object.prototype.hasOwnProperty.call(baseConfig, "profileType");
   const hasSurgeConfig = Object.prototype.hasOwnProperty.call(baseConfig, "surgeConfig");
-  if (hasProfileType || hasSurgeConfig) {
+  const hasLoonConfig = Object.prototype.hasOwnProperty.call(baseConfig, "loonConfig");
+  if (hasProfileType || hasSurgeConfig || hasLoonConfig) {
     const profileType = normalizeSubscriptionProfileType(baseConfig.profileType);
     baseConfig.profileType = profileType;
     if (profileType === "surge") {
       baseConfig.surgeConfig = normalizeSurgeConfig(baseConfig.surgeConfig);
+      delete baseConfig.loonConfig;
+    } else if (profileType === "loon") {
+      baseConfig.loonConfig = normalizeLoonConfig(baseConfig.loonConfig);
+      delete baseConfig.surgeConfig;
     } else {
       delete baseConfig.surgeConfig;
+      delete baseConfig.loonConfig;
     }
   }
 
@@ -240,6 +249,7 @@ export function serializeSubscriptionSummaryData(
     subscriptionUrl: options.subscriptionUrl,
     yamlUrl: options.yamlUrl ?? buildClashSubscriptionUrl(options.subscriptionUrl),
     surgeUrl: options.surgeUrl ?? buildSurgeSubscriptionUrl(options.subscriptionUrl),
+    loonUrl: options.loonUrl ?? buildLoonSubscriptionUrl(options.subscriptionUrl),
     ...(options.includeCounts ? { nodeCount: secrets.nodes.length, sourceCount: sources.length } : {}),
     isPrimary: subscription.isPrimary,
     autoUpdateInterval: subscription.autoUpdateInterval ?? null,

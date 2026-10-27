@@ -105,7 +105,7 @@ function buildSubscriptionDownloadFilename(name: string, profileType?: Subscript
       .replace(/\s+/g, "_")
       .replace(/\.(?:ya?ml|conf)$/i, "")
       .slice(0, 80) || "subboost-config";
-  return `${base}.${profileType === "surge" ? "conf" : "yaml"}`;
+  return `${base}.${profileType === "clash" || !profileType ? "yaml" : "conf"}`;
 }
 
 function triggerBrowserDownload(href: string, filename: string) {
@@ -1011,7 +1011,7 @@ function SubscriptionRow({
           size="sm"
           onClick={() => void onCopy(sub.subscriptionUrl, sub.id)}
           className="gap-0 sm:gap-2"
-          title={sub.profileType === "surge" ? "复制 Surge 订阅链接" : "复制订阅链接"}
+          title={sub.profileType === "surge" ? "复制 Surge 订阅链接" : sub.profileType === "loon" ? "复制 Loon 订阅链接" : "复制订阅链接"}
         >
           {copiedId === sub.id ? (
             <>
@@ -1021,7 +1021,7 @@ function SubscriptionRow({
           ) : (
             <>
               <Copy className="h-4 w-4" />
-              <span className="hidden sm:inline">{sub.profileType === "surge" ? "Surge" : "链接"}</span>
+              <span className="hidden sm:inline">{sub.profileType === "surge" ? "Surge" : sub.profileType === "loon" ? "Loon" : "链接"}</span>
             </>
           )}
         </Button>

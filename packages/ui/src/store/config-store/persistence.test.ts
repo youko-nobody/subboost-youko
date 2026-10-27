@@ -104,6 +104,24 @@ describe("config store persistence", () => {
     });
   });
 
+  it("round-trips the separate Loon profile without changing the Clash profile", () => {
+    const state = {
+      ...structuredClone(initialState),
+      profileType: "loon",
+      loonConfig: {
+        ...structuredClone(initialState.loonConfig),
+        proxyGroups: [{ id: "loon-proxy", name: "Proxy", type: "select", policies: [{ kind: "direct" }] }],
+        remoteRules: [{ id: "loon-rule-set", name: "Private", url: "https://rules.example/loon.list", target: "Proxy" }],
+      },
+    } as typeof initialState;
+
+    const restored = normalizePersistedConfigState(partializeConfigState(state));
+    expect(restored.profileType).toBe("loon");
+    expect(restored.loonConfig?.proxyGroups).toEqual(state.loonConfig.proxyGroups);
+    expect(restored.loonConfig?.remoteRules).toEqual(state.loonConfig.remoteRules);
+    expect(restored).not.toHaveProperty("template", "loon");
+  });
+
   it("defaults missing or malformed node-name filter data without a storage-version bump", () => {
     expect(CONFIG_DRAFT_STORAGE_VERSION).toBe(11);
     expect(normalizePersistedConfigState({}).nodeNameFilter).toEqual(

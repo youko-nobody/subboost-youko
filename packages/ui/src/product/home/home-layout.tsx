@@ -9,6 +9,7 @@ import {
   Eye,
   Loader2,
   Orbit,
+  Moon,
   Server,
   Settings2,
   Upload,
@@ -20,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@subboost/ui/component
 import { QuickMode } from "@subboost/ui/product/converter/quick-mode";
 import { AdvancedMode } from "@subboost/ui/product/converter/advanced-mode";
 import { SurgeMode } from "@subboost/ui/product/converter/surge-mode";
+import { LoonMode } from "@subboost/ui/product/converter/loon-mode";
 import { UnsavedPrompt } from "@subboost/ui/product/home/unsaved-prompt";
 import { VisualGraph } from "@subboost/ui/product/preview/visual-graph";
 import { SurgeVisualGraph } from "@subboost/ui/product/preview/surge-visual-graph";
@@ -131,13 +133,13 @@ export function HomeLayout({
   templateUploadHref = "/templates?upload=1",
   onTemplateUploadOpen,
 }: Props) {
-  const [configTab, setConfigTab] = React.useState<ProductMode>(profileType === "surge" ? "surge" : editSubscriptionId ? "advanced" : "quick");
-  const [previewTab, setPreviewTab] = React.useState<"config" | "visual">("visual");
+  const [configTab, setConfigTab] = React.useState<ProductMode>(profileType === "surge" ? "surge" : profileType === "loon" ? "loon" : editSubscriptionId ? "advanced" : "quick");
+  const [previewTab, setPreviewTab] = React.useState<"config" | "visual">(profileType === "clash" ? "visual" : "config");
   const interactions = useProductInteractionAdapter();
 
   React.useEffect(() => {
-    if (profileType === "surge") {
-      setConfigTab("surge");
+    if (profileType === "surge" || profileType === "loon") {
+      setConfigTab(profileType);
       setPreviewTab("config");
       return;
     }
@@ -145,19 +147,21 @@ export function HomeLayout({
   }, [editSubscriptionId, profileType]);
 
   const handleConfigTabChange = React.useCallback((value: string) => {
-    const nextMode: ProductMode = value === "surge" ? "surge" : value === "advanced" ? "advanced" : "quick";
+    const nextMode: ProductMode = value === "surge" || value === "loon" ? value : value === "advanced" ? "advanced" : "quick";
     setConfigTab(nextMode);
-    setProfileType(nextMode === "surge" ? "surge" : "clash");
-    if (nextMode === "surge") setPreviewTab("config");
+    setProfileType(nextMode === "surge" || nextMode === "loon" ? nextMode : "clash");
+    if (nextMode === "surge" || nextMode === "loon") setPreviewTab("config");
     interactions.modeChanged?.({ mode: nextMode });
   }, [interactions, setProfileType]);
 
   const isSurgeMode = profileType === "surge";
+  const isLoonMode = profileType === "loon";
+  const isPlatformProfile = isSurgeMode || isLoonMode;
 
   return (
-    <div className="w-full max-w-[clamp(1200px,95vw,2400px)] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3 lg:py-5 [@media(max-height:1000px)]:py-3 min-h-[calc(100vh-64px)] flex flex-col">
+    <div className="mx-auto flex min-h-[calc(100vh-64px)] w-full max-w-[2400px] min-w-0 flex-col overflow-x-hidden px-3 py-3 sm:px-6 lg:px-8 xl:px-12 lg:py-5 [@media(max-height:1000px)]:py-3">
       {renderAnnouncement?.({
-        placement: configTab === "advanced" || configTab === "surge" ? "advanced" : "home",
+        placement: configTab === "advanced" || configTab === "surge" || configTab === "loon" ? "advanced" : "home",
         authChecked,
         user,
       })}
@@ -170,7 +174,7 @@ export function HomeLayout({
           </span>
         </h1>
         <p className="text-white/50 max-w-2xl mx-auto leading-snug text-[clamp(0.75rem,1vw,0.95rem)] [@media(max-height:1000px)]:text-[0.875rem]">
-          Clash / Surge 订阅转换、生成与管理服务，支持链式代理、智能分流、多协议和多订阅聚合
+          Clash / Surge / Loon 订阅转换、生成与管理服务，支持链式代理、智能分流、多协议和多订阅聚合
         </p>
         {deployGuideHref && (
           <div className="mt-2 flex justify-center">
@@ -187,13 +191,13 @@ export function HomeLayout({
       {noticeSlot}
 
       {/* Main Content - Three Column Layout */}
-      <div className={`grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
+      <div className={`grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6 lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
         {/* Left Column - Configuration */}
         <div
           id="config"
           className={`${
             showAiColumn ? "lg:col-span-4 xl:col-span-4" : "lg:col-span-6 xl:col-span-6"
-          } flex flex-col gap-3 min-h-0 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
+          } flex min-w-0 flex-col gap-3 min-h-0 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
         >
           <Tabs
             value={configTab}
@@ -221,7 +225,7 @@ export function HomeLayout({
                       </span>
                     )}
                   </CardTitle>
-                  <TabsList className={cn(artisticTabsListClassName, "self-start")}>
+                  <TabsList className={cn(artisticTabsListClassName, "self-start max-w-full flex-wrap justify-start rounded-lg sm:rounded-full")}>
                     <TabsTrigger value="quick" className={cn(artisticTabsTriggerClassName, "min-w-[7rem]")}>
                       <Zap className={artisticTabsIconClassName} />
                       快捷模式
@@ -233,6 +237,10 @@ export function HomeLayout({
                     <TabsTrigger value="surge" className={cn(artisticTabsTriggerClassName, "min-w-[7rem]")}>
                       <Orbit className={artisticTabsIconClassName} />
                       Surge
+                    </TabsTrigger>
+                    <TabsTrigger value="loon" className={cn(artisticTabsTriggerClassName, "min-w-[7rem]")}>
+                      <Moon className={artisticTabsIconClassName} />
+                      Loon
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -255,6 +263,12 @@ export function HomeLayout({
                   className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0 lg:overflow-y-auto custom-scrollbar lg:pr-1"
                 >
                   <SurgeMode />
+                </TabsContent>
+                <TabsContent
+                  value="loon"
+                  className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0 lg:overflow-y-auto custom-scrollbar lg:pr-1"
+                >
+                  <LoonMode />
                 </TabsContent>
               </CardContent>
               <CardFooter className="justify-center gap-2 flex-shrink-0 pt-3 flex-row flex-wrap">
@@ -297,9 +311,9 @@ export function HomeLayout({
           id="preview"
           className={`${
             showAiColumn ? "lg:col-span-4 xl:col-span-4" : "lg:col-span-6 xl:col-span-6"
-          } flex flex-col gap-3 min-h-0 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
+          } flex min-w-0 flex-col gap-3 min-h-0 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
         >
-          <Tabs value={previewTab} onValueChange={(value) => setPreviewTab(value === "visual" ? "visual" : "config")} className={`w-full flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
+          <Tabs value={previewTab} onValueChange={(value) => setPreviewTab(value === "visual" && !isLoonMode ? "visual" : "config")} className={`w-full flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
             <Card className={`w-full flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
               <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -309,11 +323,9 @@ export function HomeLayout({
                   </CardTitle>
                   <TabsList className="h-8">
                     <TabsTrigger value="config" className="text-xs px-3 h-6">
-                      {isSurgeMode ? "CONF" : "YAML"}
+                      {isPlatformProfile ? "CONF" : "YAML"}
                     </TabsTrigger>
-                    <TabsTrigger value="visual" className="text-xs px-3 h-6">
-                      可视化
-                    </TabsTrigger>
+                    {!isLoonMode && <TabsTrigger value="visual" className="text-xs px-3 h-6">可视化</TabsTrigger>}
                   </TabsList>
                 </div>
               </CardHeader>
@@ -325,7 +337,7 @@ export function HomeLayout({
                         <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">
                           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-300" />
                           <div>
-                            <div className="font-medium text-rose-100">{isSurgeMode ? "Surge 配置有错误" : "基础和 DNS 配置有错误"}</div>
+                            <div className="font-medium text-rose-100">{isSurgeMode ? "Surge 配置有错误" : isLoonMode ? "Loon 配置有错误" : "基础和 DNS 配置有错误"}</div>
                             <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-rose-100/90">
                               {generatedYamlError}
                             </pre>
@@ -336,8 +348,8 @@ export function HomeLayout({
                       <YamlHighlight content={generatedYaml} className="h-full" />
                     ) : (
                       <pre className="p-4 font-mono text-xs text-white/60 whitespace-pre">
-                        {isSurgeMode ? `# 请先添加订阅或节点
-# Surge 配置将在此处预览
+                        {isPlatformProfile ? `# 请先添加订阅或节点
+# ${isSurgeMode ? "Surge" : "Loon"} 配置将在此处预览
 
 # 示例配置结构:
 # [Proxy]
@@ -381,7 +393,7 @@ export function HomeLayout({
                   onClick={() => handleDownload(configTab)}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  {isSurgeMode ? "下载 Surge 配置" : "下载配置"}
+                  {isSurgeMode ? "下载 Surge 配置" : isLoonMode ? "下载 Loon 配置" : "下载配置"}
                 </Button>
                 <Button
                   className="h-10"

@@ -41,6 +41,7 @@ export type {
   SubscriptionProfileType,
   SubscriptionSource,
   SurgeConfig,
+  LoonConfig,
 } from "./config-store/definitions";
 export type { CustomProxyGroup } from "@subboost/core/types/config";
 

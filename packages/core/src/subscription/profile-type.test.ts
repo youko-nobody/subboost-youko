@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildClashSubscriptionUrl,
+  buildLoonSubscriptionUrl,
   buildSurgeSubscriptionUrl,
   normalizeSubscriptionProfileType,
 } from "@subboost/core/subscription/profile-type";
@@ -8,6 +9,7 @@ import {
 describe("subscription profile type helpers", () => {
   it("normalizes unknown profile types to clash", () => {
     expect(normalizeSubscriptionProfileType("surge")).toBe("surge");
+    expect(normalizeSubscriptionProfileType("loon")).toBe("loon");
     expect(normalizeSubscriptionProfileType("mihomo")).toBe("clash");
     expect(normalizeSubscriptionProfileType(undefined)).toBe("clash");
   });
@@ -20,5 +22,8 @@ describe("subscription profile type helpers", () => {
       "https://sub.example/api/subscriptions/t/config.yaml"
     );
     expect(buildSurgeSubscriptionUrl("/api/subscriptions/t?x=1")).toBe("/api/subscriptions/t/surge.conf?x=1");
+    expect(buildLoonSubscriptionUrl("https://sub.example/api/subscriptions/t/surge.conf?x=1")).toBe(
+      "https://sub.example/api/subscriptions/t/loon.conf?x=1"
+    );
   });
 });

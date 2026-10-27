@@ -7,6 +7,7 @@ import { normalizeRuleModelFromConfig } from "@subboost/core/rules/rule-model";
 import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets";
 import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { normalizeSurgeConfig } from "@subboost/core/surge";
+import { normalizeLoonConfig } from "@subboost/core/loon";
 
 export const AUTH_CONFIG_HANDOFF_STORAGE_NAME = "subboost-auth-config-handoff";
 
@@ -122,6 +123,7 @@ function hasMeaningfulConfig(state: ConfigState): boolean {
     state.sources.some((source) => source.content.trim()) ||
     state.profileType !== initialState.profileType ||
     JSON.stringify(normalizeSurgeConfig(state.surgeConfig)) !== JSON.stringify(normalizeSurgeConfig(initialState.surgeConfig)) ||
+    JSON.stringify(normalizeLoonConfig(state.loonConfig)) !== JSON.stringify(normalizeLoonConfig(initialState.loonConfig)) ||
     state.nodes.length > 0 ||
     state.nodeNameFilter.enabled ||
     state.nodeNameFilter.excludeRegexes.length > 0 ||
@@ -162,11 +164,14 @@ function buildHandoffState(state: ConfigState): Partial<ConfigState> {
     state.profileType === "surge" ||
     JSON.stringify(normalizeSurgeConfig(state.surgeConfig)) !==
       JSON.stringify(normalizeSurgeConfig(initialState.surgeConfig));
+  const includeLoonConfig = state.profileType === "loon" ||
+    JSON.stringify(normalizeLoonConfig(state.loonConfig)) !== JSON.stringify(normalizeLoonConfig(initialState.loonConfig));
 
   return {
     sources: sourceArray(state.sources) ?? [],
-    ...(state.profileType === "surge" ? { profileType: "surge" as const } : {}),
+    ...(state.profileType !== "clash" ? { profileType: state.profileType } : {}),
     ...(includeSurgeConfig ? { surgeConfig: normalizeSurgeConfig(state.surgeConfig) } : {}),
+    ...(includeLoonConfig ? { loonConfig: normalizeLoonConfig(state.loonConfig) } : {}),
     nodes: state.nodes,
     nodeNameFilter: normalizeNodeNameFilterConfig(state.nodeNameFilter),
     deletedNodeNames: state.deletedNodeNames,
@@ -207,11 +212,14 @@ function normalizeHandoffState(raw: unknown): Partial<ConfigState> | null {
 
   const sources = sourceArray(raw.sources);
   if (sources) out.sources = sources;
-  if (raw.profileType === "surge") {
+  if (raw.profileType === "surge" || raw.profileType === "loon") {
     out.profileType = normalizeSubscriptionProfileType(raw.profileType);
   }
   if (raw.surgeConfig !== undefined) {
     out.surgeConfig = normalizeSurgeConfig(raw.surgeConfig);
+  }
+  if (raw.loonConfig !== undefined) {
+    out.loonConfig = normalizeLoonConfig(raw.loonConfig);
   }
   const nodes = objectArray<ConfigState["nodes"][number]>(raw.nodes);
   if (nodes) out.nodes = nodes;

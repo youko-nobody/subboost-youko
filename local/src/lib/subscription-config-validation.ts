@@ -1,6 +1,7 @@
 import yaml from "js-yaml";
 import { generateClashYaml } from "@subboost/core/generator";
 import { generateSurgeProfile, normalizeSurgeConfig, SURGE_PROXY_GROUP_TYPES, SURGE_RULE_TYPES } from "@subboost/core/surge";
+import { generateLoonProfile, normalizeLoonConfig } from "@subboost/core/loon";
 import { getModulesForTemplate, PROXY_GROUP_MODULES } from "@subboost/core/generator/proxy-groups";
 import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboost/core/subscription/config-utils";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
@@ -477,6 +478,82 @@ function validateSurgeSubscriptionConfig(params: {
   };
 }
 
+function validateLoonSubscriptionConfig(params: {
+  nodes: ParsedNode[];
+  config: Record<string, unknown>;
+}): SubscriptionConfigValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const loonConfig = normalizeLoonConfig(params.config.loonConfig);
+  const activeGroups = loonConfig.proxyGroups.filter((group) => group.enabled !== false);
+  const groupIds = activeGroups.map((group) => group.id);
+  const groupNames = activeGroups.map((group) => group.name);
+  const groupIdsSet = new Set(groupIds);
+  const groupNamesSet = new Set(groupNames);
+  const nodeNames = new Set(params.nodes.map((node) => toTrimmedString(node.name)).filter(Boolean));
+  const validateTarget = (target: unknown, label: string) => {
+    if (typeof target === "string") {
+      const name = target.trim();
+      if (!name || (name !== "DIRECT" && name !== "REJECT" && !nodeNames.has(name) && !groupNamesSet.has(name))) {
+        errors.push(`${label}指向不存在的 Loon 策略目标「${name || "空"}」`);
+      }
+      return;
+    }
+    if (!isRecord(target)) {
+      errors.push(`${label}缺少策略目标`);
+      return;
+    }
+    if (target.kind === "direct" || target.kind === "reject") return;
+    if (target.kind === "node" && nodeNames.has(toTrimmedString(target.name))) return;
+    if (target.kind === "group" && groupIdsSet.has(toTrimmedString(target.id))) return;
+    errors.push(`${label}指向不存在或已停用的 Loon 策略目标`);
+  };
+
+  addDuplicateErrors(groupIds, "Loon 策略组 ID", errors);
+  addDuplicateErrors(groupNames, "Loon 策略组名称", errors);
+  for (const group of activeGroups) {
+    for (const policy of group.policies) {
+      validateTarget(policy, `Loon 策略组「${group.name}」成员`);
+      if (policy.kind === "group" && policy.id === group.id) errors.push(`Loon 策略组「${group.name}」不能引用自身`);
+    }
+    for (const [label, pattern] of [["包含", group.includeRegex], ["排除", group.excludeRegex]] as const) {
+      if (!pattern) continue;
+      try { new RegExp(pattern, "i"); } catch { errors.push(`Loon 策略组「${group.name}」${label}正则无效`); }
+    }
+  }
+  for (const rule of loonConfig.remoteRules) {
+    if (!/^https?:\/\//i.test(rule.url)) warnings.push(`Loon 远程规则集「${rule.name}」不是 HTTP/HTTPS URL`);
+    validateTarget(rule.target, `Loon 远程规则集「${rule.name}」`);
+  }
+  for (const rule of loonConfig.rules) {
+    if (rule.enabled !== false && !rule.value.trim()) errors.push(`Loon 本地规则「${rule.id}」缺少匹配内容`);
+    validateTarget(rule.target, `Loon 本地规则「${rule.value || rule.id}」`);
+  }
+  validateTarget(loonConfig.finalTarget, "Loon FINAL 兜底");
+
+  let generatedYamlBytes: number | undefined;
+  let proxyGroupCount: number | undefined;
+  let ruleCount: number | undefined;
+  try {
+    const output = generateLoonProfile({ nodes: params.nodes, config: loonConfig });
+    generatedYamlBytes = new TextEncoder().encode(output.content).byteLength;
+    proxyGroupCount = output.policyGroupCount;
+    ruleCount = output.ruleCount;
+    if (params.nodes.length > 0 && output.proxyCount === 0) errors.push("当前节点没有 Loon 可用协议或缺少必要字段");
+    if (output.skippedNodes.length > 0) warnings.push(`有 ${output.skippedNodes.length} 个节点暂未进入 Loon 配置`);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : "Loon 配置生成失败");
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    ...(generatedYamlBytes !== undefined ? { generatedYamlBytes } : {}),
+    ...(proxyGroupCount !== undefined ? { proxyGroupCount } : {}),
+    ...(ruleCount !== undefined ? { ruleCount } : {}),
+  };
+}
+
 export function validateLocalSubscriptionConfig(params: {
   urls: string[];
   nodes: ParsedNode[];
@@ -484,6 +561,9 @@ export function validateLocalSubscriptionConfig(params: {
 }): SubscriptionConfigValidationResult {
   if (normalizeSubscriptionProfileType(params.config.profileType) === "surge") {
     return validateSurgeSubscriptionConfig({ nodes: params.nodes, config: params.config });
+  }
+  if (normalizeSubscriptionProfileType(params.config.profileType) === "loon") {
+    return validateLoonSubscriptionConfig({ nodes: params.nodes, config: params.config });
   }
 
   const errors: string[] = [];

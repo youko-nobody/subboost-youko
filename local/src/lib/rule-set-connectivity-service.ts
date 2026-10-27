@@ -5,6 +5,7 @@ import { buildGenerateOptionsFromConfig, getEffectiveTestOptions } from "@subboo
 import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { buildProxyProvidersFromConfig } from "@subboost/core/subscription/proxy-providers";
 import { normalizeSurgeConfig } from "@subboost/core/surge";
+import { normalizeLoonConfig } from "@subboost/core/loon";
 import type { ParsedNode } from "@subboost/core/types/node";
 import { SUBSCRIPTION_IMPORT_USER_AGENTS } from "@subboost/server-core/subscription";
 import { createMyRoutingTemplateParts } from "@subboost/core/templates/my-routing-template";
@@ -115,6 +116,19 @@ export function collectGeneratedRuleSetProviders(params: {
         url: ruleSet.url,
         result: ruleSet.url ? "failed" as const : "skipped" as const,
         ...(ruleSet.url ? {} : { error: "规则集没有生成 URL" }),
+      }));
+  }
+
+  if (normalizeSubscriptionProfileType(params.config.profileType) === "loon") {
+    return normalizeLoonConfig(params.config.loonConfig).remoteRules
+      .filter((rule) => rule.enabled !== false)
+      .map((rule) => ({
+        id: rule.id,
+        name: rule.name,
+        source: "custom" as const,
+        url: rule.url,
+        result: rule.url ? "failed" as const : "skipped" as const,
+        ...(rule.url ? {} : { error: "规则集没有生成 URL" }),
       }));
   }
 

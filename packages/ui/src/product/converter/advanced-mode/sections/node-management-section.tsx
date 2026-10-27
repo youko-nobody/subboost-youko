@@ -56,9 +56,11 @@ function rememberListenerPortWarningAccepted() {
 export function NodeManagementSection({
   isExpanded,
   onToggle,
+  showListenerPorts = true,
 }: {
   isExpanded: boolean;
   onToggle: () => void;
+  showListenerPorts?: boolean;
 }) {
   const {
     sources,
@@ -498,15 +500,17 @@ export function NodeManagementSection({
               />
             </div>
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-              <div className="shrink-0" title="为节点配置 socks5/http 协议的本地监听端口">
-                <SwitchField
-                  label="监听端口"
-                  checked={isListenerPortVisible}
-                  onCheckedChange={handleListenerPortChange}
-                  disabled={effectiveNodes.length === 0 && !hasConfiguredListenerPorts}
-                  density="compact"
-                />
-              </div>
+              {showListenerPorts && (
+                <div className="shrink-0" title="为节点配置 socks5/http 协议的本地监听端口">
+                  <SwitchField
+                    label="监听端口"
+                    checked={isListenerPortVisible}
+                    onCheckedChange={handleListenerPortChange}
+                    disabled={effectiveNodes.length === 0 && !hasConfiguredListenerPorts}
+                    density="compact"
+                  />
+                </div>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -542,7 +546,7 @@ export function NodeManagementSection({
             nodes={effectiveNodes}
             resolveNodeNameParts={resolveNodeNameParts}
             bulkRenameNodes={bulkRenameNodes}
-            listenerPortEnabled={isListenerPortVisible}
+            listenerPortEnabled={showListenerPorts && isListenerPortVisible}
             listenerPorts={listenerPorts}
             bulkSetListenerPorts={bulkSetListenerPorts}
             onClearListenerPortUiState={clearListenerPortUiState}
@@ -581,7 +585,7 @@ export function NodeManagementSection({
             nodeIndexByName={nodeIndexByName}
             setNodeOrder={setEffectiveNodeOrder}
             moveNode={moveEffectiveNode}
-            isListenerPortVisible={isListenerPortVisible}
+            isListenerPortVisible={showListenerPorts && isListenerPortVisible}
             removeNode={removeNode}
             restoreDeletedNode={restoreDeletedNode}
           />

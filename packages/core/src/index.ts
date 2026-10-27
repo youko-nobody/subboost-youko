@@ -4,6 +4,7 @@ export * from "./json";
 export * from "./node-name-template";
 export * from "./node-identity";
 export * from "./parser";
+export * from "./loon";
 export * from "./surge";
 export * from "./templates";
 export * from "./api/pagination";

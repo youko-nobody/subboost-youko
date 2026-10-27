@@ -183,6 +183,46 @@ describe("computeGeneratedYamlResult", () => {
     expect(yaml).toBe("generated yaml");
   });
 
+  it("generates an independent Loon profile and ignores Clash proxy providers", () => {
+    const result = computeGeneratedYamlResult(createState({
+      profileType: "loon",
+      nodes: [{
+        name: "Loon Node",
+        type: "ss",
+        server: "node.example.com",
+        port: 443,
+        cipher: "aes-128-gcm",
+        password: "secret",
+      }],
+      sources: [{
+        id: "source-1",
+        type: "url",
+        content: "https://example.com/sub",
+        useProxyProviders: true,
+      }],
+      loonConfig: {
+        ...initialState.loonConfig,
+        remoteRules: [{ id: "remote", name: "Privacy", url: "https://rules.example/loon.list", target: { kind: "reject" } }],
+      },
+    }));
+
+    expect(result.error).toBeNull();
+    expect(result.yaml).toContain("[Proxy]");
+    expect(result.yaml).toContain("Loon Node = shadowsocks");
+    expect(result.yaml).toContain("https://rules.example/loon.list,policy=REJECT,enabled=true");
+    expect(result.yaml).not.toContain("proxy-providers:");
+    expect(mocks.generateClashYaml).not.toHaveBeenCalled();
+  });
+
+  it("does not treat provider-only sources as a valid Loon profile", () => {
+    const result = computeGeneratedYamlResult(createState({
+      profileType: "loon",
+      nodes: [],
+      sources: [{ id: "source-1", type: "url", content: "https://example.com/sub", useProxyProviders: true }],
+    }));
+    expect(result).toEqual({ yaml: "", error: null });
+  });
+
   it("keeps provider output visible when every ordinary node is excluded", () => {
     const rawNodes = [{ name: "Drop", type: "ss" }];
     mocks.resolveNodeNameFilter.mockReturnValueOnce({

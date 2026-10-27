@@ -80,11 +80,13 @@ export function SubscriptionLinkDialog({
 }: Props) {
   const close = () => onOpenChange(false);
   const minAutoUpdateLabel = getAutoUpdateIntervalPolicyMinLabel(autoUpdatePolicy);
-  const mainLinkLabel = profileType === "surge" ? "Surge CONF 链接" : "通用 YAML 链接";
+  const mainLinkLabel = profileType === "surge" ? "Surge CONF 链接" : profileType === "loon" ? "Loon CONF 链接" : "通用 YAML 链接";
   const mainLinkDescription =
     profileType === "surge"
       ? "适用于 Surge；会自动生成独立的 [Proxy]、[Proxy Group] 和 [Rule]"
-      : "适用于 Clash Verge / FLClash / Clash Meta / Stash，保留所有支持 Mihomo 的节点（包括 Mieru）";
+      : profileType === "loon"
+        ? "适用于 Loon；使用 Loon 原生代理、策略组和远程规则格式"
+        : "适用于 Clash Verge / FLClash / Clash Meta / Stash，保留所有支持 Mihomo 的节点（包括 Mieru）";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,7 +103,7 @@ export function SubscriptionLinkDialog({
               ? "按客户端复制对应链接导入使用"
               : isEditingExistingSubscription
                 ? "将覆盖该订阅的配置与订阅源，链接保持不变"
-                : `生成持久化的 ${profileType === "surge" ? "Surge" : "Clash"} 订阅链接，支持在客户端中自动更新`}
+                : `生成持久化的 ${profileType === "surge" ? "Surge" : profileType === "loon" ? "Loon" : "Clash"} 订阅链接，支持在客户端中自动更新`}
           </DialogDescription>
         </DialogHeader>
 

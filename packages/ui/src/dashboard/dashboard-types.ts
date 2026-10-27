@@ -13,9 +13,10 @@ export interface Subscription {
   name: string;
   token: string;
   subscriptionUrl: string;
-  profileType?: "clash" | "surge";
+  profileType?: "clash" | "surge" | "loon";
   yamlUrl?: string;
   surgeUrl?: string;
+  loonUrl?: string;
   isPrimary: boolean;
   autoUpdateInterval: number | null;
   autoUpdateState: SubscriptionAutoUpdateState;

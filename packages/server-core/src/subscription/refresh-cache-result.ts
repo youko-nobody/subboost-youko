@@ -1,5 +1,6 @@
 import { generateClashYaml } from "@subboost/core/generator";
 import { generateSurgeConfig, normalizeSurgeConfig } from "@subboost/core/surge";
+import { generateLoonConfig, normalizeLoonConfig } from "@subboost/core/loon";
 import {
   buildGenerateOptionsFromConfig,
   getEffectiveTestOptions,
@@ -44,13 +45,11 @@ export function prepareRefreshCacheResult(params: {
   maxNodesPerSubscription: number;
   proxyProviders?: Record<string, unknown>;
 }): PreparedRefreshCacheResult {
+  const profileType = normalizeSubscriptionProfileType(params.config.profileType);
   const { testUrl, testInterval } = getEffectiveTestOptions(params.config);
-  const proxyProviders =
-    params.proxyProviders ??
-    buildProxyProvidersFromConfig(params.config, {
-      testUrl,
-      testInterval,
-    });
+  const proxyProviders = profileType === "clash"
+    ? params.proxyProviders ?? buildProxyProvidersFromConfig(params.config, { testUrl, testInterval })
+    : undefined;
   const hasProxyProviders = Boolean(
     proxyProviders && Object.keys(proxyProviders).length > 0
   );
@@ -80,7 +79,7 @@ export function prepareRefreshCacheResult(params: {
     };
   }
 
-  if (nodeNameFilterResult.effectiveCount === 0 && !hasProxyProviders) {
+  if (nodeNameFilterResult.effectiveCount === 0 && !(profileType === "clash" && hasProxyProviders)) {
     return {
       ok: false,
       reason: "empty_result",
@@ -89,17 +88,22 @@ export function prepareRefreshCacheResult(params: {
   }
 
   const generatedYaml =
-    normalizeSubscriptionProfileType(params.config.profileType) === "surge"
+    profileType === "surge"
       ? generateSurgeConfig({
           nodes: nodeNameFilterResult.effectiveNodes,
           config: normalizeSurgeConfig(params.config.surgeConfig),
         })
-      : generateClashYaml(
+      : profileType === "loon"
+        ? generateLoonConfig({
+            nodes: nodeNameFilterResult.effectiveNodes,
+            config: normalizeLoonConfig(params.config.loonConfig),
+          })
+        : generateClashYaml(
           buildGenerateOptionsFromConfig(params.config, {
             nodes: params.snapshot.nodes,
             proxyProviders,
           })
-        );
+          );
 
   return {
     ok: true,

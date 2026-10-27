@@ -7,6 +7,7 @@ import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets
 import { normalizeNodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
 import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { normalizeSurgeConfig } from "@subboost/core/surge";
+import { normalizeLoonConfig } from "@subboost/core/loon";
 import {
   DEFAULT_LOAD_BALANCE_STRATEGY,
   isLoadBalanceStrategy,
@@ -179,6 +180,7 @@ export function normalizePersistedConfigState(
     cnIpNoResolve: typeof state.cnIpNoResolve === "boolean" ? state.cnIpNoResolve : true,
     ...(experimentalCnUseCnRuleSet !== undefined ? { experimentalCnUseCnRuleSet } : {}),
     surgeConfig: normalizeSurgeConfig(state.surgeConfig),
+    loonConfig: normalizeLoonConfig(state.loonConfig),
   } as Partial<ConfigState>;
 }
 
@@ -209,6 +211,7 @@ export function partializeConfigState(state: ConfigState): Partial<ConfigState> 
     cnIpNoResolve: state.cnIpNoResolve,
     experimentalCnUseCnRuleSet: state.experimentalCnUseCnRuleSet,
     surgeConfig: normalizeSurgeConfig(state.surgeConfig),
+    loonConfig: normalizeLoonConfig(state.loonConfig),
   };
 }
 

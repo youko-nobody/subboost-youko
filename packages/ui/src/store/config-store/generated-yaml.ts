@@ -1,5 +1,6 @@
 import { generateClashYaml } from "@subboost/core/generator";
 import { generateSurgeConfig } from "@subboost/core/surge";
+import { generateLoonConfig } from "@subboost/core/loon";
 import { stripImportedNodeControlFieldsFromList } from "@subboost/core/subscription/imported-node-controls";
 import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { resolveNodeNameFilter } from "@subboost/core/subscription/node-name-filter";
@@ -101,6 +102,14 @@ export function computeGeneratedYamlResult(state: ConfigState): GeneratedYamlRes
         config: state.surgeConfig,
       });
       return { yaml: hasPreviewContent ? content : "", error: null };
+    }
+
+    if (normalizeSubscriptionProfileType(state.profileType) === "loon") {
+      const content = generateLoonConfig({
+        nodes: stripImportedNodeControlFieldsFromList(effectiveNodes),
+        config: state.loonConfig,
+      });
+      return { yaml: effectiveNodes.length > 0 ? content : "", error: null };
     }
 
     const hasPreviewContent = effectiveNodes.length > 0 || Boolean(proxyProviders);

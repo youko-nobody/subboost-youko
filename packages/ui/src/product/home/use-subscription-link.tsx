@@ -9,6 +9,7 @@ import {
   type DialerProxyGroup,
   type SubscriptionProfileType,
   type SurgeConfig,
+  type LoonConfig,
 } from "@subboost/ui/store/config-store";
 import type {
   BuiltinRuleEdits,
@@ -40,6 +41,7 @@ import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/ur
 import { buildV2RaySubscriptionUrl } from "@subboost/core/subscription/v2ray-subscription";
 import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { normalizeSurgeConfig } from "@subboost/core/surge";
+import { normalizeLoonConfig } from "@subboost/core/loon";
 import { DEFAULT_NODE_NAME_TEMPLATE } from "@subboost/core/node-name-template";
 import { formatDateInBeijing } from "@subboost/core/time/beijing";
 import {
@@ -108,6 +110,7 @@ type Options = {
   cnIpNoResolve: boolean;
   experimentalCnUseCnRuleSet: boolean;
   surgeConfig: SurgeConfig;
+  loonConfig: LoonConfig;
 };
 
 export function useSubscriptionLink({
@@ -147,6 +150,7 @@ export function useSubscriptionLink({
   cnIpNoResolve,
   experimentalCnUseCnRuleSet,
   surgeConfig,
+  loonConfig,
 }: Options) {
   const autoUpdatePolicy = React.useMemo(
     () =>
@@ -215,7 +219,7 @@ export function useSubscriptionLink({
     setSubscriptionName(
       isEditingExistingSubscription
         ? editingSubscription?.name || ""
-        : `${resolvedProfileType === "surge" ? "Surge 配置" : "我的配置"} ${formatDateInBeijing(new Date())}`
+        : `${resolvedProfileType === "surge" ? "Surge 配置" : resolvedProfileType === "loon" ? "Loon 配置" : "我的配置"} ${formatDateInBeijing(new Date())}`
     );
     setAutoUpdateEnabled(nextAutoUpdateEnabled);
     setAutoUpdateHours(nextAutoUpdateHours);
@@ -431,6 +435,7 @@ export function useSubscriptionLink({
             cnIpNoResolve,
             experimentalCnUseCnRuleSet,
             surgeConfig: normalizeSurgeConfig(surgeConfig),
+            loonConfig: normalizeLoonConfig(loonConfig),
             autoSelectStrategy: "url-test",
           },
         };
@@ -527,6 +532,7 @@ export function useSubscriptionLink({
     updateLockEnabled,
     storeSources,
     surgeConfig,
+    loonConfig,
     subscriptionName,
     subscriptionAdapter,
     template,

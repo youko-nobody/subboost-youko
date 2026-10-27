@@ -13,6 +13,7 @@ import { resolveProxyGroupAdvancedModeEnabled } from "@subboost/core/proxy-group
 import { normalizeProxyGroupAdvancedConfig } from "@subboost/core/proxy-group-advanced";
 import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { normalizeSurgeConfig } from "@subboost/core/surge";
+import { normalizeLoonConfig } from "@subboost/core/loon";
 import { tryNormalizeSubscriptionUrlInput } from "@subboost/core/subscription/url-input";
 import {
   hasSubscriptionUserInfo,
@@ -609,6 +610,7 @@ export function useEditingSubscriptionLoader({
               ? Boolean((cfg as any).experimentalCnUseCnRuleSet)
               : state.experimentalCnUseCnRuleSet,
           surgeConfig: normalizeSurgeConfig((cfg as any).surgeConfig),
+          loonConfig: normalizeLoonConfig((cfg as any).loonConfig),
         }));
 
         useConfigStore.getState().generateConfig();

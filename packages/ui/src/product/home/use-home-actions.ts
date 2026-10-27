@@ -51,9 +51,13 @@ export function useHomeActions({
     });
 
     const timestamp = getCompactDateStampInBeijing();
-    const isSurgeMode = useConfigStore.getState().profileType === "surge";
-    const filename = isSurgeMode ? `surge-config-${timestamp}.conf` : `clash-config-${timestamp}.yaml`;
-    const mimeType = isSurgeMode ? "text/plain;charset=utf-8" : "application/x-yaml;charset=utf-8";
+    const profileType = useConfigStore.getState().profileType;
+    const filename = profileType === "surge"
+      ? `surge-config-${timestamp}.conf`
+      : profileType === "loon"
+        ? `loon-config-${timestamp}.conf`
+        : `clash-config-${timestamp}.yaml`;
+    const mimeType = profileType === "clash" ? "application/x-yaml;charset=utf-8" : "text/plain;charset=utf-8";
     const blob = new Blob([generatedYaml], { type: mimeType });
     const file = new File([blob], filename, { type: mimeType });
     const url = URL.createObjectURL(file);

@@ -29,6 +29,7 @@ import {
   type SubscriptionProfileType,
 } from "@subboost/core/subscription/profile-type";
 import { createDefaultSurgeConfig, type SurgeConfig } from "@subboost/core/surge";
+import { createDefaultLoonConfig, type LoonConfig } from "@subboost/core/loon";
 import { getActiveProductApiAdapter } from "@subboost/ui/product/api-adapter";
 import {
   getNodeSourceIds,
@@ -47,6 +48,7 @@ export type { DialerProxyGroup, SubBoostTemplateConfig } from "@subboost/core/ty
 export type { NodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
 export type { SubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 export type { SurgeConfig } from "@subboost/core/surge";
+export type { LoonConfig } from "@subboost/core/loon";
 
 export type ConfigHistoryEntry =
   | string
@@ -235,6 +237,7 @@ export interface ConfigState {
   cnIpNoResolve: boolean;
   experimentalCnUseCnRuleSet: boolean;
   surgeConfig: SurgeConfig;
+  loonConfig: LoonConfig;
 
   // 节点监听端口（用于生成 listeners）
   listenerPorts: Record<string, number>;
@@ -272,6 +275,7 @@ export interface ConfigActions {
   // 模板和配置
   setProfileType: (profileType: SubscriptionProfileType) => void;
   setSurgeConfig: (config: SurgeConfig | Partial<SurgeConfig>) => void;
+  setLoonConfig: (config: LoonConfig | Partial<LoonConfig>) => void;
   setTemplate: (template: TemplateType) => void;
   setEnabledProxyGroups: (groups: string[]) => void;
   toggleProxyGroup: (groupId: string) => void;
@@ -406,6 +410,7 @@ export const initialState: ConfigState = {
   cnIpNoResolve: DEFAULT_SUBBOOST_CONFIG.cnIpNoResolve,
   experimentalCnUseCnRuleSet: false,
   surgeConfig: createDefaultSurgeConfig(),
+  loonConfig: createDefaultLoonConfig(),
   listenerPorts: {},
   groupListeners: [],
   generatedYaml: "",

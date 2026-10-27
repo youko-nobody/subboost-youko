@@ -202,6 +202,35 @@ describe("prepareRefreshCacheResult", () => {
     });
   });
 
+  it("generates Loon text from filtered nodes instead of Clash proxy providers", () => {
+    const result = prepareRefreshCacheResult({
+      config: {
+        profileType: "loon",
+        loonConfig: {
+          remoteRules: [{ id: "remote", name: "Remote", url: "https://rules.example/loon.list", target: "DIRECT" }],
+        },
+      },
+      snapshot: snapshot(),
+      maxNodesPerSubscription: 10,
+      proxyProviders: { shouldNotAppear: { url: "https://nodes.example/sub" } },
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.generatedYaml).toContain("[Remote Rule]");
+    expect(result.generatedYaml).toContain("node-a = trojan, node-a.example.com, 443, \"secret\"");
+    expect(result.generatedYaml).not.toContain("proxy-providers:");
+  });
+
+  it("does not accept Clash proxy providers as a Loon-only output", () => {
+    expect(prepareRefreshCacheResult({
+      config: { profileType: "loon" },
+      snapshot: snapshot({ nodes: [] }),
+      maxNodesPerSubscription: 10,
+      proxyProviders: { remote: { url: "https://nodes.example/sub" } },
+    })).toMatchObject({ ok: false, reason: "empty_result" });
+  });
+
   it("rejects invalid persisted filters before publishing refresh output", () => {
     expect(() =>
       prepareRefreshCacheResult({

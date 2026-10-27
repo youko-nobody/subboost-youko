@@ -114,4 +114,45 @@ describe("local subscription config validation", () => {
     expect(validation.ok).toBe(true);
     expect(validation.errors).toEqual([]);
   });
+
+  it("validates independent Loon groups and rules against their own targets", () => {
+    const validation = validateLocalSubscriptionConfig({
+      urls: [],
+      nodes: [node("Loon Node")],
+      config: {
+        profileType: "loon",
+        loonConfig: {
+          proxyGroups: [{
+            id: "proxy",
+            name: "Proxy",
+            type: "select",
+            policies: [{ kind: "node", name: "Loon Node" }],
+          }],
+          remoteRules: [{ id: "remote", name: "Remote", url: "https://rules.example/loon.list", target: { kind: "group", id: "proxy" } }],
+          rules: [{ id: "local", type: "IP-ASN", value: "4134", target: { kind: "direct" }, noResolve: true }],
+          finalTarget: { kind: "group", id: "proxy" },
+        },
+      },
+    });
+    expect(validation.ok).toBe(true);
+    expect(validation.proxyGroupCount).toBe(1);
+    expect(validation.ruleCount).toBe(3);
+  });
+
+  it("reports invalid Loon targets and regexes", () => {
+    const validation = validateLocalSubscriptionConfig({
+      urls: [],
+      nodes: [node()],
+      config: {
+        profileType: "loon",
+        loonConfig: {
+          proxyGroups: [{ id: "proxy", name: "Proxy", type: "select", policies: [], includeRegex: "(" }],
+          remoteRules: [{ id: "remote", name: "Remote", url: "https://rules.example/loon.list", target: "Missing" }],
+        },
+      },
+    });
+    expect(validation.ok).toBe(false);
+    expect(validation.errors.join("\n")).toContain("包含正则无效");
+    expect(validation.errors.join("\n")).toContain("Missing");
+  });
 });
