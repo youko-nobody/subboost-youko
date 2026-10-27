@@ -7,13 +7,14 @@
     <img src="https://img.shields.io/badge/version-2.7.0--youko-green.svg" alt="版本 2.7.0-youko">
     <img src="https://img.shields.io/badge/Clash%2FMihomo-%E8%AE%A2%E9%98%85%E8%BD%AC%E6%8D%A2-blue.svg" alt="Clash/Mihomo 订阅转换">
     <img src="https://img.shields.io/badge/Surge-%E5%8E%9F%E7%94%9F%E9%85%8D%E7%BD%AE-purple.svg" alt="Surge 原生配置">
+    <img src="https://img.shields.io/badge/Loon-%E5%8E%9F%E7%94%9F%E9%85%8D%E7%BD%AE-green.svg" alt="Loon 原生配置">
     <img src="https://img.shields.io/badge/rules-%E8%87%AA%E7%94%B1%E8%A7%84%E5%88%99%E9%9B%86-orange.svg" alt="自由规则集">
   </p>
   <p><strong>中文说明 | 基于 <a href="https://github.com/SubBoost/subboost">SubBoost/subboost</a> 二次修改</strong></p>
 </div>
 <!-- markdownlint-enable MD033 MD041 -->
 
-这是一个基于 SubBoost 的 Clash/Mihomo、Surge、V2Ray 订阅转换与配置生成工具二改版。这个版本重点增强了自定义分流、策略组图标、Surge 原生配置、订阅后台管理、更新保护、健康检查和 VPS 自部署体验，适合想自己维护多客户端订阅配置的人使用。
+这是一个基于 SubBoost 的 Clash/Mihomo、Surge、Loon、V2Ray 订阅转换与配置生成工具二改版。这个版本重点增强了自定义分流、策略组图标、多客户端原生配置、订阅后台管理、更新保护、健康检查和 VPS 自部署体验，适合想自己维护多客户端订阅配置的人使用。
 
 ## 二改功能总览
 
@@ -41,6 +42,17 @@
 - **Surge 规则顺序编辑**：规则顺序支持拖拽和手动输入数字排序，新建远程规则集和本地规则默认放在最前面。
 - **MANAGED-CONFIG 可配置**：Surge 托管配置头和更新间隔 `interval` 可以在页面里自定义。
 
+### Loon 原生配置
+
+- **独立于 Clash 和 Surge**：Loon 有自己的配置模型和原生 `.conf` 输出，不会把 Clash 配置直接转换成 Loon 配置。
+- **默认空白，按需导入模板**：首次进入 Loon 时从空白配置开始；需要 Youko 分流时，在「基础」中手动导入 `Youko分流模板 (Loon)`。
+- **完整编辑流程**：按「节点导入、节点管理、分流代理组、规则管理、基础」组织配置，可分别管理 Loon 节点、策略组、规则和 General 设置。
+- **策略组可视化管理**：支持手动选择、自动测速、故障转移和负载均衡；可编辑组成员、包含/排除节点正则、远程图标链接，并调整策略组和成员顺序。
+- **规则管理**：支持自定义 Loon 远程规则列表和本地规则，设置目标策略、启用状态及规则顺序；远程规则列表和本地规则按 Loon 原生配置格式分区输出。
+- **Youko 分流模板 (Loon)**：参考 Clash Youko 模板的策略组和规则设计，优先使用兼容 Loon 语法的远程规则；没有可直接复用来源的规则会转换为本地 Loon 规则。
+- **Loon 图标和基础配置**：策略组图标使用 Loon 的 `img-url` 格式；默认 General 配置包含 IPv4、DNS、嗅探、拒绝模式、绕过地址等常用设置，并可自行编辑。
+- **旧规则兼容**：旧配置中的 `DOMAIN-WILDCARD` 会规范为 Loon 支持的 `URL-REGEX`，避免继续生成不兼容的规则类型。
+
 ### 协议与客户端兼容
 
 - **Mieru 协议识别**：支持导入 `mierus://` 节点，并在支持的 Clash Meta / Mihomo 客户端配置中输出。
@@ -49,7 +61,7 @@
 
 ### 策略组远程图标
 
-- **策略组 `icon` URL**：自定义策略组支持远程图标 URL，生成的 Clash/Mihomo YAML 会输出 `icon:` 字段。
+- **策略组远程图标 URL**：Clash/Mihomo 输出 `icon:`；Loon 输出 `img-url`；Surge 保留其原生策略组图标格式。
 - **图标 URL 一行编辑**：前端支持“图标 URL + 预览 + 打开 + 清空”一行操作。
 - **图标预览**：填写图标链接后可直接在页面里预览，方便确认图标是否可用。
 - **中转代理组图标**：中转代理组同样支持远程图标 URL，并会写入生成配置。
@@ -85,7 +97,7 @@
 - 需要大量自定义远程规则集，并且想给每个规则集指定目标策略的人。
 - 需要把规则集指向代理、直连、拒绝或自定义策略组的人。
 - 想让策略组在 Clash/Mihomo 客户端里显示远程图标的人。
-- 想分别维护 Clash/Mihomo、Surge、V2Ray 输出，不希望所有客户端混在一个模板里的人。
+- 想分别维护 Clash/Mihomo、Surge、Loon、V2Ray 输出，不希望所有客户端混在一个模板里的人。
 - 想把订阅服务长期部署在 VPS 上，并在后台管理、备份、检查和更新订阅的人。
 
 ## 使用入口
@@ -239,6 +251,8 @@ docker compose --env-file local/.env -f local/docker-compose.yml up -d --build
 自定义远程规则集会生成到 Clash/Mihomo 的 `rule-providers`，规则会通过 `RULE-SET` 引用它们。策略组的远程图标会写入 `proxy-groups` 下对应组的 `icon:` 字段。
 
 Surge 订阅会生成原生 `.conf`，规则集会输出为 Surge 的 `RULE-SET` 或 `DOMAIN-SET`，策略组会输出到 `[Proxy Group]`，托管配置头可按需开启并自定义更新间隔。
+
+Loon 会生成独立的原生 `.conf`，包含 `[General]`、节点、`[Remote Rule]`、`[Rule]` 和策略组等内容。Loon 远程规则文件的每一行都必须使用 Loon 支持的规则语法；Clash YAML 规则集不能直接作为 Loon 规则列表使用。
 
 如果远程规则集使用 `.yaml/.yml`，请确认规则内容格式和 `behavior` 匹配；如果使用 `.mrs`，不能选择 `classical`。
 
