@@ -83,7 +83,7 @@ function base(name: string, type: string, record: NodeRecord): string[] | null {
 function appendTls(record: NodeRecord, out: string[]) {
   const tls = bool(record.tls);
   if (tls !== undefined) parameter(out, "over-tls", tls);
-  parameter(out, "tls-name", str(record.sni) || str(record.servername));
+  parameter(out, "sni", str(record.sni) || str(record.servername));
   const skip = bool(record["skip-cert-verify"]);
   if (skip !== undefined) parameter(out, "skip-cert-verify", skip);
   const udp = bool(record.udp);
@@ -92,9 +92,13 @@ function appendTls(record: NodeRecord, out: string[]) {
   if (tfo !== undefined) parameter(out, "fast-open", tfo);
 }
 
-function appendTransport(record: NodeRecord, out: string[]) {
-  const transport = str(record.network).toLowerCase();
-  if (transport !== "ws" && transport !== "http") return;
+function appendTransport(record: NodeRecord, out: string[]): boolean {
+  const transport = str(record.network).toLowerCase() || "tcp";
+  if (transport === "tcp") {
+    parameter(out, "transport", transport);
+    return true;
+  }
+  if (transport !== "ws" && transport !== "http") return false;
   const optsKey = transport === "ws" ? "ws-opts" : "http-opts";
   const opts = isRecord(record[optsKey]) ? record[optsKey] as NodeRecord : {};
   parameter(out, "transport", transport);
@@ -103,6 +107,7 @@ function appendTransport(record: NodeRecord, out: string[]) {
   const headers = isRecord(opts.headers) ? opts.headers : {};
   const host = str(headers.Host) || str(headers.host);
   parameter(out, "host", host);
+  return true;
 }
 
 function serializeNode(name: string, record: NodeRecord): string | null {
@@ -168,12 +173,13 @@ function serializeNode(name: string, record: NodeRecord): string | null {
       parameter(out, "alterId", num(record.alterId) ?? 0);
     } else {
       out.push(quote(uuid));
-      parameter(out, "flow", str(record.flow), true);
+      if (!appendTransport(record, out)) return null;
+      parameter(out, "flow", str(record.flow));
       const reality = isRecord(record["reality-opts"]) ? record["reality-opts"] as NodeRecord : {};
       parameter(out, "public-key", str(reality["public-key"]), true);
-      parameter(out, "short-id", str(reality["short-id"]), true);
+      parameter(out, "short-id", str(reality["short-id"]));
     }
-    appendTransport(record, out);
+    if (type === "vmess" && !appendTransport(record, out)) return null;
     appendTls(record, out);
     return out.join(", ");
   }
@@ -183,7 +189,7 @@ function serializeNode(name: string, record: NodeRecord): string | null {
     const password = str(record.password);
     if (!out || !password) return null;
     out.push(quote(password));
-    if (type === "trojan") appendTransport(record, out);
+    if (type === "trojan" && !appendTransport(record, out)) return null;
     if (type === "hysteria2") {
       parameter(out, "download-bandwidth", str(record.down));
       if (str(record.obfs) === "salamander") parameter(out, "salamander-password", str(record["obfs-password"]), true);
@@ -232,6 +238,7 @@ function groupMembers(group: LoonProxyGroup, nodeNames: Map<string, string>, gro
 function groupLine(group: LoonProxyGroup, groupName: string, nodeNames: Map<string, string>, groupNames: Map<string, string>, config: LoonConfig): string {
   const members = groupMembers(group, nodeNames, groupNames);
   const fields = [`${groupName} = ${group.type}`, ...members.map(token)];
+  if (/^https?:\/\//i.test(str(group.icon))) parameter(fields, "img-url", str(group.icon));
   if (group.type !== "select") {
     parameter(fields, "url", group.url || config.testUrl);
     parameter(fields, "interval", group.interval || config.testInterval);

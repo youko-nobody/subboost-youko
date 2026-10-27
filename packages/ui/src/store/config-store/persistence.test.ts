@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_NODE_NAME_FILTER_CONFIG } from "@subboost/core/subscription/node-name-filter";
+import { createDefaultLoonConfig, createYoukoLoonConfig } from "@subboost/core/loon";
 import { initialState } from "./definitions";
 import {
   CONFIG_DRAFT_STORAGE_VERSION,
@@ -7,6 +8,20 @@ import {
   partializeConfigState,
   prepareConfigDraftScope,
 } from "./persistence";
+
+function makeLegacyAutoAppliedYoukoLoonConfig() {
+  const config = createYoukoLoonConfig();
+  config.proxyGroups = config.proxyGroups.map((group) => {
+    const legacyGroup = { ...group };
+    delete legacyGroup.icon;
+    return legacyGroup;
+  });
+  config.remoteRules = config.remoteRules.filter((rule) => !rule.id.startsWith("LOON_"));
+  config.rules = config.rules.filter((rule) => !rule.id.startsWith("loon-rabbit_telegram_asn-"));
+  const microsoftRule = config.remoteRules.find((rule) => rule.id === "MICROSOFT_APPS_DOMAIN");
+  if (microsoftRule) microsoftRule.target = { kind: "direct" };
+  return config;
+}
 
 describe("config store persistence", () => {
   it("round-trips the normalized node-name filter without persisting node snapshots", () => {
@@ -120,6 +135,23 @@ describe("config store persistence", () => {
     expect(restored.loonConfig?.proxyGroups).toEqual(state.loonConfig.proxyGroups);
     expect(restored.loonConfig?.remoteRules).toEqual(state.loonConfig.remoteRules);
     expect(restored).not.toHaveProperty("template", "loon");
+  });
+
+  it("clears only the untouched Loon template that older builds injected automatically", () => {
+    const restored = normalizePersistedConfigState({
+      profileType: "loon",
+      loonConfig: makeLegacyAutoAppliedYoukoLoonConfig(),
+    });
+
+    expect(restored.loonConfig).toEqual(createDefaultLoonConfig());
+  });
+
+  it("preserves an edited Loon template during the legacy draft migration", () => {
+    const legacyConfig = makeLegacyAutoAppliedYoukoLoonConfig();
+    legacyConfig.proxyGroups[0].name = "My Proxy";
+    const restored = normalizePersistedConfigState({ profileType: "loon", loonConfig: legacyConfig });
+
+    expect(restored.loonConfig?.proxyGroups[0]?.name).toBe("My Proxy");
   });
 
   it("defaults missing or malformed node-name filter data without a storage-version bump", () => {

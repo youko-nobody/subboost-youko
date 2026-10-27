@@ -66,13 +66,87 @@ const REMOTE_RULE_COMPANIONS: Record<string, { suffix: string; url: string }> = 
   },
 };
 
+const LOON_EXTRA_REMOTE_RULES: LoonRemoteRule[] = [
+  {
+    id: "LOON_NETFLIX",
+    name: "Netflix",
+    url: `${LOON_RULE_BASE}/Netflix/Netflix.list`,
+    target: { kind: "group", id: "my-proxy" },
+    enabled: true,
+  },
+  {
+    id: "LOON_DISNEY",
+    name: "Disney",
+    url: `${LOON_RULE_BASE}/Disney/Disney.list`,
+    target: { kind: "group", id: "my-proxy" },
+    enabled: true,
+  },
+  {
+    id: "LOON_SPOTIFY",
+    name: "Spotify",
+    url: `${LOON_RULE_BASE}/Spotify/Spotify.list`,
+    target: { kind: "group", id: "my-proxy" },
+    enabled: true,
+  },
+  {
+    id: "LOON_GOOGLE",
+    name: "Google",
+    url: `${LOON_RULE_BASE}/Google/Google.list`,
+    target: { kind: "group", id: "my-proxy" },
+    enabled: true,
+  },
+  {
+    id: "LOON_GLOBAL_MEDIA",
+    name: "GlobalMedia",
+    url: `${LOON_RULE_BASE}/GlobalMedia/GlobalMedia.list`,
+    target: { kind: "group", id: "my-proxy" },
+    enabled: true,
+  },
+  {
+    id: "LOON_CHINA_MEDIA",
+    name: "ChinaMedia",
+    url: `${LOON_RULE_BASE}/ChinaMedia/ChinaMedia.list`,
+    target: { kind: "direct" },
+    enabled: true,
+  },
+];
+
+const LOON_REMOTE_RULE_INSERTS: Record<string, string[]> = {
+  APPLE_NEWS_DOMAIN: [
+    "LOON_NETFLIX",
+    "LOON_DISNEY",
+    "LOON_SPOTIFY",
+    "LOON_GOOGLE",
+    "LOON_GLOBAL_MEDIA",
+  ],
+  BM_BILIBILI: ["LOON_CHINA_MEDIA"],
+};
+
 type ExtraRuleSource = {
   sourceId: string;
   entries: string[];
+  target?: LoonRule["target"];
 };
 
-// These Clash payloads lack matching Loon lists, so their entries are embedded as native Loon rules.
+// Sources without a directly compatible Loon list are embedded as native Loon rules.
 const EXTRA_LOCAL_RULE_SOURCES: ExtraRuleSource[] = [
+  {
+    sourceId: "RABBIT_TELEGRAM_ASN",
+    target: { kind: "group", id: "my-tg" },
+    entries: [
+      "DOMAIN-SUFFIX,comments.app",
+      "DOMAIN-SUFFIX,telegra.ph",
+      "DOMAIN-SUFFIX,telesco.pe",
+      "IP-CIDR,109.239.140.0/24,no-resolve",
+      "IP-CIDR,5.28.192.0/18,no-resolve",
+      "IP-CIDR6,2a0a:f280::/32,no-resolve",
+      "IP-ASN,44907,no-resolve",
+      "IP-ASN,62014,no-resolve",
+      "IP-ASN,62041,no-resolve",
+      "IP-ASN,59930,no-resolve",
+      "IP-ASN,211157,no-resolve",
+    ],
+  },
   {
     sourceId: "CHINA_DNS_IP",
     entries: [
@@ -261,6 +335,7 @@ function mapGroup(group: CustomProxyGroup): LoonConfig["proxyGroups"][number] {
     name: group.name,
     type: mapGroupType(group),
     policies: members.map(mapMember),
+    ...(group.icon?.trim() ? { icon: group.icon.trim() } : {}),
     ...(group.enabled === false ? { enabled: false } : {}),
     ...(includeRegex ? { includeRegex } : {}),
     ...(advanced?.excludeRegex?.trim() ? { excludeRegex: advanced.excludeRegex.trim() } : {}),
@@ -280,7 +355,11 @@ function localRuleTarget(sourceId: string): LoonRule["target"] {
 
 function orderIndex(key: string): number {
   const index = MY_ROUTING_RULE_ORDER.indexOf(key);
-  return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+  if (index >= 0) return index;
+  if (key === "custom-rule-set:RABBIT_TELEGRAM_ASN") {
+    return orderIndex("custom-rule:my-routing-rule-25") - 0.5;
+  }
+  return Number.MAX_SAFE_INTEGER;
 }
 
 function mapCustomRule(rule: CustomRule): LoonRule | null {
@@ -296,7 +375,7 @@ function mapCustomRule(rule: CustomRule): LoonRule | null {
 }
 
 function mapExtraRules(source: ExtraRuleSource): LoonRule[] {
-  const target = localRuleTarget(source.sourceId);
+  const target = source.target ?? localRuleTarget(source.sourceId);
   return source.entries.map((entry, index) => {
     const [rawType, value, ...options] = entry.split(",");
     return {
@@ -318,7 +397,10 @@ function createLoonRuleOrder(): { remote: LoonRemoteRule[]; local: LoonRule[] } 
         id: ruleSet.id,
         name: ruleSet.name,
         url,
-        target: mapTarget(ruleSet.target),
+        // Match the selected Youko policy for Microsoft's Loon-compatible list.
+        target: ruleSet.id === "MICROSOFT_APPS_DOMAIN"
+          ? { kind: "group" as const, id: "my-proxy" }
+          : mapTarget(ruleSet.target),
         enabled: true,
       };
       const companion = REMOTE_RULE_COMPANIONS[ruleSet.id];
@@ -335,6 +417,15 @@ function createLoonRuleOrder(): { remote: LoonRemoteRule[]; local: LoonRule[] } 
       ];
     })
     .sort((a, b) => orderIndex(`custom-rule-set:${a.id}`) - orderIndex(`custom-rule-set:${b.id}`));
+
+  for (const [anchorId, insertedIds] of Object.entries(LOON_REMOTE_RULE_INSERTS)) {
+    const anchorIndex = remoteRules.findIndex((rule) => rule.id === anchorId);
+    const insertIndex = anchorIndex < 0 ? remoteRules.length : anchorIndex;
+    const insertedRules = insertedIds
+      .map((id) => LOON_EXTRA_REMOTE_RULES.find((rule) => rule.id === id))
+      .filter((rule): rule is LoonRemoteRule => Boolean(rule));
+    remoteRules.splice(insertIndex, 0, ...insertedRules);
+  }
 
   const local = [
     ...MY_ROUTING_CUSTOM_RULES.map(mapCustomRule).filter((rule): rule is LoonRule => Boolean(rule)),

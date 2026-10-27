@@ -24,6 +24,7 @@ export interface LoonProxyGroup {
   name: string;
   type: LoonProxyGroupType;
   policies: LoonPolicyRef[];
+  icon?: string;
   enabled?: boolean;
   includeRegex?: string;
   excludeRegex?: string;

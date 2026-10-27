@@ -12,6 +12,7 @@ describe("Youko Loon template", () => {
     expect(config.proxyGroups.find((group) => group.id === "my-proxy")).toMatchObject({
       includeRegex: ".*",
       policies: [{ kind: "group", id: "my-auto-speedtest" }, { kind: "direct" }],
+      icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Proxy.png",
     });
     expect(config.proxyGroups.find((group) => group.id === "my-block")).toMatchObject({
       type: "select",
@@ -33,6 +34,28 @@ describe("Youko Loon template", () => {
     expect(config.remoteRules.some((rule) => /rule\/Clash|\.ya?ml/i.test(rule.url))).toBe(false);
     expect(config.remoteRules.map((rule) => rule.id).indexOf("BM_TELEGRAM"))
       .toBeLessThan(config.remoteRules.map((rule) => rule.id).indexOf("BM_YOUTUBE"));
+
+    for (const [id, path] of [
+      ["LOON_NETFLIX", "/rule/Loon/Netflix/Netflix.list"],
+      ["LOON_DISNEY", "/rule/Loon/Disney/Disney.list"],
+      ["LOON_SPOTIFY", "/rule/Loon/Spotify/Spotify.list"],
+      ["LOON_GOOGLE", "/rule/Loon/Google/Google.list"],
+      ["LOON_GLOBAL_MEDIA", "/rule/Loon/GlobalMedia/GlobalMedia.list"],
+      ["LOON_CHINA_MEDIA", "/rule/Loon/ChinaMedia/ChinaMedia.list"],
+    ]) {
+      expect(config.remoteRules.find((rule) => rule.id === id)?.url).toContain(path);
+    }
+
+    expect(config.remoteRules.find((rule) => rule.id === "MICROSOFT_APPS_DOMAIN")?.target)
+      .toEqual({ kind: "group", id: "my-proxy" });
+    expect(config.remoteRules.filter((rule) => rule.url.endsWith("/Microsoft/Microsoft.list"))).toHaveLength(1);
+    expect(config.remoteRules.filter((rule) => rule.url.endsWith("/TikTok/TikTok.list"))).toHaveLength(1);
+    expect(config.remoteRules.filter((rule) => rule.url.endsWith("/Apple/Apple.list"))).toHaveLength(1);
+    expect(config.remoteRules.filter((rule) => rule.url.endsWith("/BiliBili/BiliBili.list"))).toHaveLength(1);
+    expect(config.remoteRules.map((rule) => rule.id).indexOf("LOON_NETFLIX"))
+      .toBeLessThan(config.remoteRules.map((rule) => rule.id).indexOf("APPLE_NEWS_DOMAIN"));
+    expect(config.remoteRules.map((rule) => rule.id).indexOf("LOON_CHINA_MEDIA"))
+      .toBeLessThan(config.remoteRules.map((rule) => rule.id).indexOf("BM_BILIBILI"));
   });
 
   it("converts unavailable Loon sources into ordered native local rules", () => {
@@ -40,6 +63,13 @@ describe("Youko Loon template", () => {
     const rules = config.rules;
 
     expect(rules.filter((rule) => rule.id.startsWith("loon-china_dns_ip-")).length).toBe(43);
+    const telegramAsnRules = rules.filter((rule) => rule.id.startsWith("loon-rabbit_telegram_asn-"));
+    expect(telegramAsnRules).toHaveLength(11);
+    expect(telegramAsnRules.every((rule) => typeof rule.target !== "string"
+      && rule.target.kind === "group"
+      && rule.target.id === "my-tg")).toBe(true);
+    expect(telegramAsnRules).toContainEqual(expect.objectContaining({ type: "IP-ASN", value: "44907", noResolve: true }));
+    expect(telegramAsnRules.some((rule) => (rule.type as string) === "PROCESS-NAME")).toBe(false);
     expect(rules).toContainEqual(expect.objectContaining({ type: "DOMAIN-WILDCARD", value: "pornhub.*" }));
     expect(rules).toContainEqual(expect.objectContaining({ type: "DOMAIN-SUFFIX", value: "kwai.net" }));
     expect(rules).toContainEqual(expect.objectContaining({ type: "GEOIP", value: "CN", target: { kind: "direct" } }));
@@ -50,6 +80,11 @@ describe("Youko Loon template", () => {
     expect(output).toContain("https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Loon/Telegram/Telegram.list,policy=TG,enabled=true");
     expect(output).toContain("https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Loon/Privacy/Privacy_Domain.list,policy=BLOCK,enabled=true");
     expect(output).toContain("https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Loon/Apple/Apple_Domain.list,policy=APPLE,enabled=true");
+    expect(output).toContain("img-url=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Proxy.png");
+    expect(output).toContain("https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Loon/Netflix/Netflix.list,policy=PROXY,enabled=true");
+    expect(output).toContain("https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Loon/ChinaMedia/ChinaMedia.list,policy=DIRECT,enabled=true");
+    expect(output).toContain("IP-ASN,44907,TG,no-resolve");
+    expect(output).not.toContain("PROCESS-NAME,");
     expect(output).toContain("DOMAIN-WILDCARD,pornhub.*,PROXY");
     expect(output).toContain("IP-CIDR,114.114.114.114/32,BLOCK,no-resolve");
     expect(output).toContain("FINAL,FINAL");

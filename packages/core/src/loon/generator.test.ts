@@ -53,17 +53,63 @@ describe("Loon profile generation", () => {
     expect(result.skippedNodes[0].type).toBe("tuic");
   });
 
+  it("preserves remote group icons and emits Loon img-url parameters", () => {
+    const config = normalizeLoonConfig({
+      proxyGroups: [{
+        id: "proxy",
+        name: "Proxy",
+        type: "select",
+        policies: [{ kind: "direct" }],
+        icon: " https://cdn.example/icons/proxy.png ",
+      }],
+    });
+    const result = generateLoonProfile({ nodes: [], config });
+
+    expect(config.proxyGroups[0].icon).toBe("https://cdn.example/icons/proxy.png");
+    expect(result.content).toContain("Proxy = select, DIRECT, img-url=https://cdn.example/icons/proxy.png");
+  });
+
+  it("omits invalid remote group icon URLs from generated Loon syntax", () => {
+    const result = generateLoonProfile({
+      nodes: [],
+      config: {
+        proxyGroups: [{ id: "proxy", name: "Proxy", type: "select", policies: [], icon: "javascript:alert(1)" }],
+      },
+    });
+
+    expect(result.content).toContain("Proxy = select");
+    expect(result.content).not.toContain("img-url=");
+  });
+
   it("emits proxy lines accepted by the existing Loon parser", () => {
     const result = generateLoonProfile({
       nodes: [
         { name: "SS", type: "ss", server: "ss.example.com", port: 443, cipher: "aes-128-gcm", password: "secret" },
         { name: "VMess", type: "vmess", server: "vmess.example.com", port: 443, uuid: "11111111-1111-4111-8111-111111111111", alterId: 0, cipher: "auto" },
         { name: "Trojan", type: "trojan", server: "trojan.example.com", port: 443, password: "secret", sni: "trojan.example.com" },
+        {
+          name: "VLESS Reality",
+          type: "vless",
+          server: "vless.example.com",
+          port: 443,
+          uuid: "22222222-2222-4222-8222-222222222222",
+          flow: "xtls-rprx-vision",
+          "reality-opts": { "public-key": "reality-public-key", "short-id": "3c8d6139a0270ffc" },
+          tls: true,
+          sni: "www.sony.com",
+        },
       ] as unknown as ParsedNode[],
       config: {},
     });
     const parsed = parsePlatformConfigContent(result.content);
-    expect(parsed.nodes.map((node) => node.type)).toEqual(["ss", "vmess", "trojan"]);
+    expect(result.content).toContain('VLESS Reality = vless, vless.example.com, 443, "22222222-2222-4222-8222-222222222222", transport=tcp, flow=xtls-rprx-vision, public-key="reality-public-key", short-id=3c8d6139a0270ffc, over-tls=true, sni=www.sony.com');
+    expect(parsed.nodes.map((node) => node.type)).toEqual(["ss", "vmess", "trojan", "vless"]);
+    expect(parsed.nodes[3]).toMatchObject({
+      name: "VLESS Reality",
+      flow: "xtls-rprx-vision",
+      servername: "www.sony.com",
+      "reality-opts": { "public-key": "reality-public-key", "short-id": "3c8d6139a0270ffc" },
+    });
     expect(parsed.errors).toEqual([]);
   });
 

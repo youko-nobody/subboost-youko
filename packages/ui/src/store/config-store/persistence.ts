@@ -7,7 +7,7 @@ import { normalizeProxyGroupTargetRef } from "@subboost/core/proxy-group-targets
 import { normalizeNodeNameFilterConfig } from "@subboost/core/subscription/node-name-filter";
 import { normalizeSubscriptionProfileType } from "@subboost/core/subscription/profile-type";
 import { normalizeSurgeConfig } from "@subboost/core/surge";
-import { normalizeLoonConfig } from "@subboost/core/loon";
+import { createDefaultLoonConfig, createYoukoLoonConfig, normalizeLoonConfig } from "@subboost/core/loon";
 import {
   DEFAULT_LOAD_BALANCE_STRATEGY,
   isLoadBalanceStrategy,
@@ -21,6 +21,15 @@ export {
 } from "./draft-storage";
 
 export const CONFIG_DRAFT_STORAGE_VERSION = 11;
+
+const LOON_TEMPLATE_RULE_IDS_ADDED_AFTER_AUTO_IMPORT = new Set([
+  "LOON_NETFLIX",
+  "LOON_DISNEY",
+  "LOON_SPOTIFY",
+  "LOON_GOOGLE",
+  "LOON_GLOBAL_MEDIA",
+  "LOON_CHINA_MEDIA",
+]);
 
 type ConfigDraftStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -101,12 +110,32 @@ function normalizeRuleTarget(value: unknown): ConfigState["fallbackPolicyTarget"
   return target ? target : undefined;
 }
 
+function isLegacyAutoAppliedYoukoLoonConfig(value: unknown): boolean {
+  const legacy = createYoukoLoonConfig();
+  legacy.proxyGroups = legacy.proxyGroups.map((group) => {
+    const legacyGroup = { ...group };
+    delete legacyGroup.icon;
+    return legacyGroup;
+  });
+  legacy.remoteRules = legacy.remoteRules.filter((rule) => !LOON_TEMPLATE_RULE_IDS_ADDED_AFTER_AUTO_IMPORT.has(rule.id));
+  legacy.rules = legacy.rules.filter((rule) => !rule.id.startsWith("loon-rabbit_telegram_asn-"));
+
+  const microsoftRule = legacy.remoteRules.find((rule) => rule.id === "MICROSOFT_APPS_DOMAIN");
+  if (microsoftRule) microsoftRule.target = { kind: "direct" };
+
+  return JSON.stringify(normalizeLoonConfig(value)) === JSON.stringify(normalizeLoonConfig(legacy));
+}
+
 export function normalizePersistedConfigState(
   persistedState: unknown,
   options: { discardDraft?: boolean } = {}
 ): Partial<ConfigState> {
   if (options.discardDraft) return {};
   const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ConfigState>;
+  const profileType = normalizeSubscriptionProfileType(state.profileType);
+  const loonConfig = profileType === "loon" && isLegacyAutoAppliedYoukoLoonConfig(state.loonConfig)
+    ? createDefaultLoonConfig()
+    : normalizeLoonConfig(state.loonConfig);
   const template = normalizeTemplateType(state.template);
   const ruleModel = normalizeRuleModelFromConfig(state);
   const customRules = Array.isArray(state.customRules)
@@ -150,7 +179,7 @@ export function normalizePersistedConfigState(
           : undefined;
 
   return {
-    profileType: normalizeSubscriptionProfileType(state.profileType),
+    profileType,
     ...(template ? { template } : {}),
     ...(Array.isArray(state.enabledProxyGroups)
       ? { enabledProxyGroups: state.enabledProxyGroups.filter((item): item is string => typeof item === "string") }
@@ -180,7 +209,7 @@ export function normalizePersistedConfigState(
     cnIpNoResolve: typeof state.cnIpNoResolve === "boolean" ? state.cnIpNoResolve : true,
     ...(experimentalCnUseCnRuleSet !== undefined ? { experimentalCnUseCnRuleSet } : {}),
     surgeConfig: normalizeSurgeConfig(state.surgeConfig),
-    loonConfig: normalizeLoonConfig(state.loonConfig),
+    loonConfig,
   } as Partial<ConfigState>;
 }
 

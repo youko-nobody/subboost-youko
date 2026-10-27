@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDefaultSurgeConfig, createYoukoSurgeConfig } from "@subboost/core/surge";
-import { createDefaultLoonConfig, createYoukoLoonConfig } from "@subboost/core/loon";
+import { createDefaultLoonConfig } from "@subboost/core/loon";
 import { createSettingsActions } from "./settings-actions";
 
 function createStore(initial: Record<string, unknown> = {}) {
@@ -94,14 +94,14 @@ describe("config store settings actions", () => {
     expect(store.state().surgeConfig).toEqual(edited);
   });
 
-  it("applies the native Youko Loon template when entering an untouched Loon profile", () => {
+  it("keeps an untouched Loon profile blank until a template is explicitly applied", () => {
     const store = createStore({ loonConfig: createDefaultLoonConfig() });
     const actions = createSettingsActions(store.set as any, store.get as any, store.setAndGenerateConfig as any);
 
     actions.setProfileType("loon");
 
     expect(store.state().profileType).toBe("loon");
-    expect(store.state().loonConfig).toEqual(createYoukoLoonConfig());
+    expect(store.state().loonConfig).toEqual(createDefaultLoonConfig());
   });
 
   it("does not overwrite a manually edited Loon profile", () => {

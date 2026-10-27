@@ -62,6 +62,7 @@ function normalizeProxyGroups(value: unknown): LoonProxyGroup[] {
       name,
       type,
       policies: normalizePolicyList(item.policies),
+      ...(text(item.icon) ? { icon: text(item.icon) } : {}),
       ...(item.enabled === false ? { enabled: false } : {}),
       ...(includeRegex ? { includeRegex } : {}),
       ...(excludeRegex ? { excludeRegex } : {}),
