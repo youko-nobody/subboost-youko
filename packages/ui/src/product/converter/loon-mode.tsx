@@ -15,7 +15,7 @@ import { InputSection } from "./advanced-mode/sections/input-section";
 import { NodeManagementSection } from "./advanced-mode/sections/node-management-section";
 import { SectionHeader } from "./advanced-mode/section-header";
 
-const RULE_TYPES: LoonRuleType[] = ["DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "DOMAIN-WILDCARD", "URL-REGEX", "USER-AGENT", "IP-CIDR", "IP-CIDR6", "IP-ASN", "GEOIP", "DEST-PORT", "SRC-PORT"];
+const RULE_TYPES: LoonRuleType[] = ["DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "URL-REGEX", "USER-AGENT", "IP-CIDR", "IP-CIDR6", "IP-ASN", "GEOIP", "DEST-PORT", "SRC-PORT"];
 type LoonSectionKey = "input" | "nodes" | "groups" | "rules" | "base";
 
 function newId(prefix: string): string {

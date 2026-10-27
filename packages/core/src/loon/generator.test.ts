@@ -38,6 +38,23 @@ describe("Loon profile generation", () => {
     expect(result.ruleCount).toBe(1);
   });
 
+  it("converts legacy domain wildcard rules to Loon URL-REGEX rules", () => {
+    const config = normalizeLoonConfig({
+      rules: [{ id: "legacy-wildcard", type: "DOMAIN-WILDCARD", value: "pornhub.*", target: "PROXY" }],
+    });
+    const result = generateLoonProfile({ nodes: [], config });
+
+    expect(config.rules).toEqual([{
+      id: "legacy-wildcard",
+      type: "URL-REGEX",
+      value: "^https?://([A-Za-z0-9-]+\\.)*pornhub\\.[A-Za-z0-9.-]*(:[0-9]+)?(/|$)",
+      target: "PROXY",
+    }]);
+    expect(result.content).toContain("URL-REGEX,^https?://([A-Za-z0-9-]+\\.)*pornhub\\.[A-Za-z0-9.-]*(:[0-9]+)?(/|$),PROXY");
+    expect(result.content).not.toContain("DOMAIN-WILDCARD");
+    expect(parsePlatformConfigContent(result.content).errors).toEqual([]);
+  });
+
   it("resolves regex-selected nodes and reports unsupported protocols", () => {
     const result = generateLoonProfile({
       nodes: [

@@ -3,7 +3,6 @@ export type LoonRuleType =
   | "DOMAIN"
   | "DOMAIN-SUFFIX"
   | "DOMAIN-KEYWORD"
-  | "DOMAIN-WILDCARD"
   | "IP-CIDR"
   | "IP-CIDR6"
   | "IP-ASN"

@@ -12,7 +12,7 @@ import type {
   ProxyGroupMemberRef,
   ProxyGroupRuleTarget,
 } from "../types/config";
-import { createDefaultLoonConfig } from "./defaults";
+import { createDefaultLoonConfig, normalizeLoonConfig } from "./defaults";
 import type { LoonConfig, LoonPolicyRef, LoonRemoteRule, LoonRule, LoonRuleType } from "./types";
 
 const LOON_RULE_BASE =
@@ -445,14 +445,13 @@ function createLoonRuleOrder(): { remote: LoonRemoteRule[]; local: LoonRule[] } 
 
 export function createYoukoLoonConfig(): LoonConfig {
   const { remote, local } = createLoonRuleOrder();
-  return {
+  return normalizeLoonConfig({
     ...createDefaultLoonConfig(),
-    generalText: ["loglevel = notify", "ipv6 = false"].join("\n"),
     proxyGroups: MY_ROUTING_CUSTOM_PROXY_GROUPS.map(mapGroup),
     remoteRules: remote,
     rules: local,
     finalTarget: mapTarget(MY_ROUTING_FALLBACK_POLICY_TARGET),
     testUrl: "http://www.google.com/blank.html",
     testInterval: 300,
-  };
+  });
 }

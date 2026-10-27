@@ -7,8 +7,27 @@ import type {
 } from "./types";
 
 export const DEFAULT_LOON_GENERAL_TEXT = [
-  "loglevel = notify",
-  "ipv6 = false",
+  "ip-mode = v4-only",
+  "ipv6-vif = off",
+  "dns-server = system",
+  "sni-sniffing = true",
+  "disable-stun = true",
+  "dns-reject-mode = LoopbackIP",
+  "domain-reject-mode = DNS",
+  "udp-fallback-mode = REJECT",
+  "wifi-access-http-port = 7222",
+  "wifi-access-socks5-port = 7221",
+  "allow-wifi-access = false",
+  "interface-mode = auto",
+  "test-timeout = 5",
+  "disconnect-on-policy-change = false",
+  "internet-test-url = http://connectivitycheck.platform.hicloud.com/generate_204",
+  "proxy-test-url = http://www.gstatic.com/generate_204",
+  "resource-parser = https://raw.githubusercontent.com/sub-store-org/Sub-Store/release/sub-store-parser.loon.min.js",
+  "geoip-url = https://geodata.kelee.one/Country-Masaiki.mmdb",
+  "ipasn-url = https://geodata.kelee.one/GeoLite2-ASN-P3TERX.mmdb",
+  "skip-proxy = 192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,localhost,*.local,e.crashlynatics.com",
+  "bypass-tun = 10.0.0.0/8,100.64.0.0/10,127.0.0.0/8,169.254.0.0/16,172.16.0.0/12,192.0.0.0/24,192.0.2.0/24,192.88.99.0/24,192.168.0.0/16,198.51.100.0/24,203.0.113.0/24,224.0.0.0/4,255.255.255.255/32",
 ].join("\n");
 
 const DEFAULT_FINAL_TARGET: LoonPolicyRef = { kind: "direct" };
@@ -99,9 +118,16 @@ function normalizeRemoteRules(value: unknown): LoonRemoteRule[] {
 }
 
 const RULE_TYPES = new Set([
-  "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "DOMAIN-WILDCARD", "IP-CIDR", "IP-CIDR6",
+  "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6",
   "IP-ASN", "GEOIP", "URL-REGEX", "USER-AGENT", "DEST-PORT", "SRC-PORT",
 ]);
+
+function domainWildcardToUrlRegex(value: string): string {
+  const pattern = value
+    .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*/g, "[A-Za-z0-9.-]*");
+  return `^https?://([A-Za-z0-9-]+\\.)*${pattern}(:[0-9]+)?(/|$)`;
+}
 
 function normalizeRules(value: unknown): LoonRule[] {
   if (!Array.isArray(value)) return [];
@@ -109,13 +135,16 @@ function normalizeRules(value: unknown): LoonRule[] {
   for (const item of value) {
     if (!isRecord(item)) continue;
     const id = text(item.id);
-    const type = text(item.type);
+    const rawType = text(item.type);
+    const isLegacyDomainWildcard = rawType === "DOMAIN-WILDCARD";
+    const type = isLegacyDomainWildcard ? "URL-REGEX" : rawType;
+    const ruleValue = text(item.value);
     const target = normalizePolicy(item.target);
-    if (!id || !RULE_TYPES.has(type) || !target) continue;
+    if (!id || !RULE_TYPES.has(type) || !target || (isLegacyDomainWildcard && !ruleValue)) continue;
     out.push({
       id,
       type: type as LoonRule["type"],
-      value: text(item.value),
+      value: isLegacyDomainWildcard ? domainWildcardToUrlRegex(ruleValue) : ruleValue,
       target,
       ...(item.noResolve === true ? { noResolve: true } : {}),
       ...(item.enabled === false ? { enabled: false } : {}),
