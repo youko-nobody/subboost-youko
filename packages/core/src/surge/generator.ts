@@ -218,7 +218,7 @@ function serializeVless(name: string, record: NodeRecord): string | null {
   const encryption = stringValue(record.encryption);
   const grpc = isRecord(record["grpc-opts"]) ? record["grpc-opts"] : {};
 
-  if (encryption) return null;
+  if (encryption && encryption.toLowerCase() !== "none") return null;
   if (!["tcp", "ws", "grpc"].includes(network)) return null;
   if (flow && !["xtls-rprx-vision", "xtls-rprx-vision-udp443"].includes(flow)) return null;
   if (network === "ws" && realityPublicKey) return null;
@@ -477,7 +477,10 @@ function getNodeSkipReason(node: ParsedNode): string {
     const network = stringValue(record.network).toLowerCase() || "tcp";
     const reality = isRecord(record["reality-opts"]) ? record["reality-opts"] : {};
     const realityPublicKey = stringValue(reality["public-key"]);
-    if (stringValue(record.encryption)) return "Surge 不支持 VLESS Encryption";
+    const encryption = stringValue(record.encryption);
+    if (encryption && encryption.toLowerCase() !== "none") {
+      return "Surge 不支持 VLESS Encryption";
+    }
     if (!["tcp", "ws", "grpc"].includes(network)) {
       return `Surge VLESS 不支持 ${network} 传输层`;
     }

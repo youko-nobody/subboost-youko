@@ -6,6 +6,7 @@ import {
   normalizeSurgeConfig,
 } from "@subboost/core/surge";
 import { parseSS } from "@subboost/core/parser/protocols/ss";
+import { parseVLESS } from "@subboost/core/parser/protocols/vless";
 import type { ParsedNode } from "@subboost/core/types/node";
 
 const ssNode: ParsedNode = {
@@ -243,6 +244,22 @@ describe("generateSurgeProfile", () => {
     );
     expect(output.content).not.toContain("udp-relay=true");
     expect(output.skippedNodes).toEqual([]);
+  });
+
+  it("accepts encryption=none on VLESS REALITY share links", () => {
+    const node = parseVLESS(
+      "vless://11111111-1111-4111-8111-111111111111@reality.example.test:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=front.example.test&fp=safari&pbk=ZmFrZS1wdWJsaWMta2V5&sid=01234567&type=tcp#Reality",
+    );
+    const output = generateSurgeProfile({
+      nodes: [node],
+      config: createDefaultSurgeConfig(),
+    });
+
+    expect(output.proxyCount).toBe(1);
+    expect(output.skippedNodes).toEqual([]);
+    expect(output.content).toContain(
+      "Reality = vless, reality.example.test, 443, username=11111111-1111-4111-8111-111111111111, flow=xtls-rprx-vision, reality-public-key=ZmFrZS1wdWJsaWMta2V5, reality-short-id=01234567, sni=front.example.test",
+    );
   });
 
   it("generates supported VLESS WebSocket and gRPC transports", () => {
