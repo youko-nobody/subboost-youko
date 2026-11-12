@@ -201,6 +201,90 @@ describe("generateSurgeProfile", () => {
     expect(supportedProxyLine).toContain("udp-relay=true");
   });
 
+  it("generates VLESS RAW TLS Vision and REALITY using Surge syntax", () => {
+    const output = generateSurgeProfile({
+      nodes: [
+        {
+          name: "VLESS TLS Vision",
+          type: "vless",
+          server: "tls.example.com",
+          port: 443,
+          uuid: "11111111-1111-4111-8111-111111111111",
+          network: "tcp",
+          tls: true,
+          flow: "xtls-rprx-vision",
+          servername: "www.example.com",
+          udp: true,
+        } as ParsedNode,
+        {
+          name: "VLESS Reality",
+          type: "vless",
+          server: "reality.example.com",
+          port: 443,
+          uuid: "22222222-2222-4222-8222-222222222222",
+          network: "tcp",
+          tls: true,
+          flow: "xtls-rprx-vision",
+          servername: "www.example.com",
+          "reality-opts": {
+            "public-key": "realityPublicKey",
+            "short-id": "0123456789abcdef",
+          },
+        } as ParsedNode,
+      ],
+      config: createDefaultSurgeConfig(),
+    });
+
+    expect(output.content).toContain(
+      "VLESS TLS Vision = vless, tls.example.com, 443, username=11111111-1111-4111-8111-111111111111, flow=xtls-rprx-vision, tls=true, sni=www.example.com",
+    );
+    expect(output.content).toContain(
+      "VLESS Reality = vless, reality.example.com, 443, username=22222222-2222-4222-8222-222222222222, flow=xtls-rprx-vision, reality-public-key=realityPublicKey, reality-short-id=0123456789abcdef, sni=www.example.com",
+    );
+    expect(output.content).not.toContain("udp-relay=true");
+    expect(output.skippedNodes).toEqual([]);
+  });
+
+  it("generates supported VLESS WebSocket and gRPC transports", () => {
+    const output = generateSurgeProfile({
+      nodes: [
+        {
+          name: "VLESS WS",
+          type: "vless",
+          server: "ws.example.com",
+          port: 443,
+          uuid: "11111111-1111-4111-8111-111111111111",
+          network: "ws",
+          tls: true,
+          servername: "cdn.example.com",
+          "ws-opts": { path: "/vless", headers: { Host: "cdn.example.com" } },
+        } as ParsedNode,
+        {
+          name: "VLESS gRPC",
+          type: "vless",
+          server: "grpc.example.com",
+          port: 443,
+          uuid: "22222222-2222-4222-8222-222222222222",
+          network: "grpc",
+          tls: true,
+          "grpc-opts": {
+            "grpc-service-name": "mygrpc",
+            _grpcAuthority: "authority.example.com",
+          },
+        } as ParsedNode,
+      ],
+      config: createDefaultSurgeConfig(),
+    });
+
+    expect(output.content).toContain(
+      "VLESS WS = vless, ws.example.com, 443, username=11111111-1111-4111-8111-111111111111, ws=true, ws-path=/vless, ws-headers=Host:cdn.example.com, tls=true, sni=cdn.example.com",
+    );
+    expect(output.content).toContain(
+      "VLESS gRPC = vless, grpc.example.com, 443, username=22222222-2222-4222-8222-222222222222, grpc=true, grpc-service-name=mygrpc, grpc-authority=authority.example.com, tls=true",
+    );
+    expect(output.skippedNodes).toEqual([]);
+  });
+
   it("filters non-node members from smart manual groups", () => {
     const output = generateSurgeProfile({
       nodes: [ssNode],
@@ -693,16 +777,25 @@ describe("generateSurgeProfile", () => {
     expect(embyDirectRuleIndex).toBeLessThan(localRuleIndex);
   });
 
-  it("skips unsupported protocols instead of emitting invalid Surge proxy lines", () => {
+  it("skips unsupported VLESS transports and encryption with clear reasons", () => {
     const output = generateSurgeProfile({
       nodes: [
         ssNode,
         {
-          name: "VLESS",
+          name: "VLESS XHTTP",
           type: "vless",
           server: "vless.example.com",
           port: 443,
           uuid: "11111111-1111-4111-8111-111111111111",
+          network: "xhttp",
+        } as ParsedNode,
+        {
+          name: "VLESS Encryption",
+          type: "vless",
+          server: "encrypted.example.com",
+          port: 443,
+          uuid: "22222222-2222-4222-8222-222222222222",
+          encryption: "mlkem768x25519plus.native.1rtt.valid_token",
         } as ParsedNode,
       ],
       config: createDefaultSurgeConfig(),
@@ -710,8 +803,17 @@ describe("generateSurgeProfile", () => {
 
     expect(output.proxyCount).toBe(1);
     expect(output.skippedNodes).toEqual([
-      expect.objectContaining({ name: "VLESS", type: "vless" }),
+      expect.objectContaining({
+        name: "VLESS XHTTP",
+        type: "vless",
+        reason: "Surge VLESS 不支持 xhttp 传输层",
+      }),
+      expect.objectContaining({
+        name: "VLESS Encryption",
+        type: "vless",
+        reason: "Surge 不支持 VLESS Encryption",
+      }),
     ]);
-    expect(output.content).toContain("SubBoost 已跳过 1 个");
+    expect(output.content).toContain("SubBoost 已跳过 2 个");
   });
 });

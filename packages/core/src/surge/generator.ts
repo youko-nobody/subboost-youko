@@ -24,6 +24,7 @@ export interface GenerateSurgeOptions {
 const SUPPORTED_PROXY_TYPES = new Set([
   "ss",
   "vmess",
+  "vless",
   "trojan",
   "http",
   "https",
@@ -204,6 +205,60 @@ function serializeVmess(name: string, record: NodeRecord): string | null {
   return parts.join(", ");
 }
 
+function serializeVless(name: string, record: NodeRecord): string | null {
+  const parts = baseProxyParts(name, "vless", record);
+  const uuid = stringValue(record.uuid);
+  if (!parts || !uuid) return null;
+
+  const network = stringValue(record.network).toLowerCase() || "tcp";
+  const reality = isRecord(record["reality-opts"]) ? record["reality-opts"] : {};
+  const realityPublicKey = stringValue(reality["public-key"]);
+  const realityShortId = stringValue(reality["short-id"]);
+  const flow = stringValue(record.flow);
+  const encryption = stringValue(record.encryption);
+  const grpc = isRecord(record["grpc-opts"]) ? record["grpc-opts"] : {};
+
+  if (encryption) return null;
+  if (!["tcp", "ws", "grpc"].includes(network)) return null;
+  if (flow && !["xtls-rprx-vision", "xtls-rprx-vision-udp443"].includes(flow)) return null;
+  if (network === "ws" && realityPublicKey) return null;
+  if (Object.keys(reality).length > 0 && !realityPublicKey) return null;
+  if (realityShortId && !realityPublicKey) return null;
+  if (flow && (network !== "tcp" || (!record.tls && !realityPublicKey))) return null;
+  if (network === "grpc" && !record.tls && !realityPublicKey) return null;
+
+  appendParam(parts, "username", uuid);
+  appendParam(parts, "flow", flow);
+  if (realityPublicKey) appendParam(parts, "reality-public-key", realityPublicKey);
+  if (realityPublicKey && realityShortId) {
+    appendParam(parts, "reality-short-id", realityShortId);
+  }
+
+  if (network === "ws") {
+    buildWsParams(record, parts);
+  } else if (network === "grpc") {
+    parts.push("grpc=true");
+    appendParam(parts, "grpc-service-name", stringValue(grpc["grpc-service-name"]));
+    appendParam(parts, "grpc-authority", stringValue(grpc._grpcAuthority));
+    const mode = stringValue(grpc._grpcType);
+    if (mode && mode !== "gun") appendParam(parts, "grpc-mode", mode);
+  }
+
+  if (record.tls === true && !realityPublicKey) appendParam(parts, "tls", true);
+  appendParam(parts, "sni", stringValue(record.sni) || stringValue(record.servername));
+  if (!realityPublicKey) {
+    appendParam(parts, "server-cert-fingerprint-sha256", stringValue(record.fingerprint));
+    const skipCertVerify = booleanValue(record["skip-cert-verify"]);
+    if (skipCertVerify !== undefined) appendParam(parts, "skip-cert-verify", skipCertVerify);
+  }
+  const tfo = booleanValue(record.tfo);
+  if (tfo !== undefined) appendParam(parts, "tfo", tfo);
+
+  const alpn = stringList(record.alpn);
+  if (alpn.length > 0) appendParam(parts, "alpn", alpn.join(","));
+  return parts.join(", ");
+}
+
 function serializeTrojan(name: string, record: NodeRecord): string | null {
   const parts = baseProxyParts(name, "trojan", record);
   const password = stringValue(record.password);
@@ -381,6 +436,8 @@ function serializeProxyNode(
       return serializeSs(name, record);
     case "vmess":
       return serializeVmess(name, record);
+    case "vless":
+      return serializeVless(name, record);
     case "trojan":
       return serializeTrojan(name, record);
     case "http":
@@ -416,6 +473,33 @@ function getNodeType(node: ParsedNode): string {
 
 function getNodeSkipReason(node: ParsedNode): string {
   const record = node as unknown as NodeRecord;
+  if (getNodeType(node).toLowerCase() === "vless") {
+    const network = stringValue(record.network).toLowerCase() || "tcp";
+    const reality = isRecord(record["reality-opts"]) ? record["reality-opts"] : {};
+    const realityPublicKey = stringValue(reality["public-key"]);
+    if (stringValue(record.encryption)) return "Surge 不支持 VLESS Encryption";
+    if (!["tcp", "ws", "grpc"].includes(network)) {
+      return `Surge VLESS 不支持 ${network} 传输层`;
+    }
+    if (stringValue(record.flow) && !["xtls-rprx-vision", "xtls-rprx-vision-udp443"].includes(stringValue(record.flow))) {
+      return `Surge VLESS 不支持 flow=${stringValue(record.flow)}`;
+    }
+    if (network === "ws" && realityPublicKey) {
+      return "Surge VLESS WebSocket 不支持与 REALITY 组合";
+    }
+    if (Object.keys(reality).length > 0 && !realityPublicKey) {
+      return "Surge VLESS REALITY 缺少 reality-public-key";
+    }
+    if (stringValue(reality["short-id"]) && !realityPublicKey) {
+      return "Surge VLESS REALITY short-id 需要 reality-public-key";
+    }
+    if (stringValue(record.flow) && (network !== "tcp" || (!record.tls && !realityPublicKey))) {
+      return "Surge VLESS Vision 仅支持 TLS/REALITY 下的 RAW (TCP) 传输";
+    }
+    if (network === "grpc" && !record.tls && !realityPublicKey) {
+      return "Surge VLESS gRPC 需要 TLS 或 REALITY";
+    }
+  }
   if (
     getNodeType(node).toLowerCase() === "vmess" &&
     stringValue(record.cipher).toLowerCase() === "none"
