@@ -95,7 +95,7 @@ describe("parseVLESS", () => {
     });
   });
 
-  it("parses Shadowrocket-style encoded authority and Reality defaults", () => {
+  it("parses Shadowrocket-style encoded authority and TLS defaults", () => {
     const encoded = Buffer.from(`prefix:${UUID}@shadowrocket.example.com:443`).toString("base64url");
     const node = parseVLESS(
       `vless://${encoded}?obfs=websocket&tls=1&xtls=2&obfsParam=cdn.example.com&path=/ws%3Fed%3D512#Shadowrocket`
@@ -108,7 +108,6 @@ describe("parseVLESS", () => {
       uuid: UUID,
       tls: true,
       flow: "xtls-rprx-vision",
-      "client-fingerprint": "chrome",
       network: "ws",
       "ws-opts": {
         path: "/ws",
@@ -117,6 +116,7 @@ describe("parseVLESS", () => {
         "max-early-data": 512,
       },
     });
+    expect(node["reality-opts"]).toBeUndefined();
 
     const encodedWithoutPrefix = Buffer.from(`${UUID}@shadow-simple.example.com:443`).toString("base64url");
     expect(parseVLESS(`vless://${encodedWithoutPrefix}?obfs=websocket&tls=1&xtls=1&tls-verification=false&remark=SimpleSR`)).toMatchObject({

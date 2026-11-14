@@ -794,17 +794,17 @@ describe("generateSurgeProfile", () => {
     expect(embyDirectRuleIndex).toBeLessThan(localRuleIndex);
   });
 
-  it("skips unsupported VLESS transports and encryption with clear reasons", () => {
+  it("skips unsupported VLESS transports and malformed encryption with clear reasons", () => {
     const output = generateSurgeProfile({
       nodes: [
         ssNode,
         {
-          name: "VLESS XHTTP",
+          name: "VLESS H2",
           type: "vless",
           server: "vless.example.com",
           port: 443,
           uuid: "11111111-1111-4111-8111-111111111111",
-          network: "xhttp",
+          network: "h2",
         } as ParsedNode,
         {
           name: "VLESS Encryption",
@@ -812,7 +812,7 @@ describe("generateSurgeProfile", () => {
           server: "encrypted.example.com",
           port: 443,
           uuid: "22222222-2222-4222-8222-222222222222",
-          encryption: "mlkem768x25519plus.native.1rtt.valid_token",
+          encryption: "unsupported.native.1rtt.valid_token",
         } as ParsedNode,
       ],
       config: createDefaultSurgeConfig(),
@@ -821,14 +821,14 @@ describe("generateSurgeProfile", () => {
     expect(output.proxyCount).toBe(1);
     expect(output.skippedNodes).toEqual([
       expect.objectContaining({
-        name: "VLESS XHTTP",
+        name: "VLESS H2",
         type: "vless",
-        reason: "Surge VLESS 不支持 xhttp 传输层",
+        reason: "Surge VLESS 不支持 h2 传输层",
       }),
       expect.objectContaining({
         name: "VLESS Encryption",
         type: "vless",
-        reason: "Surge 不支持 VLESS Encryption",
+        reason: expect.stringContaining("VLESS Encryption 参数格式无效"),
       }),
     ]);
     expect(output.content).toContain("SubBoost 已跳过 2 个");

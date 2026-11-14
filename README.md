@@ -39,6 +39,7 @@
 - **Surge 远程规则集**：支持 `RULE-SET` 与 `DOMAIN-SET`，可自定义目标策略、直连、拒绝、`no-resolve` 和资源顺序。
 - **Rabbit-Spec 规则补充**：Surge 模板补充 Apple、Microsoft、Netflix、Disney、Spotify、Google、Facebook、Instagram、Meta 等规则，按模块插入到旧规则前面。
 - **Surge 策略组编辑**：支持手动策略组、地区策略组、`smart` 策略、地区策略组新增/删除、策略组与节点顺序调整。
+- **新版 VLESS 支持**：按 [Surge 官方手册](https://manual.nssurge.com/policies/vless.html) 支持 RAW、WebSocket、gRPC、XHTTP、REALITY 与 VLESS Encryption；支持分享链接 `extra` 中的 XHTTP 参数，以及启用 Encryption 后的 WebSocket/XHTTP + Vision。需要 Surge iOS 6.0.0+ / Mac 6.12.0+；HTTPUpgrade、mKCP、gRPC + Vision 和 XHTTP `downloadSettings` 会提示不兼容。
 - **Surge 规则顺序编辑**：规则顺序支持拖拽和手动输入数字排序，新建远程规则集和本地规则默认放在最前面。
 - **MANAGED-CONFIG 可配置**：Surge 托管配置头和更新间隔 `interval` 可以在页面里自定义。
 

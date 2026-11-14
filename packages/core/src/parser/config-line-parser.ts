@@ -12,6 +12,7 @@ import type {
   VMessNode,
 } from "@subboost/core/types/node";
 import { canonicalizeParsedNode } from "./canonical-fields";
+import { buildVlessXhttpOpts } from "./protocols/vless";
 
 import {
   applyCommonNodeParams,
@@ -193,6 +194,7 @@ function buildVlessNode(
 ): ParsedNode {
   const uuid = params.username || params.uuid || extras[0] || "";
   if (!uuid) throw new Error("vless 配置行缺少 uuid");
+  const publicKey = params["reality-public-key"] || params.pbk || params["public-key"] || params["public_key"] || params.publickey;
 
   const node: VLESSNode = {
     name,
@@ -201,10 +203,7 @@ function buildVlessNode(
     port,
     uuid,
     udp: parseBooleanish(params["udp-relay"]) ?? true,
-    tls:
-      parseBooleanish(params.tls) === true ||
-      parseBooleanish(params["over-tls"]) === true ||
-      Boolean(params.pbk || params["public-key"] || params.publickey || params["tls-name"] || params.sni),
+    tls: Boolean(publicKey) || (parseBooleanish(params.tls) ?? parseBooleanish(params["over-tls"]) ?? Boolean(params["tls-name"])),
     servername: params.sni || params.peer || params["tls-name"],
     "skip-cert-verify": inferSkipCertVerify(params),
   };
@@ -214,8 +213,7 @@ function buildVlessNode(
   if (packetEncoding) node["packet-encoding"] = packetEncoding;
   const clientFingerprint = params.fp || params.fingerprint || params["client-fingerprint"] || params.clientfingerprint;
   if (clientFingerprint) node["client-fingerprint"] = clientFingerprint;
-  const publicKey = params.pbk || params["public-key"] || params["public_key"] || params.publickey;
-  const shortId = params.sid || params["short-id"] || params.shortid || params["short_id"];
+  const shortId = params["reality-short-id"] || params.sid || params["short-id"] || params.shortid || params["short_id"];
   if (publicKey) {
     node["reality-opts"] = {
       "public-key": publicKey,
@@ -223,11 +221,33 @@ function buildVlessNode(
     };
     node["client-fingerprint"] = (clientFingerprint || "chrome") as string;
   }
-  applyTransport(node as unknown as Record<string, unknown>, params, {
+  const transports = ["ws", "grpc", "xhttp"].filter((key) => parseBooleanish(params[key]) === true);
+  if (transports.length > 1) throw new Error("VLESS 配置行不能同时启用 ws/grpc/xhttp");
+  const transport = (params.transport || params.network || params.type || transports[0] || "tcp").toLowerCase();
+  const transportParams = {
+    ...params,
+    transport: transport === "raw" ? "tcp" : transport === "splithttp" ? "xhttp" : transport,
+    mode: params["grpc-mode"] || params.mode,
+    authority: params["grpc-authority"] || params.authority,
+  };
+  applyTransport(node as unknown as Record<string, unknown>, transportParams, {
     defaultTransport: parseBooleanish(params.ws) ? "ws" : undefined,
     allowedTransports: ["tcp", "ws", "httpupgrade", "grpc", "http", "h2", "xhttp"],
     protocolName: "vless",
   });
+  if (node.network === "xhttp") {
+    node["xhttp-opts"] = buildVlessXhttpOpts(new URLSearchParams(params), params["transport-path"] || params["ws-path"] || "/", params["transport-host"] || params["ws-host"] || "");
+    if (node["xhttp-opts"]._extra) {
+      node._vlessXhttpExtra = node["xhttp-opts"]._extra;
+      delete node["xhttp-opts"]._extra;
+    }
+  }
+  if (node.network === "grpc" && params["grpc-service-name"]?.startsWith("/")) {
+    node._surgeGrpcServicePath = params["grpc-service-name"];
+  }
+  if (params["server-cert-fingerprint-sha256"]) node.pcs = params["server-cert-fingerprint-sha256"];
+  if (params["server-cert-verify-name"]) node._serverCertVerifyName = params["server-cert-verify-name"];
+  if (params.alpn) node.alpn = parseStringList(params.alpn);
   applyCommonNodeParams(node as unknown as Record<string, unknown>, params);
   return node;
 }

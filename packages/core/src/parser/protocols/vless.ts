@@ -62,33 +62,68 @@ function parseHeaderMap(raw: string): Record<string, string> | undefined {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-function buildXhttpOptsFromQuery(params: URLSearchParams, fallbackPath: string, fallbackHost: string): XHttpOpts {
-  const path = pickQueryValue(params, ["xhttp-path", "xhttp_path", "xhttpPath", "path"]) || fallbackPath || "/";
-  const host = pickQueryValue(params, ["xhttp-host", "xhttp_host", "xhttpHost", "host"]) || fallbackHost;
-  const mode = pickQueryValue(params, ["xhttp-mode", "xhttp_mode", "xhttpMode", "mode"]);
+export function buildVlessXhttpOpts(params: URLSearchParams, fallbackPath = "/", fallbackHost = ""): XHttpOpts {
+  const rawExtra = params.get("extra");
+  const extra = rawExtra ? parseJsonObject(rawExtra) : {};
+  if (!extra) throw new Error("VLESS XHTTP extra 必须是 JSON 对象");
+  // Preserve Xray-only settings as metadata; each client generator decides what it supports.
+  const extraAliases: Array<[string, string]> = [
+    ["xPaddingObfsMode", "xhttp-padding-obfs"],
+    ["xPaddingKey", "xhttp-padding-key"],
+    ["xPaddingHeader", "xhttp-padding-header"],
+    ["xPaddingPlacement", "xhttp-padding-placement"],
+    ["xPaddingMethod", "xhttp-padding-method"],
+    ["uplinkHTTPMethod", "xhttp-uplink-method"],
+    ["sessionIDPlacement", "xhttp-session-placement"],
+    ["sessionIDKey", "xhttp-session-key"],
+    ["sessionIDTable", "xhttp-session-table"],
+    ["sessionIDLength", "xhttp-session-length"],
+    ["seqPlacement", "xhttp-seq-placement"],
+    ["seqKey", "xhttp-seq-key"],
+    ["uplinkDataPlacement", "xhttp-uplink-data-placement"],
+    ["uplinkDataKey", "xhttp-uplink-data-key"],
+    ["uplinkChunkSize", "xhttp-uplink-chunk-size"],
+    ["scMinPostsIntervalMs", "xhttp-min-posts-interval"],
+  ];
+  for (const [key, alias] of extraAliases) {
+    const value = pickQueryValue(params, [alias, key]);
+    if (value) extra[key] = key === "xPaddingObfsMode" ? (parseBoolish(value) ?? value) : value;
+  }
+  const extraScalar = (key: string): string => {
+    const value = extra[key];
+    return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : "";
+  };
+  const path = pickQueryValue(params, ["xhttp-path", "xhttp_path", "xhttpPath", "path"]) || extraScalar("path") || fallbackPath || "/";
+  const host = pickQueryValue(params, ["xhttp-host", "xhttp_host", "xhttpHost", "host"]) || extraScalar("host") || fallbackHost;
+  const mode = pickQueryValue(params, ["xhttp-mode", "xhttp_mode", "xhttpMode", "mode"]) || extraScalar("mode");
   const headers = parseHeaderMap(
-    pickQueryValue(params, ["xhttp-headers", "xhttp_headers", "xhttpHeaders", "headers"])
+    pickQueryValue(params, ["xhttp-headers", "xhttp_headers", "xhttpHeaders", "headers"]) ||
+    (extra.headers ? JSON.stringify(extra.headers) : "")
   );
   const noGrpcHeader = parseBoolish(
-    pickQueryValue(params, ["no-grpc-header", "no_grpc_header", "noGrpcHeader"])
+    pickQueryValue(params, ["xhttp-no-grpc-header", "no-grpc-header", "no_grpc_header", "noGrpcHeader"]) || extraScalar("noGRPCHeader")
   );
-  const xPaddingBytes = pickQueryValue(params, ["x-padding-bytes", "x_padding_bytes", "xPaddingBytes"]);
+  const xPaddingBytes = pickQueryValue(params, ["xhttp-padding-bytes", "x-padding-bytes", "x_padding_bytes", "xPaddingBytes"]) || extraScalar("xPaddingBytes");
   const scMaxEachPostBytesRaw = pickQueryValue(
     params,
-    ["sc-max-each-post-bytes", "sc_max_each_post_bytes", "scMaxEachPostBytes"]
-  );
-  const scMaxEachPostBytes = scMaxEachPostBytesRaw ? Number.parseInt(scMaxEachPostBytesRaw, 10) : undefined;
+    ["xhttp-max-each-post-bytes", "sc-max-each-post-bytes", "sc_max_each_post_bytes", "scMaxEachPostBytes"]
+  ) || extraScalar("scMaxEachPostBytes");
+  const scMaxEachPostBytes = /^\d+$/.test(scMaxEachPostBytesRaw) ? Number(scMaxEachPostBytesRaw) : undefined;
+  if (scMaxEachPostBytesRaw && /^\d+-\d+$/.test(scMaxEachPostBytesRaw)) extra.scMaxEachPostBytes = scMaxEachPostBytesRaw;
 
   const reuseSettings: XHttpReuseSettings = {};
   const reuseSettingKeys: Array<[keyof XHttpReuseSettings, string[]]> = [
-    ["max-concurrency", ["max-concurrency", "max_concurrency", "maxConcurrency"]],
-    ["max-connections", ["max-connections", "max_connections", "maxConnections"]],
-    ["c-max-reuse-times", ["c-max-reuse-times", "c_max_reuse_times", "cMaxReuseTimes"]],
-    ["h-max-request-times", ["h-max-request-times", "h_max_request_times", "hMaxRequestTimes"]],
-    ["h-max-reusable-secs", ["h-max-reusable-secs", "h_max_reusable_secs", "hMaxReusableSecs"]],
+    ["max-concurrency", ["xhttp-xmux-max-concurrency", "max-concurrency", "max_concurrency", "maxConcurrency"]],
+    ["max-connections", ["xhttp-xmux-max-connections", "max-connections", "max_connections", "maxConnections"]],
+    ["c-max-reuse-times", ["xhttp-xmux-max-reuse-times", "c-max-reuse-times", "c_max_reuse_times", "cMaxReuseTimes"]],
+    ["h-max-request-times", ["xhttp-xmux-max-request-times", "h-max-request-times", "h_max_request_times", "hMaxRequestTimes"]],
+    ["h-max-reusable-secs", ["xhttp-xmux-max-reusable-secs", "h-max-reusable-secs", "h_max_reusable_secs", "hMaxReusableSecs"]],
+    ["h-keep-alive-period", ["xhttp-xmux-keep-alive", "h-keep-alive-period", "hKeepAlivePeriod"]],
   ];
+  const xmux = extra.xmux && typeof extra.xmux === "object" && !Array.isArray(extra.xmux) ? extra.xmux as Record<string, unknown> : {};
   for (const [key, aliases] of reuseSettingKeys) {
-    const value = pickQueryValue(params, aliases);
+    const extraValue = xmux[aliases[aliases.length - 1]];
+    const value = pickQueryValue(params, aliases) || (typeof extraValue === "string" || typeof extraValue === "number" ? String(extraValue) : "");
     if (value) reuseSettings[key] = value;
   }
 
@@ -112,6 +147,7 @@ function buildXhttpOptsFromQuery(params: URLSearchParams, fallbackPath: string, 
     ...(Number.isFinite(scMaxEachPostBytes) ? { "sc-max-each-post-bytes": scMaxEachPostBytes } : {}),
     ...(Object.keys(reuseSettings).length > 0 ? { "reuse-settings": reuseSettings } : {}),
     ...(Object.keys(downloadSettings).length > 0 ? { "download-settings": downloadSettings } : {}),
+    ...(Object.keys(extra).length > 0 ? { _extra: extra } : {}),
   };
 }
 
@@ -219,13 +255,15 @@ export function parseVLESS(uri: string): VLESSNode {
     (params.get("type") || (parseBoolish(params.get("h2")) ? "h2" : "") || shadowrocketObfs || "tcp").trim();
   const typeNormalized = (() => {
     const raw = typeInput.toLowerCase();
-    if (raw === "none") return "tcp";
+    if (raw === "none" || raw === "raw") return "tcp";
+    if (raw === "splithttp") return "xhttp";
     if (raw === "websocket") return "ws";
     if (raw === "httpupgrade") return "ws";
     if (raw === "tcp" && headerType === "http") return "http";
     return raw;
   })();
-  const security = (params.get("security") || (normalized.isShadowrocket && parseBoolish(params.get("tls")) ? "reality" : "none")).trim().toLowerCase();
+  const publicKey = pickQueryValue(params, ["pbk", "public-key", "public_key", "publicKey"]);
+  const security = (params.get("security") || (normalized.isShadowrocket && parseBoolish(params.get("tls")) ? (publicKey ? "reality" : "tls") : "none")).trim().toLowerCase();
   const flow = (() => {
     const direct = params.get("flow") || "";
     if (direct.trim()) return direct.trim();
@@ -301,6 +339,7 @@ export function parseVLESS(uri: string): VLESSNode {
   if (params.get("pqv")) {
     (node as unknown as Record<string, unknown>).pqv = params.get("pqv");
   }
+  if (params.get("vcn")) node._serverCertVerifyName = params.get("vcn");
 
   if (security === "reality") {
     const normalizedShortId = normalizeRealityShortId(sid);
@@ -344,6 +383,7 @@ export function parseVLESS(uri: string): VLESSNode {
         ...(grpcMode ? { _grpcType: grpcMode } : {}),
         ...(grpcAuthority ? { _grpcAuthority: grpcAuthority } : {}),
       } as VLESSNode["grpc-opts"] & Record<string, unknown>;
+      if (normalized.isShadowrocket && !serviceName && params.get("path")?.startsWith("/")) node._surgeGrpcServicePath = params.get("path");
       break;
     case "http": {
       node.network = "http";
@@ -365,7 +405,11 @@ export function parseVLESS(uri: string): VLESSNode {
       break;
     case "xhttp":
       node.network = "xhttp";
-      node["xhttp-opts"] = buildXhttpOptsFromQuery(params, path || "/", host);
+      node["xhttp-opts"] = buildVlessXhttpOpts(params, path || "/", host);
+      if (node["xhttp-opts"]._extra) {
+        node._vlessXhttpExtra = node["xhttp-opts"]._extra;
+        delete node["xhttp-opts"]._extra;
+      }
       break;
     case "tcp":
     default:

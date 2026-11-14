@@ -10,7 +10,30 @@ export function parseBooleanish(value: string | undefined): boolean | undefined 
 
 function stripQuotes(value: string): string {
   const trimmed = value.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try { return JSON.parse(trimmed) as string; } catch { /* Accept legacy non-JSON quoting below. */ }
+  }
   return trimmed.replace(/^['"]|['"]$/g, "");
+}
+
+function splitConfigTokens(value: string): string[] {
+  const tokens: string[] = [];
+  let start = 0;
+  let quote = "";
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (escaped) { escaped = false; continue; }
+    if (quote && char === "\\") { escaped = true; continue; }
+    if (quote) { if (char === quote) quote = ""; continue; }
+    if (char === '"' || char === "'") {
+      const prefix = value.slice(start, index).trimEnd();
+      if (!prefix.trim() || prefix.endsWith("=")) { quote = char; continue; }
+    }
+    if (char === ",") { tokens.push(value.slice(start, index)); start = index + 1; }
+  }
+  tokens.push(value.slice(start));
+  return tokens;
 }
 
 export function tokenizeConfigLine(line: string): {
@@ -27,9 +50,7 @@ export function tokenizeConfigLine(line: string): {
   }
 
   const name = stripQuotes(line.slice(0, eqIndex));
-  const tokens = line
-    .slice(eqIndex + 1)
-    .split(",")
+  const tokens = splitConfigTokens(line.slice(eqIndex + 1))
     .map((token) => token.trim())
     .filter(Boolean);
 

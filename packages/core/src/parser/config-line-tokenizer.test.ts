@@ -13,6 +13,11 @@ import {
 } from "./config-line-tokenizer";
 
 describe("config line tokenizer helpers", () => {
+  it("keeps quoted comma-containing parameters and escaped characters intact", () => {
+    const result = tokenizeConfigLine('Example = vless, example.com, 443, alpn="h2,http/1.1", xhttp-headers="X-Test:a,b|User-Agent:custom", password="a\\"b\\\\c", username=user');
+    expect(result.params).toMatchObject({ alpn: "h2,http/1.1", "xhttp-headers": "X-Test:a,b|User-Agent:custom", password: 'a"b\\c', username: "user" });
+    expect(result.extras).toEqual([]);
+  });
   it("tokenizes quoted config lines and mirrors dashed/underscored params", () => {
     expect(looksLikeConfigLine("Node = ss, example.com, 8388")).toBe(true);
     expect(looksLikeConfigLine("# Node = ss, example.com, 8388")).toBe(false);
