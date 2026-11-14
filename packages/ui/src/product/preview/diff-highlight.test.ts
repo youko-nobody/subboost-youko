@@ -109,4 +109,11 @@ describe("YamlHighlight", () => {
     expect(text).toContain("恢复纯文本");
     expect(collectHtml(rendered).join("\n")).toContain("text-cyan-400");
   });
+
+  it("uses lightweight rendering above 1000 lines without dropping any text", () => {
+    const content = Array.from({ length: 1001 }, (_, index) => `name: node-${index}`).join("\n");
+    const rendered = YamlHighlight({ content });
+    expect(collectHtml(rendered)).toEqual([]);
+    expect(collectText(rendered)).toContain(content);
+  });
 });

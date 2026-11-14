@@ -110,6 +110,14 @@ type Props = {
 const DESKTOP_PANEL_MIN_HEIGHT_CLASS = "lg:min-h-[39rem]";
 const DESKTOP_PANEL_CONTENT_MIN_HEIGHT_CLASS = "lg:min-h-[30rem]";
 
+const MemoQuickMode = React.memo(QuickMode);
+const MemoAdvancedMode = React.memo(AdvancedMode);
+const MemoSurgeMode = React.memo(SurgeMode);
+const MemoLoonMode = React.memo(LoonMode);
+const MemoYamlHighlight = React.memo(YamlHighlight);
+const MemoVisualGraph = React.memo(VisualGraph);
+const MemoSurgeVisualGraph = React.memo(SurgeVisualGraph);
+
 export function HomeLayout({
   showAiColumn,
   user,
@@ -196,7 +204,7 @@ export function HomeLayout({
         <div
           id="config"
           className={`${
-            showAiColumn ? "lg:col-span-4 xl:col-span-4" : "lg:col-span-6 xl:col-span-6"
+            showAiColumn ? "lg:col-span-4" : "lg:col-span-8"
           } flex min-w-0 flex-col gap-3 min-h-0 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
         >
           <Tabs
@@ -204,7 +212,7 @@ export function HomeLayout({
             onValueChange={handleConfigTabChange}
             className={`flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
           >
-            <Card className={`w-full flex flex-col overflow-visible lg:flex-1 lg:overflow-hidden ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
+            <Card className={`w-full flex flex-col border-0 rounded-none bg-transparent p-0 overflow-visible lg:flex-1 lg:overflow-hidden ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
               <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base lg:text-lg flex items-center gap-2 min-w-0">
@@ -250,25 +258,25 @@ export function HomeLayout({
                   value="quick"
                   className="mt-0 flex flex-col data-[state=inactive]:hidden lg:absolute lg:inset-0 lg:overflow-y-auto custom-scrollbar lg:pr-1"
                 >
-                  <QuickMode />
+                  <MemoQuickMode />
                 </TabsContent>
                 <TabsContent
                   value="advanced"
                   className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0 lg:overflow-y-auto custom-scrollbar lg:pr-1"
                 >
-                  <AdvancedMode />
+                  <MemoAdvancedMode />
                 </TabsContent>
                 <TabsContent
                   value="surge"
                   className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0 lg:overflow-y-auto custom-scrollbar lg:pr-1"
                 >
-                  <SurgeMode />
+                  <MemoSurgeMode />
                 </TabsContent>
                 <TabsContent
                   value="loon"
                   className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0 lg:overflow-y-auto custom-scrollbar lg:pr-1"
                 >
-                  <LoonMode />
+                  <MemoLoonMode />
                 </TabsContent>
               </CardContent>
               <CardFooter className="justify-center gap-2 flex-shrink-0 pt-3 flex-row flex-wrap">
@@ -309,9 +317,7 @@ export function HomeLayout({
         {/* Middle Column - Preview */}
         <div
           id="preview"
-          className={`${
-            showAiColumn ? "lg:col-span-4 xl:col-span-4" : "lg:col-span-6 xl:col-span-6"
-          } flex min-w-0 flex-col gap-3 min-h-0 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
+          className={`lg:col-span-4 flex min-w-0 flex-col gap-3 min-h-0 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}
         >
           <Tabs value={previewTab} onValueChange={(value) => setPreviewTab(value === "visual" && !isLoonMode ? "visual" : "config")} className={`w-full flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
             <Card className={`w-full flex flex-col lg:flex-1 ${DESKTOP_PANEL_MIN_HEIGHT_CLASS}`}>
@@ -345,7 +351,7 @@ export function HomeLayout({
                         </div>
                       </div>
                     ) : generatedYaml ? (
-                      <YamlHighlight content={generatedYaml} className="h-full" />
+                      <MemoYamlHighlight content={generatedYaml} className="h-full" />
                     ) : (
                       <pre className="p-4 font-mono text-xs text-white/60 whitespace-pre">
                         {isPlatformProfile ? `# 请先添加订阅或节点
@@ -382,7 +388,7 @@ export function HomeLayout({
                 </TabsContent>
                 <TabsContent value="visual" className="mt-0 data-[state=inactive]:hidden lg:absolute lg:inset-0">
                   <div className="h-[clamp(420px,70vh,820px)] lg:h-full rounded-xl bg-white/5 border border-white/10 overflow-hidden">
-                    {isSurgeMode ? <SurgeVisualGraph /> : <VisualGraph />}
+                    {isSurgeMode ? <MemoSurgeVisualGraph /> : <MemoVisualGraph />}
                   </div>
                 </TabsContent>
               </CardContent>

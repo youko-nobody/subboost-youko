@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronRight, ChevronUp, List, Network, Plus, Settings2, Trash2, WandSparkles } from "lucide-react";
 import { Button } from "@subboost/ui/components/ui/button";
@@ -18,6 +19,7 @@ import { SectionHeader } from "./advanced-mode/section-header";
 
 const RULE_TYPES: LoonRuleType[] = ["DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "URL-REGEX", "USER-AGENT", "IP-CIDR", "IP-CIDR6", "IP-ASN", "GEOIP", "DEST-PORT", "SRC-PORT"];
 type LoonSectionKey = "input" | "nodes" | "groups" | "rules" | "base";
+type LoonEditorState = Pick<ConfigState, "nodes" | "loonConfig">;
 
 function newId(prefix: string): string {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
@@ -29,7 +31,7 @@ function policyValue(policy: LoonPolicyRef): string {
   return `${policy.kind}:${policy.kind === "group" ? policy.id : policy.name}`;
 }
 
-function policyLabel(value: string, state: ConfigState): string {
+function policyLabel(value: string, state: LoonEditorState): string {
   if (value === "direct") return "DIRECT 直连";
   if (value === "reject") return "REJECT 拒绝";
   if (value.startsWith("group:")) {
@@ -40,7 +42,7 @@ function policyLabel(value: string, state: ConfigState): string {
   return value;
 }
 
-function parsePolicy(value: string, state: ConfigState): LoonPolicyRef | string {
+function parsePolicy(value: string, state: LoonEditorState): LoonPolicyRef | string {
   if (value === "direct") return { kind: "direct" };
   if (value === "reject") return { kind: "reject" };
   if (value.startsWith("group:")) return { kind: "group", id: value.slice(6) };
@@ -220,7 +222,7 @@ const LoonProxyGroupCard = React.memo(function LoonProxyGroupCard({
   index: number;
   groupCount: number;
   groups: LoonProxyGroup[];
-  state: ConfigState;
+  state: LoonEditorState;
   initiallyExpanded: boolean;
   onUpdateGroup: (id: string, patch: Record<string, unknown>) => void;
   onMoveGroup: (id: string, direction: -1 | 1) => void;
@@ -356,7 +358,11 @@ const LoonProxyGroupCard = React.memo(function LoonProxyGroupCard({
 });
 
 export function LoonMode() {
-  const state = useConfigStore();
+  const state = useConfigStore(useShallow((state) => ({
+    nodes: state.nodes,
+    loonConfig: state.loonConfig,
+    setLoonConfig: state.setLoonConfig,
+  })));
   const { loonConfig, setLoonConfig } = state;
   const [expandedSections, setExpandedSections] = React.useState<Set<LoonSectionKey>>(
     new Set(["input", "nodes", "groups", "rules", "base"]),

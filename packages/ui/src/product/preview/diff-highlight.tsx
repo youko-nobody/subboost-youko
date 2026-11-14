@@ -10,9 +10,9 @@ import { cn } from "@subboost/ui/lib/utils";
 type YamlRenderMode = "highlight" | "plain";
 
 const YAML_RENDER_LIMITS = {
-  lineCount: 2500,
-  charCount: 300000,
-  longestLine: 4000,
+  lineCount: 1000,
+  charCount: 150000,
+  longestLine: 2000,
 } as const;
 
 type YamlRenderStats = {

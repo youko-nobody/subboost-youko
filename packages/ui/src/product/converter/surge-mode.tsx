@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   AlertTriangle,
   ChevronDown,
@@ -56,15 +57,13 @@ import { SectionHeader } from "./advanced-mode/section-header";
 import { InputSection } from "./advanced-mode/sections/input-section";
 import { NodeManagementSection } from "./advanced-mode/sections/node-management-section";
 import { ProxyGroupIconUrlEditor } from "./advanced-mode/sections/proxy-group-icon-url-editor";
+import { SurgePolicySelect, type SurgePolicyOption } from "./surge-policy-select";
+import { SurgePolicyMembers } from "./surge-policy-members";
 
 type SectionKey =
   "input" | "nodes" | "general" | "regions" | "groups" | "rules";
 
-type PolicyOption = {
-  value: string;
-  label: string;
-  disabled?: boolean;
-};
+type PolicyOption = SurgePolicyOption;
 
 type SurgeRuleOrderItem =
   | { key: string; kind: "rule-set"; ruleSet: SurgeRuleSet }
@@ -361,28 +360,16 @@ function PolicyTargetSelect({
 }) {
   const encoded = encodePolicyRef(value);
   return (
-    <Select
+    <SurgePolicySelect
       value={encoded}
+      options={options}
+      placeholder="选择策略"
+      className={className}
       onValueChange={(next) => {
         const decoded = decodePolicyRef(next);
         if (decoded) onChange(decoded);
       }}
-    >
-      <SelectTrigger className={cn("h-8 text-xs", className)}>
-        <SelectValue placeholder="选择策略" />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem
-            key={option.value}
-            value={option.value}
-            disabled={option.disabled}
-          >
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    />
   );
 }
 
@@ -846,7 +833,13 @@ export function SurgeMode() {
       "rules",
     ]),
   );
-  const { nodes, surgeConfig, setSurgeConfig } = useConfigStore();
+  const { nodes, surgeConfig, setSurgeConfig } = useConfigStore(
+    useShallow((state) => ({
+      nodes: state.nodes,
+      surgeConfig: state.surgeConfig,
+      setSurgeConfig: state.setSurgeConfig,
+    })),
+  );
   const [memberDrafts, setMemberDrafts] = React.useState<
     Record<string, string>
   >({});
@@ -1990,7 +1983,7 @@ export function SurgeMode() {
                     {group.policies.length === 0 ? (
                       <span className="text-xs text-white/40">暂无成员</span>
                     ) : (
-                      group.policies.map((policy, index) => {
+                      <SurgePolicyMembers policies={group.policies}>{(policy, index) => {
                         const label = policyRefLabel(policy, groupNameById);
                         const draftKey = memberOrderDraftKey(group.id, index);
                         return (
@@ -2073,40 +2066,21 @@ export function SurgeMode() {
                             </IconButton>
                           </div>
                         );
-                      })
+                      }}</SurgePolicyMembers>
                     )}
                   </div>
                   <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
-                    <Select
+                    <SurgePolicySelect
                       value={selectedDraft}
+                      options={options}
+                      placeholder={group.type === "smart" ? "选择真实节点" : "选择 DIRECT / REJECT / 策略组 / 节点"}
                       onValueChange={(value) =>
                         setMemberDrafts((prev) => ({
                           ...prev,
                           [group.id]: value,
                         }))
                       }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue
-                          placeholder={
-                            group.type === "smart"
-                              ? "选择真实节点"
-                              : "选择 DIRECT / REJECT / 策略组 / 节点"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {options.map((option) => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            disabled={option.disabled}
-                          >
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     <Button
                       size="sm"
                       variant="outline"
